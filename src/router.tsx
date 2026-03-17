@@ -12,7 +12,7 @@ import PortalEntry from "./pages/portal/PortalEntry";
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   { path: "/setup", element: <SetupWizard /> },
-  { path: "/portal", element: <PortalEntry /> }, // No auth
+  { path: "/portal", element: <PortalEntry /> },
   {
     path: "/",
     element: <AppLayout />,
