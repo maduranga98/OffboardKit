@@ -26,8 +26,7 @@ export const router = createBrowserRouter([
 
   // Setup route
   { path: "/setup", element: <SetupWizard /> },
-
-  // Protected routes
+  { path: "/portal", element: <PortalEntry /> },
   {
     path: "/",
     element: <AppLayout />,
