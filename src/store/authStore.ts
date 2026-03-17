@@ -1,24 +1,27 @@
 import { create } from "zustand";
-import { User } from "firebase/auth";
+import type { User } from "firebase/auth";
+import type { AppUser } from "../types/user.types";
 
 interface AuthState {
   user: User | null;
-  role: "super_admin" | "hr_admin" | "manager" | "it_admin" | null;
+  appUser: AppUser | null;
   companyId: string | null;
   loading: boolean;
   setUser: (user: User | null) => void;
-  setRole: (role: AuthState["role"]) => void;
+  setAppUser: (appUser: AppUser | null) => void;
   setCompanyId: (id: string | null) => void;
-  setLoading: (v: boolean) => void;
+  setLoading: (loading: boolean) => void;
+  logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  role: null,
+  appUser: null,
   companyId: null,
   loading: true,
   setUser: (user) => set({ user }),
-  setRole: (role) => set({ role }),
+  setAppUser: (appUser) => set({ appUser }),
   setCompanyId: (companyId) => set({ companyId }),
   setLoading: (loading) => set({ loading }),
+  logout: () => set({ user: null, appUser: null, companyId: null, loading: false }),
 }));

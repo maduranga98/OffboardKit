@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isCompanyMember(companyId) {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && request.auth.uid == userId;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isCompanyMember(companyId);
+      allow create: if isAuth();
+      allow update: if isCompanyMember(companyId);
+    }
+
+    match /offboardTemplates/{templateId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /offboardFlows/{flowId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /flowTasks/{taskId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /systemCatalog/{catalogId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}
