@@ -9,6 +9,7 @@ import OffboardingDetail from "./pages/offboardings/OffboardingDetail";
 import NewOffboarding from "./pages/offboardings/NewOffboarding";
 import TemplateList from "./pages/templates/TemplateList";
 import TemplateDetail from "./pages/templates/TemplateDetail";
+import InterviewList from "./pages/interviews/InterviewList";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import Analytics from "./pages/analytics/Analytics";
 import Alumni from "./pages/alumni/Alumni";
@@ -17,16 +18,12 @@ import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
 import IntegrationSettings from "./pages/settings/IntegrationSettings";
 import PortalEntry from "./pages/portal/PortalEntry";
-import InterviewList from "./pages/interviews/InterviewList";
-import InterviewResponseDetail from "./pages/interviews/InterviewResponseDetail";
-import ExitInterviewPortal from "./pages/portal/ExitInterviewPortal";
 
 export const router = createBrowserRouter([
   // Public routes
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Signup /> },
   { path: "/portal/:token", element: <PortalEntry /> },
-  { path: "/portal/interview/:token", element: <ExitInterviewPortal /> },
 
   // Setup route
   { path: "/setup", element: <SetupWizard /> },
@@ -43,7 +40,6 @@ export const router = createBrowserRouter([
       { path: "templates", element: <TemplateList /> },
       { path: "templates/:id", element: <TemplateDetail /> },
       { path: "interviews", element: <InterviewList /> },
-      { path: "interviews/:id", element: <InterviewResponseDetail /> },
       { path: "knowledge", element: <KnowledgeBase /> },
       { path: "analytics", element: <Analytics /> },
       { path: "alumni", element: <Alumni /> },

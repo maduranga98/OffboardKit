@@ -1,15 +1,14 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type InterviewStatus = "draft" | "active" | "archived";
-export type ResponseStatus = "pending" | "in_progress" | "completed" | "expired";
 export type QuestionType = "text" | "rating" | "multiple_choice" | "yes_no";
+export type Sentiment = "positive" | "neutral" | "negative";
 
 export interface InterviewQuestion {
   id: string;
   text: string;
   type: QuestionType;
-  required: boolean;
   options?: string[];
+  required: boolean;
   order: number;
 }
 
@@ -18,34 +17,32 @@ export interface ExitInterviewTemplate {
   companyId: string;
   name: string;
   description: string;
+  isDefault: boolean;
   questions: InterviewQuestion[];
-  status: InterviewStatus;
   createdBy: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
-export interface QuestionResponse {
+export interface InterviewAnswer {
   questionId: string;
   questionText: string;
   type: QuestionType;
-  answer: string | number;
+  value: string | number;
 }
 
 export interface ExitInterviewResponse {
   id: string;
   companyId: string;
-  templateId: string;
-  templateName: string;
   flowId: string;
   employeeId: string;
   employeeName: string;
   employeeEmail: string;
-  employeeDepartment: string;
   employeeRole: string;
-  status: ResponseStatus;
-  responses: QuestionResponse[];
-  submittedAt: Timestamp | null;
+  employeeDepartment: string;
+  templateId: string;
+  answers: InterviewAnswer[];
+  sentiment: Sentiment;
+  submittedAt: Timestamp;
   createdAt: Timestamp;
-  portalToken: string;
 }

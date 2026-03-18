@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
 import {
   MessageSquare,
   Star,
@@ -12,41 +11,59 @@ import clsx from "clsx";
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/shared/EmptyState";
 import {
   queryDocuments,
+  setDocument,
   updateDocument,
   serverTimestamp,
 } from "../../lib/firestore";
+import type { OffboardFlow } from "../../types/offboarding.types";
 import type {
-  ExitInterviewResponse,
   ExitInterviewTemplate,
+  ExitInterviewResponse,
   InterviewQuestion,
-  QuestionResponse,
+  InterviewAnswer,
+  Sentiment,
 } from "../../types/interview.types";
 
-function OffboardKitLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="6" fill="#0D9E8A" />
-      <path d="M7 8h8v12H7V8z" stroke="white" strokeWidth="2" fill="none" />
-      <path
-        d="M15 12l4 2-4 2"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path d="M19 14h3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+const ratingLabels: Record<number, string> = {
+  1: "Poor",
+  2: "Below Average",
+  3: "Average",
+  4: "Good",
+  5: "Excellent",
+};
+
+function calculateSentiment(
+  answers: InterviewAnswer[],
+  questions: InterviewQuestion[]
+): Sentiment {
+  const ratingAnswers = answers.filter((a) => {
+    const q = questions.find((q) => q.id === a.questionId);
+    return q?.type === "rating" && typeof a.value === "number";
+  });
+
+  if (ratingAnswers.length === 0) return "neutral";
+
+  const avg =
+    ratingAnswers.reduce((sum, a) => sum + Number(a.value), 0) /
+    ratingAnswers.length;
+
+  if (avg >= 4) return "positive";
+  if (avg <= 2) return "negative";
+  return "neutral";
 }
 
-export default function ExitInterviewPortal() {
-  const { token } = useParams<{ token: string }>();
-  const [response, setResponse] = useState<ExitInterviewResponse | null>(null);
+interface ExitInterviewPortalProps {
+  flow: OffboardFlow;
+}
+
+export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) {
   const [template, setTemplate] = useState<ExitInterviewTemplate | null>(null);
+  const [existingResponse, setExistingResponse] =
+    useState<ExitInterviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
@@ -55,43 +72,44 @@ export default function ExitInterviewPortal() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!token) return;
     const load = async () => {
       try {
-        const responses = await queryDocuments<ExitInterviewResponse>(
+        // Check for existing response
+        const existing = await queryDocuments<ExitInterviewResponse>(
           "exitInterviewResponses",
-          [where("portalToken", "==", token), firestoreLimit(1)]
+          [where("flowId", "==", flow.id), firestoreLimit(1)]
         );
-        if (responses.length === 0) {
-          setError("Interview not found or link has expired.");
-          setLoading(false);
-          return;
-        }
-        const resp = responses[0];
-        setResponse(resp);
-
-        if (resp.status === "completed") {
+        if (existing.length > 0) {
+          setExistingResponse(existing[0]);
           setSubmitted(true);
           setLoading(false);
           return;
         }
 
+        // Get default template for this company
         const templates = await queryDocuments<ExitInterviewTemplate>(
           "exitInterviewTemplates",
-          [where("__name__", "==", resp.templateId), firestoreLimit(1)]
+          [
+            where("companyId", "==", flow.companyId),
+            where("isDefault", "==", true),
+            firestoreLimit(1),
+          ]
         );
 
         if (templates.length > 0) {
           setTemplate(templates[0]);
-        }
-
-        // Pre-fill existing answers
-        if (resp.responses?.length > 0) {
-          const existing: Record<string, string | number> = {};
-          resp.responses.forEach((r) => {
-            existing[r.questionId] = r.answer;
-          });
-          setAnswers(existing);
+        } else {
+          // Fallback: get any template for this company
+          const anyTemplates = await queryDocuments<ExitInterviewTemplate>(
+            "exitInterviewTemplates",
+            [
+              where("companyId", "==", flow.companyId),
+              firestoreLimit(1),
+            ]
+          );
+          if (anyTemplates.length > 0) {
+            setTemplate(anyTemplates[0]);
+          }
         }
       } catch {
         setError("Something went wrong loading the interview.");
@@ -100,7 +118,7 @@ export default function ExitInterviewPortal() {
       }
     };
     load();
-  }, [token]);
+  }, [flow.id, flow.companyId]);
 
   const questions: InterviewQuestion[] = template?.questions || [];
   const question = questions[currentQuestion];
@@ -122,20 +140,38 @@ export default function ExitInterviewPortal() {
   };
 
   const handleSubmit = async () => {
-    if (!response) return;
+    if (!template) return;
     setSubmitting(true);
+    setError("");
     try {
-      const questionResponses: QuestionResponse[] = questions.map((q) => ({
+      const interviewAnswers: InterviewAnswer[] = questions.map((q) => ({
         questionId: q.id,
         questionText: q.text,
         type: q.type,
-        answer: answers[q.id] ?? "",
+        value: answers[q.id] ?? "",
       }));
 
-      await updateDocument("exitInterviewResponses", response.id, {
-        status: "completed",
-        responses: questionResponses,
+      const sentiment = calculateSentiment(interviewAnswers, questions);
+      const responseId = crypto.randomUUID();
+
+      await setDocument("exitInterviewResponses", responseId, {
+        companyId: flow.companyId,
+        flowId: flow.id,
+        employeeId: flow.employeeId,
+        employeeName: flow.employeeName,
+        employeeEmail: flow.employeeEmail,
+        employeeRole: flow.employeeRole,
+        employeeDepartment: flow.employeeDepartment,
+        templateId: template.id,
+        answers: interviewAnswers,
+        sentiment,
         submittedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+
+      // Update flow completion scores
+      await updateDocument("offboardFlows", flow.id, {
+        "completionScores.exitInterview": 100,
       });
 
       setSubmitted(true);
@@ -146,120 +182,89 @@ export default function ExitInterviewPortal() {
     }
   };
 
-  // Loading state
+  // Loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-warm/30 flex items-center justify-center">
-        <div className="text-sm text-mist">Loading interview...</div>
+      <div className="py-12 text-center text-sm text-mist">
+        Loading interview...
       </div>
     );
   }
 
-  // Error state
-  if (error && !response) {
-    return (
-      <div className="min-h-screen bg-warm/30 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <EmptyState
-            icon={<MessageSquare size={48} strokeWidth={1.5} />}
-            title="Interview Unavailable"
-            description={error}
-          />
-        </Card>
-      </div>
-    );
-  }
-
-  // Submitted state
+  // Already submitted
   if (submitted) {
     return (
-      <div className="min-h-screen bg-warm/30 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center">
-          <div className="py-8 px-4">
-            <div className="mx-auto w-16 h-16 rounded-full bg-teal/10 flex items-center justify-center mb-6">
-              <CheckCircle size={32} className="text-teal" />
-            </div>
-            <h2 className="text-xl font-display text-navy mb-2">
-              Thank you for your feedback
-            </h2>
-            <p className="text-sm text-mist max-w-sm mx-auto">
-              Your responses have been recorded. We appreciate you taking the time
-              to share your experience with us.
-            </p>
-          </div>
-        </Card>
+      <div className="py-8 text-center">
+        <div className="mx-auto w-16 h-16 rounded-full bg-teal/10 flex items-center justify-center mb-6">
+          <CheckCircle size={32} className="text-teal" />
+        </div>
+        <h2 className="text-xl font-display text-navy mb-2">
+          Thank you for your feedback
+        </h2>
+        <p className="text-sm text-mist max-w-sm mx-auto">
+          Your responses have been recorded. We appreciate you taking the time to
+          share your experience with us.
+        </p>
       </div>
     );
   }
 
-  // No template loaded
+  // No template available
   if (!template || questions.length === 0) {
     return (
-      <div className="min-h-screen bg-warm/30 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <EmptyState
-            title="Interview not available"
-            description="The interview template could not be loaded."
-          />
-        </Card>
-      </div>
+      <EmptyState
+        icon={<MessageSquare size={48} strokeWidth={1.5} />}
+        title="Interview not available"
+        description="No exit interview template has been set up for your organization yet."
+      />
     );
   }
 
   const isLastQuestion = currentQuestion === totalQuestions - 1;
 
   return (
-    <div className="min-h-screen bg-warm/30">
-      {/* Top bar */}
-      <div className="bg-white border-b border-navy/10 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <OffboardKitLogo />
-            <span className="font-display text-navy text-lg">OffboardKit</span>
-          </div>
-          <span className="text-xs text-mist">
-            {currentQuestion + 1} of {totalQuestions}
+    <div className="space-y-6">
+      {/* Progress bar */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-mist">
+            Question {currentQuestion + 1} of {totalQuestions}
           </span>
+          <span className="text-xs text-mist">{progress}%</span>
+        </div>
+        <div className="bg-navy/5 h-1.5 rounded-full">
+          <div
+            className="h-full bg-teal rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="bg-navy/5 h-1">
-        <div
-          className="h-full bg-teal transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Question */}
-      <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
-        <Card>
-          <div className="space-y-6">
-            <div>
-              <span className="text-xs font-medium text-mist bg-navy/5 rounded px-2 py-1">
-                Question {currentQuestion + 1} of {totalQuestions}
-              </span>
-              <h2 className="text-lg font-display text-navy mt-3">
-                {question.text}
-              </h2>
-              {question.required && (
-                <p className="text-xs text-ember mt-1">Required</p>
-              )}
-            </div>
-
-            {/* Answer input based on type */}
-            {question.type === "text" && (
-              <textarea
-                value={String(answers[question.id] ?? "")}
-                onChange={(e) => handleAnswer(e.target.value)}
-                placeholder="Type your answer here..."
-                rows={4}
-                className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
-              />
+      {/* Question card */}
+      <Card>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-display text-navy">{question.text}</h2>
+            {question.required && (
+              <p className="text-xs text-ember mt-1">Required</p>
             )}
+          </div>
 
-            {question.type === "rating" && (
-              <div className="flex items-center gap-2">
+          {/* Text */}
+          {question.type === "text" && (
+            <textarea
+              value={String(answers[question.id] ?? "")}
+              onChange={(e) => handleAnswer(e.target.value)}
+              placeholder="Type your answer here..."
+              rows={4}
+              className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+            />
+          )}
+
+          {/* Rating */}
+          {question.type === "rating" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
@@ -267,7 +272,7 @@ export default function ExitInterviewPortal() {
                     className="p-1 transition-transform hover:scale-110"
                   >
                     <Star
-                      size={32}
+                      size={36}
                       className={clsx(
                         "transition-colors",
                         star <= (Number(answers[question.id]) || 0)
@@ -278,83 +283,90 @@ export default function ExitInterviewPortal() {
                   </button>
                 ))}
               </div>
-            )}
-
-            {question.type === "yes_no" && (
-              <div className="flex gap-3">
-                {["Yes", "No"].map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => handleAnswer(opt)}
-                    className={clsx(
-                      "flex-1 py-3 rounded-md border text-sm font-medium transition-colors",
-                      answers[question.id] === opt
-                        ? "border-teal bg-teal/10 text-teal"
-                        : "border-navy/20 text-navy hover:border-teal/50"
-                    )}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {question.type === "multiple_choice" && question.options && (
-              <div className="space-y-2">
-                {question.options.map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => handleAnswer(option)}
-                    className={clsx(
-                      "block w-full text-left px-4 py-3 rounded-md border text-sm transition-colors",
-                      answers[question.id] === option
-                        ? "border-teal bg-teal/10 text-teal font-medium"
-                        : "border-navy/20 text-navy hover:border-teal/50"
-                    )}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Navigation */}
-            <div className="flex items-center justify-between pt-4 border-t border-navy/5">
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentQuestion((prev) => prev - 1)}
-                disabled={currentQuestion === 0}
-              >
-                <ChevronLeft size={16} className="mr-1" />
-                Back
-              </Button>
-
-              {isLastQuestion ? (
-                <Button
-                  onClick={handleSubmit}
-                  loading={submitting}
-                  disabled={!canProceed()}
-                >
-                  <Send size={16} className="mr-1.5" />
-                  Submit
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => setCurrentQuestion((prev) => prev + 1)}
-                  disabled={!canProceed()}
-                >
-                  Next
-                  <ChevronRight size={16} className="ml-1" />
-                </Button>
+              {answers[question.id] && (
+                <p className="text-sm text-mist">
+                  {ratingLabels[Number(answers[question.id])]}
+                </p>
               )}
             </div>
+          )}
 
-            {error && (
-              <p className="text-sm text-ember text-center">{error}</p>
+          {/* Yes/No */}
+          {question.type === "yes_no" && (
+            <div className="flex gap-3">
+              {["Yes", "No"].map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => handleAnswer(opt)}
+                  className={clsx(
+                    "flex-1 py-4 rounded-md border text-sm font-medium transition-colors",
+                    answers[question.id] === opt
+                      ? "border-teal bg-teal/10 text-teal"
+                      : "border-navy/20 text-navy hover:border-teal/50"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Multiple choice */}
+          {question.type === "multiple_choice" && question.options && (
+            <div className="flex flex-wrap gap-2">
+              {question.options.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => handleAnswer(option)}
+                  className={clsx(
+                    "px-4 py-2 rounded-full border text-sm transition-colors",
+                    answers[question.id] === option
+                      ? "border-teal bg-teal/10 text-teal font-medium"
+                      : "border-navy/20 text-navy hover:border-teal/50"
+                  )}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between pt-4 border-t border-navy/5">
+            <Button
+              variant="ghost"
+              onClick={() => setCurrentQuestion((prev) => prev - 1)}
+              disabled={currentQuestion === 0}
+            >
+              <ChevronLeft size={16} className="mr-1" />
+              Back
+            </Button>
+
+            {isLastQuestion ? (
+              <Button
+                onClick={handleSubmit}
+                loading={submitting}
+                disabled={!canProceed()}
+              >
+                <Send size={16} className="mr-1.5" />
+                Submit
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setCurrentQuestion((prev) => prev + 1)}
+                disabled={!canProceed()}
+              >
+                Next
+                <ChevronRight size={16} className="ml-1" />
+              </Button>
             )}
           </div>
-        </Card>
-      </div>
+
+          {error && (
+            <p className="text-sm text-ember text-center">{error}</p>
+          )}
+        </div>
+      </Card>
     </div>
   );
 }
