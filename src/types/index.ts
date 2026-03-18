@@ -11,3 +11,12 @@ export type {
   OffboardFlow,
   FlowTask,
 } from "./offboarding.types";
+export type {
+  InterviewStatus,
+  ResponseStatus,
+  QuestionType,
+  InterviewQuestion,
+  ExitInterviewTemplate,
+  QuestionResponse,
+  ExitInterviewResponse,
+} from "./interview.types";
