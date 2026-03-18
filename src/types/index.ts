@@ -12,11 +12,10 @@ export type {
   FlowTask,
 } from "./offboarding.types";
 export type {
-  InterviewStatus,
-  ResponseStatus,
   QuestionType,
+  Sentiment,
   InterviewQuestion,
   ExitInterviewTemplate,
-  QuestionResponse,
+  InterviewAnswer,
   ExitInterviewResponse,
 } from "./interview.types";
