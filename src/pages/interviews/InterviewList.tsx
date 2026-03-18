@@ -37,7 +37,6 @@ import type {
   ExitInterviewTemplate,
   ExitInterviewResponse,
   InterviewQuestion,
-  InterviewAnswer,
   QuestionType,
   Sentiment,
 } from "../../types/interview.types";
