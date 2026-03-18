@@ -11,7 +11,6 @@ import clsx from "clsx";
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Badge } from "../../components/ui/Badge";
 import { EmptyState } from "../../components/shared/EmptyState";
 import {
   queryDocuments,
@@ -62,8 +61,6 @@ interface ExitInterviewPortalProps {
 
 export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) {
   const [template, setTemplate] = useState<ExitInterviewTemplate | null>(null);
-  const [existingResponse, setExistingResponse] =
-    useState<ExitInterviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
@@ -80,7 +77,6 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
           [where("flowId", "==", flow.id), firestoreLimit(1)]
         );
         if (existing.length > 0) {
-          setExistingResponse(existing[0]);
           setSubmitted(true);
           setLoading(false);
           return;
