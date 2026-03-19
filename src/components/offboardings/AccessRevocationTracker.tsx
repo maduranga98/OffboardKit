@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldCheck, RotateCcw, Shield, Settings, FileText } from "lucide-react";
 import { format } from "date-fns";
-import clsx from "clsx";
 import { Timestamp } from "firebase/firestore";
 import { where } from "firebase/firestore";
 import { Button } from "../../components/ui/Button";
@@ -234,7 +233,7 @@ export default function AccessRevocationTracker({
 
   function handleNoteKeyDown(
     e: React.KeyboardEvent<HTMLTextAreaElement>,
-    revocationId: string
+    _revocationId: string
   ) {
     if (e.key === "Escape") {
       setEditingNoteId(null);
