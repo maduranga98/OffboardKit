@@ -19,3 +19,13 @@ export type {
   InterviewAnswer,
   ExitInterviewResponse,
 } from "./interview.types";
+export type {
+  KnowledgeItemType,
+  KnowledgeItemStatus,
+  KnowledgeItem,
+} from "./knowledge.types";
+export type {
+  AlumniStatus,
+  RehirePriority,
+  AlumniProfile,
+} from "./alumni.types";

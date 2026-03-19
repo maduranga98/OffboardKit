@@ -17,6 +17,7 @@ import { format, differenceInDays, isPast } from "date-fns";
 import { where, orderBy } from "firebase/firestore";
 import clsx from "clsx";
 import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
+import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -102,7 +103,7 @@ export default function OffboardingDetail() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "access">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge">("tasks");
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -246,6 +247,20 @@ export default function OffboardingDetail() {
       loadData();
     }
   }
+
+  const handleKnowledgeScoreUpdate = (newScore: number) => {
+    setFlow((prev) =>
+      prev
+        ? {
+            ...prev,
+            completionScores: {
+              ...prev.completionScores,
+              knowledge: newScore,
+            },
+          }
+        : prev
+    );
+  };
 
   const handleRevocationScoreUpdate = (newScore: number) => {
     setFlow((prev) =>
@@ -438,6 +453,17 @@ export default function OffboardingDetail() {
         >
           Access Revocation
         </button>
+        <button
+          onClick={() => setActiveTab("knowledge")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "knowledge"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Knowledge
+        </button>
       </div>
 
       {/* Tab content */}
@@ -554,6 +580,13 @@ export default function OffboardingDetail() {
         <AccessRevocationTracker
           flow={flow}
           onScoreUpdate={handleRevocationScoreUpdate}
+        />
+      )}
+
+      {activeTab === "knowledge" && (
+        <KnowledgeTracker
+          flow={flow}
+          onScoreUpdate={handleKnowledgeScoreUpdate}
         />
       )}
     </div>
