@@ -60,5 +60,15 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isAuth();
     }
+
+    match /knowledgeItems/{itemId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    match /alumniProfiles/{profileId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
   }
 }
