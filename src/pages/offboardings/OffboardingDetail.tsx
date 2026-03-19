@@ -16,6 +16,7 @@ import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
 import { where, orderBy } from "firebase/firestore";
 import clsx from "clsx";
+import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -101,6 +102,7 @@ export default function OffboardingDetail() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [activeTab, setActiveTab] = useState<"tasks" | "access">("tasks");
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -244,6 +246,20 @@ export default function OffboardingDetail() {
       loadData();
     }
   }
+
+  const handleRevocationScoreUpdate = (newScore: number) => {
+    setFlow((prev) =>
+      prev
+        ? {
+            ...prev,
+            completionScores: {
+              ...prev.completionScores,
+              accessRevocation: newScore,
+            },
+          }
+        : prev
+    );
+  };
 
   if (loading) {
     return (
@@ -398,113 +414,148 @@ export default function OffboardingDetail() {
         })}
       </div>
 
-      {/* Section 3: Task List */}
-      <div className="space-y-6">
-        <h2 className="text-lg font-display text-navy">Tasks</h2>
+      {/* Section 3: Tabs */}
+      <div className="flex gap-1 bg-navy/5 rounded-md p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("tasks")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "tasks"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Tasks
+        </button>
+        <button
+          onClick={() => setActiveTab("access")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "access"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Access Revocation
+        </button>
+      </div>
 
-        {tasksByRole.length === 0 ? (
-          <Card>
-            <p className="text-sm text-mist text-center py-8">
-              No tasks found for this offboarding.
-            </p>
-          </Card>
-        ) : (
-          tasksByRole.map((section) => {
-            const completedInSection = section.tasks.filter(
-              (t) => t.status === "completed"
-            ).length;
+      {/* Tab content */}
+      {activeTab === "tasks" && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-display text-navy">Tasks</h2>
 
-            return (
-              <Card key={section.role} padding="none">
-                {/* Section header */}
-                <div className="flex items-center justify-between px-6 py-3 border-b border-navy/5 bg-navy/[0.02]">
-                  <h3 className="text-sm font-semibold text-navy">
-                    {section.label}{" "}
-                    <span className="font-normal text-mist">
-                      · {completedInSection}/{section.tasks.length} completed
-                    </span>
-                  </h3>
-                </div>
+          {tasksByRole.length === 0 ? (
+            <Card>
+              <p className="text-sm text-mist text-center py-8">
+                No tasks found for this offboarding.
+              </p>
+            </Card>
+          ) : (
+            tasksByRole.map((section) => {
+              const completedInSection = section.tasks.filter(
+                (t) => t.status === "completed"
+              ).length;
 
-                {/* Task rows */}
-                <div className="divide-y divide-navy/5">
-                  {section.tasks.map((task) => {
-                    const taskDueDate = toDate(task.dueDate);
-                    const taskOverdue =
-                      taskDueDate &&
-                      isPast(taskDueDate) &&
-                      task.status !== "completed" &&
-                      task.status !== "skipped";
+              return (
+                <Card key={section.role} padding="none">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between px-6 py-3 border-b border-navy/5 bg-navy/[0.02]">
+                    <h3 className="text-sm font-semibold text-navy">
+                      {section.label}{" "}
+                      <span className="font-normal text-mist">
+                        · {completedInSection}/{section.tasks.length} completed
+                      </span>
+                    </h3>
+                  </div>
 
-                    return (
-                      <div
-                        key={task.id}
-                        className="flex items-start gap-3 px-6 py-3"
-                      >
-                        {/* Checkbox */}
-                        <button
-                          onClick={() => handleToggleTask(task)}
-                          disabled={!canAct}
-                          className={clsx(
-                            "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                            task.status === "completed"
-                              ? "bg-teal border-teal text-white"
-                              : "border-navy/20 hover:border-teal",
-                            !canAct && "opacity-50 cursor-not-allowed"
-                          )}
+                  {/* Task rows */}
+                  <div className="divide-y divide-navy/5">
+                    {section.tasks.map((task) => {
+                      const taskDueDate = toDate(task.dueDate);
+                      const taskOverdue =
+                        taskDueDate &&
+                        isPast(taskDueDate) &&
+                        task.status !== "completed" &&
+                        task.status !== "skipped";
+
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-start gap-3 px-6 py-3"
                         >
-                          {task.status === "completed" && (
-                            <CheckCircle size={12} />
-                          )}
-                        </button>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p
+                          {/* Checkbox */}
+                          <button
+                            onClick={() => handleToggleTask(task)}
+                            disabled={!canAct}
                             className={clsx(
-                              "text-sm font-medium",
+                              "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                               task.status === "completed"
-                                ? "text-mist line-through"
-                                : "text-navy"
+                                ? "bg-teal border-teal text-white"
+                                : "border-navy/20 hover:border-teal",
+                              !canAct && "opacity-50 cursor-not-allowed"
                             )}
                           >
-                            {task.title}
-                          </p>
-                          {task.description && (
-                            <p className="text-xs text-mist mt-0.5 line-clamp-2">
-                              {task.description}
-                            </p>
-                          )}
-                        </div>
+                            {task.status === "completed" && (
+                              <CheckCircle size={12} />
+                            )}
+                          </button>
 
-                        {/* Meta */}
-                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                          {task.isRequired && (
-                            <Badge variant="amber">Required</Badge>
-                          )}
-                          {taskDueDate && (
-                            <span
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <p
                               className={clsx(
-                                "text-xs",
-                                taskOverdue
-                                  ? "text-ember font-medium"
-                                  : "text-mist"
+                                "text-sm font-medium",
+                                task.status === "completed"
+                                  ? "text-mist line-through"
+                                  : "text-navy"
                               )}
                             >
-                              {format(taskDueDate, "MMM d")}
-                            </span>
-                          )}
-                          {taskStatusBadge(task.status)}
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="text-xs text-mist mt-0.5 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Meta */}
+                          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                            {task.isRequired && (
+                              <Badge variant="amber">Required</Badge>
+                            )}
+                            {taskDueDate && (
+                              <span
+                                className={clsx(
+                                  "text-xs",
+                                  taskOverdue
+                                    ? "text-ember font-medium"
+                                    : "text-mist"
+                                )}
+                              >
+                                {format(taskDueDate, "MMM d")}
+                              </span>
+                            )}
+                            {taskStatusBadge(task.status)}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            );
-          })
-        )}
-      </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {activeTab === "access" && (
+        <AccessRevocationTracker
+          flow={flow}
+          onScoreUpdate={handleRevocationScoreUpdate}
+        />
+      )}
     </div>
   );
 }

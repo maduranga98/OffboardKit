@@ -46,6 +46,11 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    match /accessRevocations/{revocationId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
     match /exitInterviewTemplates/{templateId} {
       allow read: if isAuth();
       allow write: if isAuth();
