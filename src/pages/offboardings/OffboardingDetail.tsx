@@ -227,14 +227,18 @@ export default function OffboardingDetail() {
       );
 
       // Update flow
-      const flowUpdate: Record<string, unknown> = {
-        progressPercent,
-        "completionScores.tasks": progressPercent,
-      };
       if (newFlowStatus !== flow.status) {
-        flowUpdate.status = newFlowStatus;
+        await updateDocument("offboardFlows", id, {
+          progressPercent,
+          "completionScores.tasks": progressPercent,
+          status: newFlowStatus,
+        });
+      } else {
+        await updateDocument("offboardFlows", id, {
+          progressPercent,
+          "completionScores.tasks": progressPercent,
+        });
       }
-      await updateDocument("offboardFlows", id, flowUpdate);
     } catch {
       // Revert on error
       loadData();
