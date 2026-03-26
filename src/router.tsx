@@ -38,7 +38,6 @@ export const router = createBrowserRouter([
       { path: "offboardings/new", element: <NewOffboarding /> },
       { path: "offboardings/:id", element: <OffboardingDetail /> },
       { path: "templates", element: <TemplateList /> },
-      { path: "templates/new", element: <TemplateDetail /> },
       { path: "templates/:id", element: <TemplateDetail /> },
       { path: "interviews", element: <InterviewList /> },
       { path: "knowledge", element: <KnowledgeBase /> },
