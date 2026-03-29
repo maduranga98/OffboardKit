@@ -7,6 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title?: string;
   children: ReactNode;
+  footer?: ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
 }
 
@@ -22,6 +23,7 @@ export function Modal({
   onClose,
   title,
   children,
+  footer,
   size = "md",
 }: ModalProps) {
   useEffect(() => {
@@ -38,19 +40,19 @@ export function Modal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div
         className="absolute inset-0 bg-navy/50"
         onClick={onClose}
       />
       <div
         className={clsx(
-          "relative bg-white rounded-lg shadow-card w-full mx-4",
+          "relative bg-white rounded-lg shadow-card w-full mx-auto my-auto flex flex-col max-h-[calc(100vh-2rem)]",
           sizeStyles[size]
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-navy/10">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-navy/10 flex-shrink-0">
             <h3 className="text-lg font-semibold text-navy">{title}</h3>
             <button
               onClick={onClose}
@@ -60,7 +62,10 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        {footer && (
+          <div className="flex-shrink-0 px-6 pb-6">{footer}</div>
+        )}
       </div>
     </div>
   );

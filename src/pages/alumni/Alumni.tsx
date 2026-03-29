@@ -823,20 +823,22 @@ export default function Alumni() {
         onClose={closeModals}
         title="Add Alumni"
         size="lg"
+        footer={
+          <div className="flex justify-end gap-2 pt-4 border-t border-navy/5">
+            <Button variant="ghost" onClick={closeModals}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveNew}
+              loading={saving}
+              disabled={!form.name.trim() || !form.email.trim()}
+            >
+              Add Alumni
+            </Button>
+          </div>
+        }
       >
         {formContent}
-        <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-navy/5">
-          <Button variant="ghost" onClick={closeModals}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveNew}
-            loading={saving}
-            disabled={!form.name.trim() || !form.email.trim()}
-          >
-            Add Alumni
-          </Button>
-        </div>
       </Modal>
 
       {/* Edit Alumni Modal */}
@@ -845,30 +847,32 @@ export default function Alumni() {
         onClose={closeModals}
         title="Edit Alumni"
         size="lg"
+        footer={
+          <div className="flex items-center justify-between pt-4 border-t border-navy/5">
+            <Button
+              variant="ghost"
+              onClick={handleDelete}
+              className="text-ember hover:text-ember hover:bg-ember/5"
+            >
+              <Trash2 size={14} className="mr-1.5" />
+              Delete Alumni
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={closeModals}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                loading={saving}
+                disabled={!form.name.trim() || !form.email.trim()}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        }
       >
         {formContent}
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-navy/5">
-          <Button
-            variant="ghost"
-            onClick={handleDelete}
-            className="text-ember hover:text-ember hover:bg-ember/5"
-          >
-            <Trash2 size={14} className="mr-1.5" />
-            Delete Alumni
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={closeModals}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveEdit}
-              loading={saving}
-              disabled={!form.name.trim() || !form.email.trim()}
-            >
-              Save Changes
-            </Button>
-          </div>
-        </div>
       </Modal>
     </div>
   );
