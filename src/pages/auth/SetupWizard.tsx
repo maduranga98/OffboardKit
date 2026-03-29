@@ -19,6 +19,8 @@ import { Card } from "../../components/ui/Card";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
 import { setDocument, updateDocument } from "../../lib/firestore";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../lib/firebase";
 import { useAuthStore } from "../../store/authStore";
 import { useCompanyStore } from "../../store/companyStore";
 import { seedDefaultTemplates } from "../../lib/seedData";
@@ -244,6 +246,31 @@ export default function SetupWizard() {
             createdAt: Timestamp.now(),
           });
         }
+      }
+
+      // Send invite emails for each team member added in the wizard
+      for (const member of teamMembers) {
+        const inviteId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        await setDocument("invites", inviteId, {
+          id: inviteId,
+          companyId: newCompanyId,
+          companyName: companyName,
+          email: member.email.toLowerCase(),
+          role: member.role,
+          invitedBy: user.uid,
+          invitedByName: user.displayName || user.email || "",
+          status: "pending",
+          createdAt: Timestamp.now(),
+          expiresAt: Timestamp.fromDate(expiresAt),
+        });
+
+        // Fire and forget — don't block wizard completion
+        const sendInviteEmail = httpsCallable(functions, "sendTeamInvite");
+        sendInviteEmail({ inviteId }).catch((err) =>
+          console.error("Failed to send invite email:", err)
+        );
       }
 
       setCompanyId(newCompanyId);

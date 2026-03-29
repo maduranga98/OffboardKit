@@ -84,5 +84,12 @@ service cloud.firestore {
       allow read: if isAuth();
       allow write: if isAuth();
     }
+
+    match /invites/{inviteId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
   }
 }
