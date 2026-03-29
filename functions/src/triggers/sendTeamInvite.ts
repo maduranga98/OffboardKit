@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { sendBrevoEmail } from "../email/brevoClient";
 
@@ -9,36 +9,38 @@ const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
 };
 
-export const sendTeamInvite = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-  }
+export const sendTeamInvite = onCall(
+  { cors: true },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be logged in");
+    }
 
-  const { inviteId } = data;
-  if (!inviteId || typeof inviteId !== "string") {
-    throw new functions.https.HttpsError("invalid-argument", "inviteId required");
-  }
+    const { inviteId } = request.data as { inviteId?: string };
+    if (!inviteId || typeof inviteId !== "string") {
+      throw new HttpsError("invalid-argument", "inviteId required");
+    }
 
-  const db = admin.firestore();
+    const db = admin.firestore();
 
-  const inviteDoc = await db.collection("invites").doc(inviteId).get();
-  if (!inviteDoc.exists) {
-    throw new functions.https.HttpsError("not-found", "Invite not found");
-  }
+    const inviteDoc = await db.collection("invites").doc(inviteId).get();
+    if (!inviteDoc.exists) {
+      throw new HttpsError("not-found", "Invite not found");
+    }
 
-  const invite = inviteDoc.data()!;
+    const invite = inviteDoc.data()!;
 
-  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
-  const caller = callerDoc.data();
-  if (!caller || caller.companyId !== invite.companyId) {
-    throw new functions.https.HttpsError("permission-denied", "Not authorized");
-  }
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+    const caller = callerDoc.data();
+    if (!caller || caller.companyId !== invite.companyId) {
+      throw new HttpsError("permission-denied", "Not authorized");
+    }
 
-  const appUrl = process.env.APP_URL || "https://offboardkit.com";
-  const signupUrl = `${appUrl}/signup?invite=${inviteId}`;
-  const roleLabel = ROLE_LABELS[invite.role] || invite.role;
+    const appUrl = process.env.APP_URL || "https://offboardkit.com";
+    const signupUrl = `${appUrl}/signup?invite=${inviteId}`;
+    const roleLabel = ROLE_LABELS[invite.role] || invite.role;
 
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -83,12 +85,13 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
 </body>
 </html>`;
 
-  await sendBrevoEmail({
-    to: [{ email: invite.email }],
-    subject: `${invite.invitedByName} invited you to join ${invite.companyName} on OffboardKit`,
-    htmlContent: html,
-  });
+    await sendBrevoEmail({
+      to: [{ email: invite.email }],
+      subject: `${invite.invitedByName} invited you to join ${invite.companyName} on OffboardKit`,
+      htmlContent: html,
+    });
 
-  console.log(`Invite email sent to ${invite.email} for company ${invite.companyName}`);
-  return { success: true };
-});
+    console.log(`Invite email sent to ${invite.email} for company ${invite.companyName}`);
+    return { success: true };
+  }
+);
