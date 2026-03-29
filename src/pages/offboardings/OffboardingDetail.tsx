@@ -207,11 +207,8 @@ export default function OffboardingDetail() {
       totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
     // Update flow locally
-    const allRequiredDone = updatedTasks
-      .filter((t) => t.isRequired)
-      .every((t) => t.status === "completed");
     let newFlowStatus = flow.status;
-    if (allRequiredDone && flow.status === "not_started") {
+    if (flow.status === "not_started" && completedCount > 0) {
       newFlowStatus = "in_progress";
     }
 
@@ -313,7 +310,11 @@ export default function OffboardingDetail() {
   const lwdDate = toDate(flow.lastWorkingDay);
   const daysLeft = lwdDate ? differenceInDays(lwdDate, new Date()) : null;
   const isOverdue = lwdDate ? isPast(lwdDate) : false;
-  const canAct = flow.status !== "completed" && flow.status !== "cancelled";
+  const canAct =
+    !!appUser &&
+    flow !== null &&
+    flow.status !== "completed" &&
+    flow.status !== "cancelled";
 
   // Group tasks by role
   const tasksByRole = ROLE_SECTIONS.map((section) => ({
