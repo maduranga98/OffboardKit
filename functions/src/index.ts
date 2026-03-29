@@ -7,3 +7,6 @@ export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
 
 // Scheduled functions
 export { checkOverdueTasks } from "./triggers/onTaskOverdue";
+
+// Callable functions
+export { sendTeamInvite } from "./triggers/sendTeamInvite";
