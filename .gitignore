@@ -25,3 +25,7 @@ dist-ssr
 
 .env.local
 .env
+
+# Firebase Functions build output and secrets
+functions/lib/
+functions/.env
