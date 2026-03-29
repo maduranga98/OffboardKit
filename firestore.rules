@@ -29,11 +29,17 @@ service cloud.firestore {
     match /offboardFlows/{flowId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // TODO: Replace with Cloud Function proxy for production security
+      allow read: if true;
+      allow update: if true;
     }
 
     match /flowTasks/{taskId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // TODO: Replace with Cloud Function proxy for production security
+      allow read: if true;
+      allow update: if true;
     }
 
     match /notifications/{notificationId} {
@@ -54,16 +60,24 @@ service cloud.firestore {
     match /exitInterviewTemplates/{templateId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // TODO: Replace with Cloud Function proxy for production security
+      allow read: if true;
     }
 
     match /exitInterviewResponses/{responseId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // TODO: Replace with Cloud Function proxy for production security
+      allow read: if true;
+      allow create: if true;
     }
 
     match /knowledgeItems/{itemId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // TODO: Replace with Cloud Function proxy for production security
+      allow read: if true;
+      allow create: if true;
     }
 
     match /alumniProfiles/{profileId} {

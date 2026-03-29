@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // TODO: Replace with Cloud Function proxy for production security
+    // Portal task file uploads — public write allowed for offboarding task files
+    match /companies/{companyId}/offboardings/{flowId}/tasks/{taskId}/{fileName} {
+      allow read: if true;
+      allow write: if request.resource.size < 25 * 1024 * 1024; // 25 MB max
+    }
+
+    // All other paths require authentication
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
