@@ -333,7 +333,20 @@ function TemplateBuilderModal({
     if (!name.trim() || questions.length === 0) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), description: description.trim(), isDefault, questions });
+      const sanitizedQuestions: InterviewQuestion[] = questions.map((q) => {
+        const base: InterviewQuestion = {
+          id: q.id,
+          text: q.text,
+          type: q.type,
+          required: q.required,
+          order: q.order,
+        };
+        if (q.options !== undefined) {
+          base.options = q.options;
+        }
+        return base;
+      });
+      await onSave({ name: name.trim(), description: description.trim(), isDefault, questions: sanitizedQuestions });
       onClose();
     } catch {
       // Error saving
