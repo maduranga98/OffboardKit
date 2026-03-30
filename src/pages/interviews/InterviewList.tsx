@@ -165,7 +165,7 @@ function ResponseDetailModal({
             </p>
           </div>
           <div className="text-right flex items-center gap-2">
-            {sentimentBadge(response.sentiment)}
+            {sentimentBadge(response.sentimentLabel || response.sentiment)}
             <p className="text-xs text-mist">
               {response.submittedAt?.toDate
                 ? format(response.submittedAt.toDate(), "MMM d, yyyy")
@@ -173,6 +173,74 @@ function ResponseDetailModal({
             </p>
           </div>
         </div>
+
+        {/* AI Insights — show only if AI analysis has run */}
+        {response.aiAnalyzedAt && (
+          <div className="space-y-3 pb-4 border-b border-navy/5">
+            <h3 className="text-sm font-semibold text-navy flex items-center gap-2">
+              <Lightbulb size={14} className="text-teal" />
+              AI Analysis
+            </h3>
+
+            {/* Summary */}
+            {response.aiSummary && (
+              <p className="text-sm text-navy bg-navy/[0.02] rounded-lg p-3 border border-navy/5">
+                {response.aiSummary}
+              </p>
+            )}
+
+            {/* Key Themes */}
+            {response.keyThemes && response.keyThemes.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-mist mb-1.5">Key themes</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {response.keyThemes.map((theme, i) => (
+                    <span key={i} className="px-2 py-0.5 text-xs font-medium bg-teal/10 text-teal rounded-full">
+                      {theme}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risk Flags */}
+            {response.riskFlags && response.riskFlags.length > 0 && (
+              <div className="bg-ember/5 border border-ember/20 rounded-lg p-3">
+                <p className="text-xs font-semibold text-ember mb-1.5 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  Risk flags detected
+                </p>
+                <ul className="space-y-1">
+                  {response.riskFlags.map((flag, i) => (
+                    <li key={i} className="text-xs text-ember/80">• {flag}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Recommended Actions */}
+            {response.recommendedActions && response.recommendedActions.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-mist mb-1.5">Recommended actions</p>
+                <ul className="space-y-1">
+                  {response.recommendedActions.map((action, i) => (
+                    <li key={i} className="text-xs text-navy flex items-start gap-1.5">
+                      <CheckCircle size={10} className="text-teal mt-0.5 flex-shrink-0" />
+                      {action}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Show if AI analysis failed */}
+        {response.aiAnalysisError && !response.aiAnalyzedAt && (
+          <div className="text-xs text-mist bg-navy/[0.02] rounded-lg p-3 border border-navy/5">
+            AI analysis could not be completed for this response.
+          </div>
+        )}
 
         {/* Answers */}
         {response.answers.map((answer, index) => (
@@ -980,7 +1048,13 @@ export default function InterviewList() {
                       : ""}
                   </p>
                 </div>
-                {sentimentBadge(response.sentiment)}
+                {sentimentBadge(response.sentimentLabel || response.sentiment)}
+                {response.keyThemes && response.keyThemes.length > 0 && (
+                  <span className="text-xs text-teal flex items-center gap-1">
+                    <Lightbulb size={10} />
+                    AI
+                  </span>
+                )}
                 <Eye size={16} className="text-mist flex-shrink-0" />
               </button>
             ))}

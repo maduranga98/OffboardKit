@@ -245,6 +245,7 @@ export default function OffboardingDetail() {
     }
   }
 
+  // TODO: Add onSnapshot listener for real-time score updates
   const handleKnowledgeScoreUpdate = (newScore: number) => {
     setFlow((prev) =>
       prev
@@ -422,6 +423,9 @@ export default function OffboardingDetail() {
                 <p className={clsx("text-2xl font-semibold", colorMap[color])}>
                   {value}
                   <span className="text-sm font-normal">%</span>
+                  {card.key === "knowledge" && flow.knowledgeGapAnalysis?.analyzedAt && (
+                    <span className="text-[10px] text-teal ml-1">AI</span>
+                  )}
                 </p>
                 <Progress value={value} size="sm" color={progressColor} />
               </div>

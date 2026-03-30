@@ -5,6 +5,7 @@ import {
   BookOpen,
   MessageSquare,
   CheckCircle,
+  Clock,
   Upload,
   FileText,
   PartyPopper,
@@ -134,7 +135,15 @@ function WelcomeHeader({
   );
 }
 
-function AllDoneState({ totalTasks }: { totalTasks: number }) {
+function AllDoneState({
+  totalTasks,
+  knowledgeItemCount,
+  interviewCompleted,
+}: {
+  totalTasks: number;
+  knowledgeItemCount: number;
+  interviewCompleted: boolean;
+}) {
   return (
     <div className="bg-white border border-navy/5 rounded-xl p-6 mb-6 text-center">
       <PartyPopper size={40} className="text-teal mx-auto mb-3" />
@@ -151,12 +160,28 @@ function AllDoneState({ totalTasks }: { totalTasks: number }) {
           <span>All {totalTasks} tasks completed</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-navy">
-          <CheckCircle size={16} className="text-teal flex-shrink-0" />
-          <span>Knowledge items submitted</span>
+          {knowledgeItemCount > 0 ? (
+            <CheckCircle size={16} className="text-teal flex-shrink-0" />
+          ) : (
+            <Clock size={16} className="text-mist flex-shrink-0" />
+          )}
+          <span>
+            {knowledgeItemCount > 0
+              ? `${knowledgeItemCount} knowledge item${knowledgeItemCount !== 1 ? "s" : ""} submitted`
+              : "No knowledge items submitted yet"}
+          </span>
         </div>
         <div className="flex items-center gap-2 text-sm text-navy">
-          <CheckCircle size={16} className="text-teal flex-shrink-0" />
-          <span>Exit interview complete</span>
+          {interviewCompleted ? (
+            <CheckCircle size={16} className="text-teal flex-shrink-0" />
+          ) : (
+            <Clock size={16} className="text-mist flex-shrink-0" />
+          )}
+          <span>
+            {interviewCompleted
+              ? "Exit interview complete"
+              : "Exit interview not yet completed"}
+          </span>
         </div>
       </div>
       <Button disabled variant="outline" size="sm">
@@ -563,6 +588,8 @@ export default function PortalEntry() {
   const [portalTab, setPortalTab] = useState<PortalTab>("tasks");
   const [completedTasks, setCompletedTasks] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
+  const [knowledgeItemCount, setKnowledgeItemCount] = useState(0);
+  const [interviewCompleted, setInterviewCompleted] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -589,6 +616,28 @@ export default function PortalEntry() {
     };
     load();
   }, [token]);
+
+  useEffect(() => {
+    if (!flow) return;
+    const loadCompletionStatus = async () => {
+      try {
+        const [knowledgeItems, interviews] = await Promise.all([
+          queryDocuments("knowledgeItems", [
+            where("flowId", "==", flow.id),
+          ]),
+          queryDocuments("exitInterviewResponses", [
+            where("flowId", "==", flow.id),
+            firestoreLimit(1),
+          ]),
+        ]);
+        setKnowledgeItemCount(knowledgeItems.length);
+        setInterviewCompleted(interviews.length > 0);
+      } catch {
+        // Silent fail
+      }
+    };
+    loadCompletionStatus();
+  }, [flow]);
 
   if (loading) {
     return (
@@ -684,7 +733,13 @@ export default function PortalEntry() {
 
         {/* Tasks tab */}
         <div className={portalTab === "tasks" ? "block" : "hidden"}>
-          {allTasksDone && <AllDoneState totalTasks={totalTasks} />}
+          {allTasksDone && (
+            <AllDoneState
+              totalTasks={totalTasks}
+              knowledgeItemCount={knowledgeItemCount}
+              interviewCompleted={interviewCompleted}
+            />
+          )}
           <h2 className="text-base font-semibold text-navy mb-3">
             {allTasksDone ? "Completed Tasks" : "Your Tasks"}
           </h2>
