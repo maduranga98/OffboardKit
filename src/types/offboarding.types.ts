@@ -54,6 +54,18 @@ export interface OffboardFlow {
   portalToken: string;
   completionScores: CompletionScores;
   createdAt: Timestamp;
+  knowledgeGapAnalysis?: {
+    completenessScore: number;
+    gaps: {
+      area: string;
+      severity: "critical" | "high" | "medium" | "low";
+      description: string;
+      suggestedPrompt: string;
+    }[];
+    strengths: string[];
+    overallAssessment: string;
+    analyzedAt: Timestamp;
+  };
 }
 
 export interface FlowTask {

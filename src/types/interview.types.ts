@@ -45,4 +45,13 @@ export interface ExitInterviewResponse {
   sentiment: Sentiment;
   submittedAt: Timestamp;
   createdAt: Timestamp;
+  // AI-powered fields (populated by Cloud Function after submission)
+  sentimentScore?: number;
+  sentimentLabel?: Sentiment;
+  keyThemes?: string[];
+  aiSummary?: string;
+  riskFlags?: string[];
+  recommendedActions?: string[];
+  aiAnalyzedAt?: Timestamp | null;
+  aiAnalysisError?: boolean;
 }

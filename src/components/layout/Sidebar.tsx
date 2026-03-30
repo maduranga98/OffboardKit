@@ -14,6 +14,7 @@ import {
 import clsx from "clsx";
 import { useAuth } from "../../hooks/useAuth";
 import { Badge } from "../ui/Badge";
+import logo from "../../assets/logo.png";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,35 +33,7 @@ const navItems = [
 
 function OffboardKitLogo() {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 28 28"
-      fill="none"
-      className="flex-shrink-0"
-    >
-      <rect width="28" height="28" rx="6" fill="#0D9E8A" />
-      <path
-        d="M7 8h8v12H7V8z"
-        stroke="white"
-        strokeWidth="2"
-        fill="none"
-      />
-      <path
-        d="M15 12l4 2-4 2"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path
-        d="M19 14h3"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+    <img src={logo} alt="OffboardKit Logo" className="w-7 h-7 object-contain" />
   );
 }
 
@@ -84,15 +57,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={clsx(
           "fixed top-0 left-0 h-full w-60 bg-navy flex flex-col z-50 transition-transform duration-200 lg:translate-x-0 lg:static lg:z-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-2.5">
             <OffboardKitLogo />
-            <span className="text-white font-display text-lg">
-              OffboardKit
-            </span>
+            <span className="text-white font-display text-lg">OffboardKit</span>
           </div>
           <button
             onClick={onClose}
@@ -119,7 +90,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                   isActive
                     ? "text-teal bg-teal/10 border-l-2 border-teal"
-                    : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent"
+                    : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
                 )}
               >
                 <Icon size={18} />
@@ -137,7 +108,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
               location.pathname.startsWith("/settings")
                 ? "text-teal bg-teal/10 border-l-2 border-teal"
-                : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent"
+                : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
             )}
           >
             <Settings size={18} />

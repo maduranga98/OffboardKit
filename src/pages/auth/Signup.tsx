@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -14,6 +14,8 @@ const features = [
 
 export default function Signup() {
   const { user, loading, companyId, signUpWithEmail, signInWithGoogle } = useAuth();
+  const [searchParams] = useSearchParams();
+  const inviteId = searchParams.get("invite");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -99,10 +101,12 @@ export default function Signup() {
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">
-            Start your free account
+            {inviteId ? "Accept your invite" : "Start your free account"}
           </h2>
           <p className="text-sm text-mist mb-8">
-            Set up in 5 minutes. No credit card required.
+            {inviteId
+              ? "Create your account to join your team on OffboardKit."
+              : "Set up in 5 minutes. No credit card required."}
           </p>
 
           {error && (

@@ -5,7 +5,7 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-
+import logo from "../../assets/logo.png";
 const features = [
   "Structured offboarding checklists",
   "Knowledge capture before the last day",
@@ -13,7 +13,8 @@ const features = [
 ];
 
 export default function Login() {
-  const { user, loading, companyId, signInWithGoogle, signInWithEmail } = useAuth();
+  const { user, loading, companyId, signInWithGoogle, signInWithEmail } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -47,7 +48,8 @@ export default function Login() {
     try {
       await signInWithGoogle();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Google sign in failed.";
+      const message =
+        err instanceof Error ? err.message : "Google sign in failed.";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -77,12 +79,11 @@ export default function Login() {
       <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
-            <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="6" fill="#0D9E8A" />
-              <path d="M7 8h8v12H7V8z" stroke="white" strokeWidth="2" fill="none" />
-              <path d="M15 12l4 2-4 2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M19 14h3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <img
+              src={logo}
+              alt="OffboardKit Logo"
+              className="w-10 h-10 object-contain"
+            />
             <span className="font-display text-xl text-navy">OffboardKit</span>
           </div>
 
@@ -150,19 +151,17 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <Button
-              type="submit"
-              fullWidth
-              size="lg"
-              loading={submitting}
-            >
+            <Button type="submit" fullWidth size="lg" loading={submitting}>
               Sign in
             </Button>
           </form>
 
           <p className="mt-6 text-sm text-center text-mist">
             Don&apos;t have an account?{" "}
-            <Link to="/signup" className="text-teal hover:text-teal-light font-medium">
+            <Link
+              to="/signup"
+              className="text-teal hover:text-teal-light font-medium"
+            >
               Start free
             </Link>
           </p>
