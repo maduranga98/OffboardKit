@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -23,6 +24,8 @@ export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading, companyId } = useAuth();
   const location = useLocation();
+
+  useNotifications();
 
   if (loading) {
     return <LoadingSpinner fullScreen />;
