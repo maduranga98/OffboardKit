@@ -10,3 +10,7 @@ export { checkOverdueTasks } from "./triggers/onTaskOverdue";
 
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
+
+// AI Functions
+export { analyzeSentiment } from "./ai/analyzeSentiment";
+export { detectKnowledgeGaps } from "./ai/detectKnowledgeGaps";
