@@ -1,12 +1,42 @@
 import { useState, useRef, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import {
+  Bell,
+  UserPlus,
+  AlertTriangle,
+  AlertCircle,
+  ClipboardList,
+  BookOpen,
+  MessageSquare,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import clsx from "clsx";
-import { useNotificationStore } from "../../store/notificationStore";
+import { useNotificationStore, type AppNotification } from "../../store/notificationStore";
+
+function NotificationIcon({ type }: { type: string }) {
+  const iconProps = { size: 14 };
+  switch (type) {
+    case "offboarding_started":
+      return <UserPlus {...iconProps} className="text-teal" />;
+    case "task_overdue":
+      return <AlertTriangle {...iconProps} className="text-ember" />;
+    case "risk_flag":
+      return <AlertCircle {...iconProps} className="text-ember" />;
+    case "task_assigned":
+      return <ClipboardList {...iconProps} className="text-navy" />;
+    case "knowledge_review":
+      return <BookOpen {...iconProps} className="text-blue-600" />;
+    case "exit_interview_submitted":
+      return <MessageSquare {...iconProps} className="text-teal" />;
+    default:
+      return <Bell {...iconProps} className="text-mist" />;
+  }
+}
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotificationStore();
 
@@ -19,6 +49,14 @@ export function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleNotificationClick = (notification: AppNotification) => {
+    markRead(notification.id);
+    if (notification.link) {
+      navigate(notification.link);
+      setIsOpen(false);
+    }
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -58,18 +96,29 @@ export function NotificationBell() {
               notifications.map((notification) => (
                 <button
                   key={notification.id}
-                  onClick={() => markRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                   className={clsx(
                     "w-full text-left px-4 py-3 border-b border-navy/5 hover:bg-navy/[0.02] transition-colors",
                     !notification.read && "bg-teal/[0.03]"
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    {!notification.read && (
-                      <span className="mt-1.5 h-2 w-2 rounded-full bg-teal flex-shrink-0" />
-                    )}
+                    <div
+                      className={clsx(
+                        "mt-0.5 h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0",
+                        !notification.read ? "bg-teal/10" : "bg-navy/5"
+                      )}
+                    >
+                      <NotificationIcon type={notification.type} />
+                    </div>
+
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-navy truncate">
+                      <p
+                        className={clsx(
+                          "text-sm text-navy truncate",
+                          !notification.read && "font-medium"
+                        )}
+                      >
                         {notification.title}
                       </p>
                       <p className="text-xs text-mist mt-0.5 line-clamp-2">
@@ -81,6 +130,10 @@ export function NotificationBell() {
                         })}
                       </p>
                     </div>
+
+                    {!notification.read && (
+                      <span className="mt-2 h-2 w-2 rounded-full bg-teal flex-shrink-0" />
+                    )}
                   </div>
                 </button>
               ))
