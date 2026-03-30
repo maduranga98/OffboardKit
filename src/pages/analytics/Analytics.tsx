@@ -247,18 +247,35 @@ export default function Analytics() {
     };
   }, [filteredFlows]);
 
-  // Sentiment breakdown
+  // Sentiment breakdown — prefer AI sentimentLabel when available
   const sentimentCounts = useMemo(
     () => ({
-      positive: filteredResponses.filter((r) => r.sentiment === "positive")
+      positive: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "positive")
         .length,
-      neutral: filteredResponses.filter((r) => r.sentiment === "neutral")
+      neutral: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "neutral")
         .length,
-      negative: filteredResponses.filter((r) => r.sentiment === "negative")
+      negative: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "negative")
         .length,
     }),
     [filteredResponses]
   );
+
+  // Aggregate AI themes across all responses
+  const aggregatedThemes = useMemo(() => {
+    const themeCounts: Record<string, number> = {};
+    filteredResponses.forEach((r) => {
+      if (r.keyThemes && Array.isArray(r.keyThemes)) {
+        r.keyThemes.forEach((theme) => {
+          const normalized = theme.toLowerCase().trim();
+          themeCounts[normalized] = (themeCounts[normalized] || 0) + 1;
+        });
+      }
+    });
+    return Object.entries(themeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([theme, count]) => ({ theme, count }));
+  }, [filteredResponses]);
 
   const totalSentimentResponses =
     sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
@@ -582,6 +599,32 @@ export default function Analytics() {
                   </div>
                 );
               })}
+              {/* Top AI Themes */}
+              {aggregatedThemes.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-navy/5">
+                  <h3 className="text-xs font-semibold text-mist uppercase tracking-wide mb-2">
+                    Top exit themes (AI)
+                  </h3>
+                  <div className="space-y-2">
+                    {aggregatedThemes.map(({ theme, count }) => (
+                      <div key={theme} className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 rounded-full bg-navy/10">
+                          <div
+                            className="h-full rounded-full bg-teal"
+                            style={{
+                              width: `${Math.min((count / filteredResponses.length) * 100, 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs text-navy capitalize min-w-0 truncate max-w-[120px]">
+                          {theme}
+                        </span>
+                        <span className="text-xs text-mist flex-shrink-0">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <EmptyState
