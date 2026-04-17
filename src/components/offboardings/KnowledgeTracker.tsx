@@ -10,6 +10,9 @@ import {
   Trash2,
   ExternalLink,
   CheckCircle,
+  AlertCircle,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase";
@@ -35,6 +38,8 @@ import {
 import type {
   KnowledgeItem,
   KnowledgeItemType,
+  GapSeverity,
+  VerificationStatus,
 } from "../../types/knowledge.types";
 import type { OffboardFlow } from "../../types/offboarding.types";
 
@@ -65,6 +70,13 @@ const TYPE_ICONS: Record<KnowledgeItemType, React.ReactNode> = {
   note: <StickyNote size={14} />,
 };
 
+const GAP_SEVERITY_COLORS: Record<GapSeverity, string> = {
+  critical: "bg-ember/10 text-ember",
+  high: "bg-orange-50 text-orange-600",
+  medium: "bg-amber-50 text-amber-600",
+  low: "bg-blue-50 text-blue-600",
+};
+
 interface KnowledgeTrackerProps {
   flow: OffboardFlow;
   onScoreUpdate?: (score: number) => void;
@@ -92,7 +104,9 @@ export default function KnowledgeTracker({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewingIds, setReviewingIds] = useState<Set<string>>(new Set());
+  const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
   const [gapAnalysis, setGapAnalysis] = useState<KnowledgeGapAnalysis | null>(null);
 
@@ -257,6 +271,50 @@ export default function KnowledgeTracker({
     }
   }
 
+  async function handleManagerVerification(item: KnowledgeItem, status: VerificationStatus) {
+    if (!appUser) return;
+    setVerifyingIds((prev) => new Set(prev).add(item.id));
+
+    const updatedItems = items.map((i) =>
+      i.id === item.id
+        ? {
+            ...i,
+            managerVerificationStatus: status,
+            managerVerified: status === "approved",
+            managerVerifiedBy: appUser.id,
+            managerVerifiedAt: new Date() as unknown as KnowledgeItem["managerVerifiedAt"],
+          }
+        : i
+    );
+    setItems(updatedItems);
+
+    try {
+      const verificationHistory = item.verificationHistory || [];
+      verificationHistory.push({
+        status,
+        verifiedBy: appUser.id,
+        verifiedAt: serverTimestamp() as unknown as KnowledgeItem["createdAt"],
+      });
+
+      await updateDocument("knowledgeItems", item.id, {
+        managerVerificationStatus: status,
+        managerVerified: status === "approved",
+        managerVerifiedBy: appUser.id,
+        managerVerifiedAt: serverTimestamp(),
+        verificationHistory,
+        updatedAt: serverTimestamp(),
+      });
+    } catch {
+      setItems(items);
+    } finally {
+      setVerifyingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
   async function handleAnalyzeGaps() {
     setAnalyzing(true);
     try {
@@ -385,82 +443,162 @@ export default function KnowledgeTracker({
         <Card padding="none">
           <div className="divide-y divide-navy/5">
             {items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-start gap-3 px-6 py-4"
-              >
-                {/* Type badge */}
-                <span
-                  className={clsx(
-                    "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium flex-shrink-0 mt-0.5",
-                    TYPE_COLORS[item.type]
-                  )}
+              <div key={item.id}>
+                <div
+                  className="flex items-start gap-3 px-6 py-4 cursor-pointer hover:bg-navy/[0.02]"
+                  onClick={() =>
+                    setExpandedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    })
+                  }
                 >
-                  {TYPE_ICONS[item.type]}
-                  {TYPE_LABELS[item.type]}
-                </span>
+                  {/* Type badge */}
+                  <span
+                    className={clsx(
+                      "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium flex-shrink-0 mt-0.5",
+                      TYPE_COLORS[item.type]
+                    )}
+                  >
+                    {TYPE_ICONS[item.type]}
+                    {TYPE_LABELS[item.type]}
+                  </span>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy">{item.title}</p>
-                  {item.description && (
-                    <p className="text-xs text-mist mt-0.5 line-clamp-1">
-                      {item.description}
-                    </p>
-                  )}
-                  {item.successor && (
-                    <span className="text-xs text-teal mt-0.5 inline-block">
-                      → {item.successor}
-                    </span>
-                  )}
-                </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-navy">{item.title}</p>
+                      {item.hasGap && item.gapSeverity && (
+                        <Badge variant={GAP_SEVERITY_COLORS[item.gapSeverity] as any}>
+                          {item.gapSeverity}
+                        </Badge>
+                      )}
+                      {item.managerVerificationStatus === "pending" && (
+                        <Badge variant="mist">
+                          <AlertCircle size={12} className="mr-0.5" />
+                          Pending Verification
+                        </Badge>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-xs text-mist mt-0.5 line-clamp-1">
+                        {item.description}
+                      </p>
+                    )}
+                    {item.successor && (
+                      <span className="text-xs text-teal mt-0.5 inline-block">
+                        → {item.successor}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {item.url && (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-mist hover:text-teal transition-colors"
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {item.url && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-mist hover:text-teal transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                    <Badge
+                      variant={
+                        item.status === "reviewed"
+                          ? "teal"
+                          : item.status === "submitted"
+                            ? "amber"
+                            : "mist"
+                      }
                     >
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-                  <Badge
-                    variant={
-                      item.status === "reviewed"
-                        ? "teal"
+                      {item.status === "reviewed"
+                        ? "Reviewed"
                         : item.status === "submitted"
-                          ? "amber"
-                          : "mist"
-                    }
-                  >
-                    {item.status === "reviewed"
-                      ? "Reviewed"
-                      : item.status === "submitted"
-                        ? "Submitted"
-                        : "Draft"}
-                  </Badge>
-                  {item.status === "submitted" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleMarkReviewed(item)}
-                      loading={reviewingIds.has(item.id)}
+                          ? "Submitted"
+                          : "Draft"}
+                    </Badge>
+                    {item.status === "submitted" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkReviewed(item);
+                        }}
+                        loading={reviewingIds.has(item.id)}
+                      >
+                        <CheckCircle size={14} className="mr-1" />
+                        Mark Reviewed
+                      </Button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item);
+                      }}
+                      disabled={deletingIds.has(item.id)}
+                      className="text-mist hover:text-ember transition-colors p-1"
                     >
-                      <CheckCircle size={14} className="mr-1" />
-                      Mark Reviewed
-                    </Button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(item)}
-                    disabled={deletingIds.has(item.id)}
-                    className="text-mist hover:text-ember transition-colors p-1"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Expansion: Gap and Verification Details */}
+                {expandedIds.has(item.id) && (
+                  <div className="bg-navy/[0.02] px-6 py-4 border-t border-navy/5 space-y-3">
+                    {item.hasGap && (
+                      <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="font-medium text-amber-900">Knowledge Gap Identified</p>
+                        <p className="text-amber-700 mt-1">{item.gapReason || "Gap detected"}</p>
+                      </div>
+                    )}
+
+                    {item.status === "reviewed" && !item.managerVerified && (
+                      <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-blue-900">
+                            Manager Verification Required
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleManagerVerification(item, "approved")}
+                            loading={verifyingIds.has(item.id)}
+                            disabled={verifyingIds.has(item.id)}
+                          >
+                            <ThumbsUp size={14} className="mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleManagerVerification(item, "rejected")}
+                            loading={verifyingIds.has(item.id)}
+                            disabled={verifyingIds.has(item.id)}
+                          >
+                            <ThumbsDown size={14} className="mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.managerVerified && (
+                      <div className="flex items-center gap-2 bg-teal/10 border border-teal/30 rounded-lg p-3 text-xs text-teal">
+                        <CheckCircle size={14} />
+                        <span>Verified by {item.managerVerifiedBy}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

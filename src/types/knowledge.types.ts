@@ -10,6 +10,17 @@ export type KnowledgeItemType =
 
 export type KnowledgeItemStatus = "draft" | "submitted" | "reviewed";
 
+export type GapSeverity = "critical" | "high" | "medium" | "low";
+
+export type VerificationStatus = "pending" | "approved" | "rejected";
+
+export interface VerificationHistory {
+  status: VerificationStatus;
+  verifiedBy: string;
+  verifiedAt: Timestamp;
+  notes?: string;
+}
+
 export interface KnowledgeItem {
   id: string;
   companyId: string;
@@ -27,9 +38,12 @@ export interface KnowledgeItem {
   reviewedAt: Timestamp | null;
   hasGap: boolean;
   gapReason?: string;
+  gapSeverity?: GapSeverity;
   managerVerified: boolean;
+  managerVerificationStatus?: VerificationStatus;
   managerVerifiedBy?: string;
   managerVerifiedAt?: Timestamp | null;
+  verificationHistory?: VerificationHistory[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
