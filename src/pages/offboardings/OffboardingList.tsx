@@ -7,6 +7,9 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  Trash2,
+  X,
+  Check,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
@@ -19,7 +22,8 @@ import { Progress } from "../../components/ui/Progress";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-import { queryDocuments } from "../../lib/firestore";
+import { queryDocuments, updateDocument, deleteDocument } from "../../lib/firestore";
+import { showToast } from "../../components/ui/Toast";
 import type { OffboardFlow, FlowStatus } from "../../types/offboarding.types";
 
 type FilterTab = "all" | "active" | "completed" | "cancelled";
@@ -73,6 +77,7 @@ export default function OffboardingList() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!companyId) return;
@@ -128,6 +133,81 @@ export default function OffboardingList() {
     { key: "completed", label: "Completed" },
     { key: "cancelled", label: "Cancelled" },
   ];
+
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selected);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelected(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((f) => f.id)));
+    }
+  };
+
+  const handleBulkComplete = async () => {
+    if (selected.size === 0) return;
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          updateDocument("offboardFlows", id, { status: "completed" })
+        )
+      );
+      setFlows((prev) =>
+        prev.map((f) =>
+          selected.has(f.id) ? { ...f, status: "completed" as const } : f
+        )
+      );
+      setSelected(new Set());
+      showToast("success", `Completed ${selected.size} offboarding(s)`);
+    } catch {
+      showToast("error", "Failed to complete offboardings");
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selected.size === 0) return;
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          updateDocument("offboardFlows", id, { status: "cancelled" })
+        )
+      );
+      setFlows((prev) =>
+        prev.map((f) =>
+          selected.has(f.id) ? { ...f, status: "cancelled" as const } : f
+        )
+      );
+      setSelected(new Set());
+      showToast("success", `Cancelled ${selected.size} offboarding(s)`);
+    } catch {
+      showToast("error", "Failed to cancel offboardings");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} offboarding(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          deleteDocument("offboardFlows", id)
+        )
+      );
+      setFlows((prev) => prev.filter((f) => !selected.has(f.id)));
+      setSelected(new Set());
+      showToast("success", `Deleted ${selected.size} offboarding(s)`);
+    } catch {
+      showToast("error", "Failed to delete offboardings");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -277,71 +357,140 @@ export default function OffboardingList() {
           />
         </Card>
       ) : (
-        <Card padding="none">
-          <div className="divide-y divide-navy/5">
-            {filtered.map((flow) => {
-              const lwdDate = toDate(flow.lastWorkingDay);
-              const isOverdue = lwdDate ? isPast(lwdDate) : false;
+        <>
+          {selected.size > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-navy/10 shadow-lg">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+                <p className="text-sm font-medium text-navy">
+                  {selected.size} selected
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkComplete}
+                  >
+                    <Check size={14} className="mr-1" />
+                    Mark Completed
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkCancel}
+                  >
+                    <X size={14} className="mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkDelete}
+                    className="text-ember"
+                  >
+                    <Trash2 size={14} className="mr-1" />
+                    Delete
+                  </Button>
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="ml-2 p-1 text-mist hover:text-navy"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          <Card padding="none">
+            <div className="divide-y divide-navy/5">
+              {filtered.length > 0 && (
+                <div className="flex items-center gap-4 px-6 py-3 bg-navy/[0.02] border-b border-navy/5">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === filtered.length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-navy/20 text-teal focus:ring-teal/50 cursor-pointer"
+                  />
+                  <span className="text-xs text-mist font-medium">
+                    {selected.size === filtered.length ? "Deselect all" : "Select all"}
+                  </span>
+                </div>
+              )}
+              {filtered.map((flow) => {
+                const lwdDate = toDate(flow.lastWorkingDay);
+                const isOverdue = lwdDate ? isPast(lwdDate) : false;
+                const isSelected = selected.has(flow.id);
 
-              return (
-                <button
-                  key={flow.id}
-                  onClick={() => navigate(`/offboardings/${flow.id}`)}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-navy/[0.02] transition-colors w-full text-left"
-                >
-                  {/* Avatar */}
-                  <div className="h-10 w-10 rounded-full bg-teal/10 flex items-center justify-center text-teal font-medium text-sm flex-shrink-0">
-                    {flow.employeeName.charAt(0)}
-                  </div>
-
-                  {/* Name + role */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-navy truncate">
-                      {flow.employeeName}
-                    </p>
-                    <p className="text-xs text-mist mt-0.5 truncate">
-                      {flow.employeeRole} · {flow.employeeDepartment}
-                    </p>
-                  </div>
-
-                  {/* Last working day */}
-                  <div className="hidden md:block text-right flex-shrink-0">
-                    <p
-                      className={clsx(
-                        "text-xs",
-                        isOverdue && flow.status !== "completed" && flow.status !== "cancelled"
-                          ? "text-ember font-medium"
-                          : "text-mist"
-                      )}
+                return (
+                  <div
+                    key={flow.id}
+                    className="flex items-center gap-4 px-6 py-4 hover:bg-navy/[0.02] transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(flow.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="rounded border-navy/20 text-teal focus:ring-teal/50 cursor-pointer"
+                    />
+                    <button
+                      onClick={() => navigate(`/offboardings/${flow.id}`)}
+                      className="flex items-center gap-4 flex-1 text-left"
                     >
-                      {lwdDate ? format(lwdDate, "MMM d, yyyy") : "—"}
-                    </p>
-                  </div>
+                      {/* Avatar */}
+                      <div className="h-10 w-10 rounded-full bg-teal/10 flex items-center justify-center text-teal font-medium text-sm flex-shrink-0">
+                        {flow.employeeName.charAt(0)}
+                      </div>
 
-                  {/* Progress */}
-                  <div className="hidden sm:block w-24 flex-shrink-0">
-                    <Progress value={flow.progressPercent} size="sm" />
-                    <p className="text-xs text-mist mt-1 text-right">
-                      {flow.progressPercent}%
-                    </p>
-                  </div>
+                      {/* Name + role */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-navy truncate">
+                          {flow.employeeName}
+                        </p>
+                        <p className="text-xs text-mist mt-0.5 truncate">
+                          {flow.employeeRole} · {flow.employeeDepartment}
+                        </p>
+                      </div>
 
-                  {/* Status */}
-                  <div className="hidden sm:block flex-shrink-0">
-                    {statusBadge(flow.status)}
-                  </div>
+                      {/* Last working day */}
+                      <div className="hidden md:block text-right flex-shrink-0">
+                        <p
+                          className={clsx(
+                            "text-xs",
+                            isOverdue && flow.status !== "completed" && flow.status !== "cancelled"
+                              ? "text-ember font-medium"
+                              : "text-mist"
+                          )}
+                        >
+                          {lwdDate ? format(lwdDate, "MMM d, yyyy") : "—"}
+                        </p>
+                      </div>
 
-                  {/* Days chip */}
-                  <div className="hidden lg:block flex-shrink-0">
-                    {flow.status !== "completed" && flow.status !== "cancelled" && flow.lastWorkingDay
-                      ? daysChip(flow.lastWorkingDay)
-                      : null}
+                      {/* Progress */}
+                      <div className="hidden sm:block w-24 flex-shrink-0">
+                        <Progress value={flow.progressPercent} size="sm" />
+                        <p className="text-xs text-mist mt-1 text-right">
+                          {flow.progressPercent}%
+                        </p>
+                      </div>
+
+                      {/* Status */}
+                      <div className="hidden sm:block flex-shrink-0">
+                        {statusBadge(flow.status)}
+                      </div>
+
+                      {/* Days chip */}
+                      <div className="hidden lg:block flex-shrink-0">
+                        {flow.status !== "completed" && flow.status !== "cancelled" && flow.lastWorkingDay
+                          ? daysChip(flow.lastWorkingDay)
+                          : null}
+                      </div>
+                    </button>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
+                );
+              })}
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );
