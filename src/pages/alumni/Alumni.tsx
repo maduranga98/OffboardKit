@@ -13,6 +13,11 @@ import {
   Edit2,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  getAuth,
+} from "firebase/auth";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -94,6 +99,8 @@ const EMPTY_FORM = {
   notes: "",
   optedIn: false,
   tags: [] as string[],
+  password: "",
+  confirmPassword: "",
 };
 
 export default function Alumni() {
@@ -167,6 +174,8 @@ export default function Alumni() {
       notes: profile.notes,
       optedIn: profile.optedIn,
       tags: [...profile.tags],
+      password: "",
+      confirmPassword: "",
     });
     setTagInput("");
     setEditingProfile(profile);
@@ -196,39 +205,77 @@ export default function Alumni() {
 
   async function handleSaveNew() {
     if (!form.name.trim() || !form.email.trim() || !companyId) return;
-    setSaving(true);
 
-    const id = crypto.randomUUID();
-    const doc = {
-      id,
-      companyId,
-      flowId: "",
-      name: form.name.trim(),
-      email: form.email.trim(),
-      role: form.role.trim(),
-      department: form.department,
-      exitDate: form.exitDate
-        ? Timestamp.fromDate(new Date(form.exitDate))
-        : serverTimestamp(),
-      exitType: form.exitType,
-      linkedIn: form.linkedIn.trim(),
-      currentCompany: form.currentCompany.trim(),
-      currentRole: form.currentRole.trim(),
-      status: form.status,
-      rehirePriority: form.rehirePriority,
-      notes: form.notes.trim(),
-      tags: form.tags,
-      optedIn: form.optedIn,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+    if (form.optedIn && (!form.password || !form.confirmPassword)) {
+      // Password required if opting in
+      alert("Password is required when opting in alumni.");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      alert("Passwords don't match.");
+      return;
+    }
+
+    setSaving(true);
+    let authUid: string | undefined;
 
     try {
+      const id = crypto.randomUUID();
+
+      // Create Firebase auth account if opting in
+      if (form.optedIn && form.password) {
+        const auth = getAuth();
+        const userCred = await createUserWithEmailAndPassword(
+          auth,
+          form.email.trim(),
+          form.password
+        );
+        authUid = userCred.user.uid;
+      }
+
+      const doc = {
+        id,
+        companyId,
+        flowId: "",
+        name: form.name.trim(),
+        email: form.email.trim(),
+        role: form.role.trim(),
+        department: form.department,
+        exitDate: form.exitDate
+          ? Timestamp.fromDate(new Date(form.exitDate))
+          : serverTimestamp(),
+        exitType: form.exitType,
+        linkedIn: form.linkedIn.trim(),
+        currentCompany: form.currentCompany.trim(),
+        currentRole: form.currentRole.trim(),
+        status: form.status,
+        rehirePriority: form.rehirePriority,
+        notes: form.notes.trim(),
+        tags: form.tags,
+        optedIn: form.optedIn,
+        authUid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
       await setDocument("alumniProfiles", id, doc);
       setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
       closeModals();
-    } catch {
-      // Error saving
+    } catch (err) {
+      // Clean up auth user if profile save fails
+      if (authUid) {
+        try {
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user && user.uid === authUid) {
+            await deleteUser(user);
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      alert("Error creating alumni: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setSaving(false);
     }
@@ -281,11 +328,12 @@ export default function Alumni() {
     if (!confirmed) return;
 
     try {
+      // Delete Firestore profile
       await deleteDocument("alumniProfiles", editingProfile.id);
       setProfiles((prev) => prev.filter((p) => p.id !== editingProfile.id));
       closeModals();
-    } catch {
-      // Error deleting
+    } catch (err) {
+      alert("Error deleting alumni: " + (err instanceof Error ? err.message : "Unknown error"));
     }
   }
 
@@ -523,6 +571,29 @@ export default function Alumni() {
         />
         <span className="text-sm text-navy">Opted into alumni network</span>
       </label>
+
+      {/* Password fields (add modal only when opting in) */}
+      {!editingProfile && form.optedIn && (
+        <div className="space-y-4 pt-4 border-t border-navy/5">
+          <p className="text-sm font-medium text-navy">Set Initial Password</p>
+          <Input
+            label="Password"
+            type="password"
+            placeholder="Create a strong password"
+            value={form.password}
+            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+          />
+          <Input
+            label="Confirm Password"
+            type="password"
+            placeholder="Confirm password"
+            value={form.confirmPassword}
+            onChange={(e) =>
+              setForm((p) => ({ ...p, confirmPassword: e.target.value }))
+            }
+          />
+        </div>
+      )}
 
       {/* Tags (edit modal only) */}
       {editingProfile && (

@@ -1,8 +1,10 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
+import AlumniLayout from "./components/layout/AlumniLayout";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import SetupWizard from "./pages/auth/SetupWizard";
+import AlumniLogin from "./pages/auth/AlumniLogin";
 import Dashboard from "./pages/dashboard/Dashboard";
 import OffboardingList from "./pages/offboardings/OffboardingList";
 import OffboardingDetail from "./pages/offboardings/OffboardingDetail";
@@ -13,6 +15,7 @@ import Interviews from "./pages/interviews/Interviews";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import Analytics from "./pages/analytics/Analytics";
 import Alumni from "./pages/alumni/Alumni";
+import AlumniProfile from "./pages/alumni/AlumniProfile";
 import Settings from "./pages/settings/Settings";
 import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
@@ -24,10 +27,21 @@ export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Signup /> },
   { path: "/portal/:token", element: <PortalEntry /> },
+  { path: "/alumni-login", element: <AlumniLogin /> },
 
   // Setup route
   { path: "/setup", element: <SetupWizard /> },
   { path: "/portal", element: <PortalEntry /> },
+
+  // Alumni portal routes
+  {
+    path: "/alumni-portal",
+    element: <AlumniLayout />,
+    children: [
+      { index: true, element: <Navigate to="/alumni-portal/profile" replace /> },
+      { path: "profile", element: <AlumniProfile /> },
+    ],
+  },
   {
     path: "/",
     element: <AppLayout />,

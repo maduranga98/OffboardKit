@@ -22,6 +22,7 @@ export interface AlumniProfile {
   notes: string;
   tags: string[];
   optedIn: boolean;
+  authUid?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
