@@ -7,7 +7,7 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { getDocument, queryDocuments, where } from "../lib/firestore";
+import { queryDocuments, where } from "../lib/firestore";
 import { useAlumniAuthStore } from "../store/alumniAuthStore";
 import type { AlumniProfile } from "../types/alumni.types";
 

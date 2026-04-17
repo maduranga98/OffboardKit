@@ -1,5 +1,5 @@
 import { Outlet, Navigate, useNavigate } from "react-router-dom";
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import logo from "../../assets/logo.png";

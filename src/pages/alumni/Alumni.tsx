@@ -174,6 +174,8 @@ export default function Alumni() {
       notes: profile.notes,
       optedIn: profile.optedIn,
       tags: [...profile.tags],
+      password: "",
+      confirmPassword: "",
     });
     setTagInput("");
     setEditingProfile(profile);
