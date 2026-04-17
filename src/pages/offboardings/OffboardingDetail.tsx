@@ -18,6 +18,7 @@ import { where, orderBy } from "firebase/firestore";
 import clsx from "clsx";
 import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
 import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
+import AssetReturnTracker from "../../components/offboardings/AssetReturnTracker";
 import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -107,7 +108,7 @@ export default function OffboardingDetail() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge" | "assets">("tasks");
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -318,6 +319,20 @@ export default function OffboardingDetail() {
     );
   };
 
+  const handleAssetScoreUpdate = (newScore: number) => {
+    setFlow((prev) =>
+      prev
+        ? {
+            ...prev,
+            completionScores: {
+              ...prev.completionScores,
+              assets: newScore,
+            },
+          }
+        : prev
+    );
+  };
+
   if (loading) {
     return (
       <div className="py-24 flex justify-center">
@@ -513,6 +528,17 @@ export default function OffboardingDetail() {
         >
           Knowledge
         </button>
+        <button
+          onClick={() => setActiveTab("assets")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "assets"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Assets
+        </button>
       </div>
 
       {/* Tab content */}
@@ -636,6 +662,14 @@ export default function OffboardingDetail() {
         <KnowledgeTracker
           flow={flow}
           onScoreUpdate={handleKnowledgeScoreUpdate}
+        />
+      )}
+
+      {activeTab === "assets" && (
+        <AssetReturnTracker
+          flowId={flow.id}
+          companyId={flow.companyId}
+          onScoreUpdate={handleAssetScoreUpdate}
         />
       )}
 
