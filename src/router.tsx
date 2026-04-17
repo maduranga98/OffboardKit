@@ -13,6 +13,7 @@ import TemplateList from "./pages/templates/TemplateList";
 import TemplateDetail from "./pages/templates/TemplateDetail";
 import Interviews from "./pages/interviews/Interviews";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
+import KnowledgeGaps from "./pages/knowledge/KnowledgeGaps";
 import Analytics from "./pages/analytics/Analytics";
 import Alumni from "./pages/alumni/Alumni";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "templates/:id", element: <TemplateDetail /> },
       { path: "interviews", element: <Interviews /> },
       { path: "knowledge", element: <KnowledgeBase /> },
+      { path: "knowledge/gaps", element: <KnowledgeGaps /> },
       { path: "analytics", element: <Analytics /> },
       { path: "alumni", element: <Alumni /> },
       { path: "settings", element: <Settings /> },
