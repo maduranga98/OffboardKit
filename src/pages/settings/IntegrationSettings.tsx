@@ -6,11 +6,9 @@ import {
   Circle,
   CheckCircle,
   Search,
-  AlertCircle,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
@@ -83,7 +81,6 @@ const COMING_SOON_INTEGRATIONS = [
 
 export default function IntegrationSettings() {
   const { companyId } = useAuth();
-  const [company, setCompany] = useState<Company | null>(null);
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const [systems, setSystems] = useState<System[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +98,6 @@ export default function IntegrationSettings() {
         // Load company data
         const companyData = await getDocument<Company>("companies", companyId);
         if (companyData) {
-          setCompany(companyData);
           setSlackWebhookUrl(companyData.settings?.slackWebhookUrl || "");
         }
 

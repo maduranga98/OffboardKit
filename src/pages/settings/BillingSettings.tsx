@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CreditCard, CheckCircle, Zap, Mail } from "lucide-react";
+import { CheckCircle, Zap, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -7,7 +7,7 @@ import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
-import { getDocument, serverTimestamp } from "../../lib/firestore";
+import { getDocument } from "../../lib/firestore";
 import type { Company } from "../../types/company.types";
 
 const PLAN_CONFIG = {
