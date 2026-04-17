@@ -23,6 +23,8 @@ import {
   Clock,
   BarChart2,
   Plus,
+  Filter,
+  X,
 } from "lucide-react";
 
 import type { OffboardFlow } from "../../types/offboarding.types";
@@ -35,7 +37,7 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { useAuth } from "../../hooks/useAuth";
 import { queryDocuments } from "../../lib/firestore";
 
-type DateRange = "30d" | "90d" | "6m" | "1y" | "all";
+type DateRange = "30d" | "90d" | "6m" | "1y" | "all" | "custom";
 
 interface DateRangeOption {
   value: DateRange;
@@ -48,6 +50,7 @@ const DATE_RANGE_OPTIONS: DateRangeOption[] = [
   { value: "6m", label: "6 months" },
   { value: "1y", label: "1 year" },
   { value: "all", label: "All time" },
+  { value: "custom", label: "Custom" },
 ];
 
 const PIE_COLORS = [
@@ -61,18 +64,27 @@ const PIE_COLORS = [
 
 function filterByDateRange<T extends { createdAt: { toDate?: () => Date } }>(
   items: T[],
-  range: DateRange
+  range: DateRange,
+  customStart?: Date,
+  customEnd?: Date
 ): T[] {
   if (range === "all") return items;
   const now = new Date();
-  const cutoff = new Date();
+  let cutoff = new Date();
+  let endDate = now;
+
   if (range === "30d") cutoff.setDate(now.getDate() - 30);
   else if (range === "90d") cutoff.setDate(now.getDate() - 90);
   else if (range === "6m") cutoff.setMonth(now.getMonth() - 6);
   else if (range === "1y") cutoff.setFullYear(now.getFullYear() - 1);
+  else if (range === "custom") {
+    if (customStart) cutoff = customStart;
+    if (customEnd) endDate = customEnd;
+  }
+
   return items.filter((item) => {
     const d = item.createdAt?.toDate?.();
-    return d ? d >= cutoff : false;
+    return d ? d >= cutoff && d <= endDate : false;
   });
 }
 
@@ -96,6 +108,12 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>("all");
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedExitTypes, setSelectedExitTypes] = useState<string[]>([]);
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -126,14 +144,38 @@ export default function Analytics() {
     fetchData();
   }, [companyId]);
 
-  const filteredFlows = useMemo(
-    () => filterByDateRange(flows, dateRange),
-    [flows, dateRange]
-  );
+  const filteredFlows = useMemo(() => {
+    let result = filterByDateRange(
+      flows,
+      dateRange,
+      customStartDate ? new Date(customStartDate) : undefined,
+      customEndDate ? new Date(customEndDate) : undefined
+    );
+
+    if (selectedDepartments.length > 0) {
+      result = result.filter((f) => selectedDepartments.includes(f.employeeDepartment));
+    }
+    if (selectedRoles.length > 0) {
+      result = result.filter((f) => selectedRoles.includes(f.employeeRole));
+    }
+    if (selectedExitTypes.length > 0) {
+      result = result.filter((f) => {
+        const flowExitType = f.employeeDepartment;
+        return selectedExitTypes.some((et) => flowExitType?.includes(et));
+      });
+    }
+
+    return result;
+  }, [flows, dateRange, customStartDate, customEndDate, selectedDepartments, selectedRoles, selectedExitTypes]);
 
   const filteredResponses = useMemo(
-    () => filterByDateRange(interviewResponses, dateRange),
-    [interviewResponses, dateRange]
+    () => filterByDateRange(
+      interviewResponses,
+      dateRange,
+      customStartDate ? new Date(customStartDate) : undefined,
+      customEndDate ? new Date(customEndDate) : undefined
+    ),
+    [interviewResponses, dateRange, customStartDate, customEndDate]
   );
 
   // KPI metrics
@@ -342,6 +384,8 @@ export default function Analytics() {
     );
   }
 
+  const activeFilterCount = selectedDepartments.length + selectedRoles.length + selectedExitTypes.length + (dateRange === "custom" ? 1 : 0);
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -356,7 +400,13 @@ export default function Analytics() {
           {DATE_RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setDateRange(opt.value)}
+              onClick={() => {
+                setDateRange(opt.value);
+                if (opt.value !== "custom") {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                }
+              }}
               className={clsx(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                 dateRange === opt.value
@@ -367,8 +417,153 @@ export default function Analytics() {
               {opt.label}
             </button>
           ))}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={clsx(
+              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5",
+              showFilters
+                ? "bg-teal text-white"
+                : "bg-navy/5 text-navy hover:bg-navy/10",
+              activeFilterCount > 0 && !showFilters && "ring-2 ring-teal ring-offset-1"
+            )}
+          >
+            <Filter size={14} />
+            {activeFilterCount > 0 && <span className="text-xs font-semibold">{activeFilterCount}</span>}
+          </button>
         </div>
       </div>
+
+      {/* Filters Panel */}
+      {showFilters && (
+        <Card className="bg-navy/5 p-6 space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-lg font-semibold text-navy">Filters</h3>
+            <button
+              onClick={() => {
+                setShowFilters(false);
+                setSelectedDepartments([]);
+                setSelectedRoles([]);
+                setSelectedExitTypes([]);
+                setCustomStartDate("");
+                setCustomEndDate("");
+              }}
+              className="text-mist hover:text-navy transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Custom Date Range */}
+            {dateRange === "custom" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Department Filter */}
+            <div>
+              <label className="block text-sm font-medium text-navy mb-2">
+                Department
+              </label>
+              <select
+                multiple
+                value={selectedDepartments}
+                onChange={(e) => setSelectedDepartments(Array.from(e.target.selectedOptions, (o) => o.value))}
+                className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+              >
+                {Array.from(new Set(flows.map((f) => f.employeeDepartment)))
+                  .filter(Boolean)
+                  .sort()
+                  .map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+              </select>
+              {selectedDepartments.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedDepartments.map((dept) => (
+                    <span
+                      key={dept}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal/10 text-teal text-xs rounded-full"
+                    >
+                      {dept}
+                      <button
+                        onClick={() => setSelectedDepartments(selectedDepartments.filter((d) => d !== dept))}
+                        className="hover:text-navy transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Role Filter */}
+            <div>
+              <label className="block text-sm font-medium text-navy mb-2">
+                Role
+              </label>
+              <select
+                multiple
+                value={selectedRoles}
+                onChange={(e) => setSelectedRoles(Array.from(e.target.selectedOptions, (o) => o.value))}
+                className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+              >
+                {Array.from(new Set(flows.map((f) => f.employeeRole)))
+                  .filter(Boolean)
+                  .sort()
+                  .map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+              </select>
+              {selectedRoles.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedRoles.map((role) => (
+                    <span
+                      key={role}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal/10 text-teal text-xs rounded-full"
+                    >
+                      {role}
+                      <button
+                        onClick={() => setSelectedRoles(selectedRoles.filter((r) => r !== role))}
+                        className="hover:text-navy transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Section 1: KPI Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
