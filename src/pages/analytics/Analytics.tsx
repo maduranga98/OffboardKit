@@ -25,6 +25,7 @@ import {
   Plus,
   Filter,
   X,
+  Download,
 } from "lucide-react";
 
 import type { OffboardFlow } from "../../types/offboarding.types";
@@ -36,6 +37,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { useAuth } from "../../hooks/useAuth";
 import { queryDocuments } from "../../lib/firestore";
+import { generateAnalyticsPdf } from "../../lib/pdfExport";
 
 type DateRange = "30d" | "90d" | "6m" | "1y" | "all" | "custom";
 
@@ -114,6 +116,7 @@ export default function Analytics() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -386,6 +389,23 @@ export default function Analytics() {
 
   const activeFilterCount = selectedDepartments.length + selectedRoles.length + selectedExitTypes.length + (dateRange === "custom" ? 1 : 0);
 
+  async function handleExportPdf() {
+    if (!companyId) return;
+    setExportingPdf(true);
+    try {
+      await generateAnalyticsPdf({
+        companyId,
+        dateRange,
+        customStartDate,
+        customEndDate,
+      });
+    } catch (err) {
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -396,7 +416,18 @@ export default function Analytics() {
             Insights across your offboarding processes
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportPdf}
+            loading={exportingPdf}
+            disabled={flows.length === 0}
+          >
+            <Download size={14} className="mr-1.5" />
+            Export PDF
+          </Button>
+          <div className="flex flex-wrap gap-2">
           {DATE_RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -430,6 +461,7 @@ export default function Analytics() {
             <Filter size={14} />
             {activeFilterCount > 0 && <span className="text-xs font-semibold">{activeFilterCount}</span>}
           </button>
+          </div>
         </div>
       </div>
 

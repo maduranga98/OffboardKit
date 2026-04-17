@@ -15,3 +15,6 @@ export { sendTeamInvite } from "./triggers/sendTeamInvite";
 // AI Functions
 export { analyzeSentiment } from "./ai/analyzeSentiment";
 export { detectKnowledgeGaps } from "./ai/detectKnowledgeGaps";
+
+// Analytics Functions
+export { generateAnalyticsPdf } from "./analytics/generateAnalyticsPdf";
