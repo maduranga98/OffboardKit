@@ -128,6 +128,8 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
         employeeDepartment: flow.employeeDepartment,
         title: title.trim(),
         description: description.trim(),
+        hasGap: false,
+        managerVerified: false,
         type,
         url: url.trim(),
         successor: successor.trim(),

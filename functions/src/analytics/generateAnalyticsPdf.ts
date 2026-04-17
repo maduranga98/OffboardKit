@@ -21,8 +21,6 @@ export const generateAnalyticsPdf = functions.https.onCall(
     const { companyId, dateRange, customStartDate, customEndDate } = data;
 
     try {
-      const db = getFirestore();
-
       const html = await generateAnalyticsHtml({
         companyId,
         dateRange,
