@@ -83,6 +83,9 @@ service cloud.firestore {
     match /alumniProfiles/{profileId} {
       allow read: if isAuth();
       allow write: if isAuth();
+      // Alumni can read/update only their own profile
+      allow read: if isAuth() && resource.data.email == request.auth.token.email;
+      allow update: if isAuth() && resource.data.email == request.auth.token.email;
     }
 
     match /invites/{inviteId} {
