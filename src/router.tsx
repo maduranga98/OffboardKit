@@ -9,7 +9,7 @@ import OffboardingDetail from "./pages/offboardings/OffboardingDetail";
 import NewOffboarding from "./pages/offboardings/NewOffboarding";
 import TemplateList from "./pages/templates/TemplateList";
 import TemplateDetail from "./pages/templates/TemplateDetail";
-import InterviewList from "./pages/interviews/InterviewList";
+import Interviews from "./pages/interviews/Interviews";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import Analytics from "./pages/analytics/Analytics";
 import Alumni from "./pages/alumni/Alumni";
@@ -39,7 +39,7 @@ export const router = createBrowserRouter([
       { path: "offboardings/:id", element: <OffboardingDetail /> },
       { path: "templates", element: <TemplateList /> },
       { path: "templates/:id", element: <TemplateDetail /> },
-      { path: "interviews", element: <InterviewList /> },
+      { path: "interviews", element: <Interviews /> },
       { path: "knowledge", element: <KnowledgeBase /> },
       { path: "analytics", element: <Analytics /> },
       { path: "alumni", element: <Alumni /> },

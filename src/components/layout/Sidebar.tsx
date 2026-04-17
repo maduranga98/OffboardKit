@@ -25,9 +25,9 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/offboardings", label: "Offboardings", icon: Users },
   { to: "/templates", label: "Templates", icon: FileText },
-  { to: "/interviews", label: "Interviews", icon: MessageSquare },
   { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { to: "/analytics", label: "Analytics", icon: BarChart2 },
+  { to: "/interviews", label: "Exit Interviews", icon: MessageSquare },
   { to: "/alumni", label: "Alumni", icon: Network },
 ];
 
