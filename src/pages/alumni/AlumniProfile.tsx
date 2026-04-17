@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Timestamp } from "firebase/firestore";
+import { updatePassword } from "firebase/auth";
 import { format } from "date-fns";
 import {
   User,
@@ -11,10 +12,12 @@ import {
   Edit2,
   Save,
   X,
+  Lock,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { Modal } from "../../components/ui/Modal";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { updateDocument, serverTimestamp } from "../../lib/firestore";
@@ -29,9 +32,17 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
 }
 
 export default function AlumniProfile() {
-  const { alumniProfile, loading } = useAlumniAuth();
+  const { user, alumniProfile, loading } = useAlumniAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [form, setForm] = useState({
     currentCompany: "",
     currentRole: "",
@@ -66,6 +77,49 @@ export default function AlumniProfile() {
     }
   };
 
+  const handleChangePassword = async () => {
+    setPasswordError("");
+    setPasswordSuccess(false);
+
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New passwords don't match.");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (!user) {
+      setPasswordError("Unable to change password.");
+      return;
+    }
+
+    try {
+      await updatePassword(user, passwordForm.newPassword);
+      setPasswordSuccess(true);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess(false);
+      }, 2000);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to change password.";
+      setPasswordError(message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-24 flex justify-center">
@@ -97,10 +151,16 @@ export default function AlumniProfile() {
           </p>
         </div>
         {!isEditing && (
-          <Button onClick={() => setIsEditing(true)}>
-            <Edit2 size={14} className="mr-1.5" />
-            Edit Profile
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
+              <Lock size={14} className="mr-1.5" />
+              Change Password
+            </Button>
+            <Button onClick={() => setIsEditing(true)}>
+              <Edit2 size={14} className="mr-1.5" />
+              Edit Profile
+            </Button>
+          </div>
         )}
       </div>
 
@@ -295,6 +355,73 @@ export default function AlumniProfile() {
           </div>
         </div>
       </Card>
+
+      {/* Change Password Modal */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPasswordError("");
+          setPasswordSuccess(false);
+        }}
+        title="Change Password"
+        size="sm"
+      >
+        <div className="space-y-4">
+          {passwordSuccess && (
+            <div className="p-3 bg-teal/10 border border-teal/20 rounded-md text-sm text-teal">
+              Password changed successfully!
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
+              {passwordError}
+            </div>
+          )}
+
+          <Input
+            label="New Password"
+            type="password"
+            placeholder="Enter new password"
+            value={passwordForm.newPassword}
+            onChange={(e) =>
+              setPasswordForm((p) => ({
+                ...p,
+                newPassword: e.target.value,
+              }))
+            }
+          />
+          <Input
+            label="Confirm Password"
+            type="password"
+            placeholder="Confirm new password"
+            value={passwordForm.confirmPassword}
+            onChange={(e) =>
+              setPasswordForm((p) => ({
+                ...p,
+                confirmPassword: e.target.value,
+              }))
+            }
+          />
+
+          <div className="flex gap-2 pt-4 border-t border-navy/5">
+            <Button
+              variant="ghost"
+              onClick={() => setShowPasswordModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleChangePassword}
+              className="flex-1"
+            >
+              Change Password
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
