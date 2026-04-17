@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   ClipboardList,
   BookOpen,
@@ -185,9 +185,11 @@ function AllDoneState({
           </span>
         </div>
       </div>
-      <Button disabled variant="outline" size="sm">
-        Join Alumni Network — Coming soon
-      </Button>
+      <Link to="/alumni-login">
+        <Button variant="primary" size="sm">
+          Access Alumni Network
+        </Button>
+      </Link>
     </div>
   );
 }
