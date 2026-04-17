@@ -18,16 +18,19 @@ import { where, orderBy } from "firebase/firestore";
 import clsx from "clsx";
 import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
 import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
+import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { Progress } from "../../components/ui/Progress";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
+import { useCompanyStore } from "../../store/companyStore";
 import {
   getDocument,
   queryDocuments,
   updateDocument,
+  setDocument,
   serverTimestamp,
 } from "../../lib/firestore";
 import type {
@@ -94,7 +97,8 @@ const SCORE_CARDS: {
 export default function OffboardingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { appUser } = useAuth();
+  const { appUser, companyId } = useAuth();
+  const company = useCompanyStore((s) => s.company);
 
   const [flow, setFlow] = useState<OffboardFlow | null>(null);
   const [tasks, setTasks] = useState<FlowTask[]>([]);
@@ -104,6 +108,7 @@ export default function OffboardingDetail() {
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge">("tasks");
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -144,18 +149,57 @@ export default function OffboardingDetail() {
     }
   }
 
-  async function handleMarkComplete() {
-    if (!flow || !id) return;
+  async function handleConfirmComplete(addToAlumni: boolean) {
+    if (!flow || !id || !companyId) return;
     setCompleting(true);
     try {
+      // 1. Mark flow complete
       await updateDocument("offboardFlows", id, {
         status: "completed",
         completedAt: serverTimestamp(),
         progressPercent: 100,
         "completionScores.tasks": 100,
       });
+
+      // 2. Decrement active offboardings on company
+      await updateDocument("companies", companyId, {
+        "usageCount.activeOffboardings": Math.max(
+          0,
+          (company?.usageCount?.activeOffboardings ?? 1) - 1
+        ),
+      });
+
+      // 3. If alumni opt-in, create alumni record
+      if (addToAlumni) {
+        const alumniId = crypto.randomUUID();
+        await setDocument("alumni", alumniId, {
+          id: alumniId,
+          companyId: flow.companyId,
+          flowId: flow.id,
+          name: flow.employeeName,
+          email: flow.employeeEmail,
+          role: flow.employeeRole,
+          department: flow.employeeDepartment,
+          exitDate: flow.lastWorkingDay,
+          exitType: "voluntary",
+          linkedIn: "",
+          currentCompany: "",
+          currentRole: "",
+          status: "active",
+          rehirePriority: "none",
+          notes: "",
+          tags: [],
+          optedIn: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      setShowCompleteModal(false);
       navigate("/offboardings");
-    } catch {
+    } catch (err) {
+      console.error(err);
+    } finally {
       setCompleting(false);
     }
   }
@@ -379,7 +423,7 @@ export default function OffboardingDetail() {
               <>
                 <Button
                   size="sm"
-                  onClick={handleMarkComplete}
+                  onClick={() => setShowCompleteModal(true)}
                   loading={completing}
                 >
                   <CheckCircle size={14} className="mr-1.5" />
@@ -594,6 +638,14 @@ export default function OffboardingDetail() {
           onScoreUpdate={handleKnowledgeScoreUpdate}
         />
       )}
+
+      <CompleteOffboardingModal
+        isOpen={showCompleteModal}
+        flow={flow}
+        onConfirm={handleConfirmComplete}
+        onClose={() => setShowCompleteModal(false)}
+        loading={completing}
+      />
     </div>
   );
 }

@@ -19,6 +19,11 @@ export interface CompanyFeatures {
   apiAccess: boolean;
 }
 
+export interface UsageCount {
+  offboardingsThisYear: number;
+  activeOffboardings: number;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -32,6 +37,7 @@ export interface Company {
   stripeCustomerId: string;
   settings: CompanySettings;
   features: CompanyFeatures;
+  usageCount?: UsageCount;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
