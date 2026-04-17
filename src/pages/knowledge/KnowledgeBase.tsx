@@ -238,7 +238,6 @@ export default function KnowledgeBase() {
 
   const totalItems = items.length;
   const reviewedCount = items.filter((i) => i.status === "reviewed").length;
-  const pendingCount = items.filter((i) => i.status === "submitted").length;
   const gapCount = items.filter((i) => i.hasGap).length;
   const verificationPendingCount = items.filter(
     (i) => i.managerVerificationStatus === "pending" || (!i.managerVerified && i.status === "reviewed")

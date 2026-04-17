@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AlertCircle,
   Search,
-  Filter,
   TrendingUp,
 } from "lucide-react";
 import clsx from "clsx";
