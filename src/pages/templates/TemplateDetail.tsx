@@ -4,8 +4,7 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  ChevronUp,
-  ChevronDown,
+  GripVertical,
   Save,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
@@ -71,6 +70,7 @@ export default function TemplateDetail() {
   const [targetDepartment, setTargetDepartment] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [tasks, setTasks] = useState<TemplateTask[]>([]);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNew || !id || !companyId) {
@@ -116,12 +116,30 @@ export default function TemplateDetail() {
     );
   };
 
-  const moveTask = (index: number, direction: "up" | "down") => {
-    const next = [...tasks];
-    const swapIdx = direction === "up" ? index - 1 : index + 1;
-    if (swapIdx < 0 || swapIdx >= next.length) return;
-    [next[index], next[swapIdx]] = [next[swapIdx], next[index]];
-    setTasks(next.map((t, i) => ({ ...t, order: i + 1 })));
+  const handleDragStart = (taskId: string) => {
+    setDraggedTaskId(taskId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (!draggedTaskId) return;
+
+    const draggedIndex = tasks.findIndex((t) => t.id === draggedTaskId);
+    if (draggedIndex === targetIndex) {
+      setDraggedTaskId(null);
+      return;
+    }
+
+    const newTasks = [...tasks];
+    const [draggedTask] = newTasks.splice(draggedIndex, 1);
+    newTasks.splice(targetIndex, 0, draggedTask);
+    setTasks(newTasks.map((t, i) => ({ ...t, order: i + 1 })));
+    setDraggedTaskId(null);
   };
 
   const handleSave = async () => {
@@ -286,7 +304,17 @@ export default function TemplateDetail() {
               {tasks.map((task, index) => (
                 <div
                   key={task.id}
-                  className="border border-navy/10 rounded-md p-4 space-y-3"
+                  draggable
+                  onDragStart={() => handleDragStart(task.id)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`border rounded-md p-4 space-y-3 transition-all cursor-move ${
+                    draggedTaskId === task.id
+                      ? "opacity-50 border-teal/50 bg-teal/5"
+                      : draggedTaskId
+                        ? "border-navy/10"
+                        : "border-navy/10 hover:border-teal/30"
+                  }`}
                 >
                   <div className="flex items-start gap-2">
                     <span className="text-xs font-medium text-mist bg-navy/5 rounded px-1.5 py-0.5 mt-1 flex-shrink-0">
@@ -328,6 +356,28 @@ export default function TemplateDetail() {
                                 {t.label}
                               </option>
                             ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-xs text-mist">Depends On</label>
+                          <select
+                            value={task.dependsOnTaskId || ""}
+                            onChange={(e) =>
+                              updateTask(task.id, {
+                                dependsOnTaskId:
+                                  e.target.value || undefined,
+                              })
+                            }
+                            className="rounded-md border border-navy/20 px-2 py-1.5 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                          >
+                            <option value="">None</option>
+                            {tasks.map((t) =>
+                              t.id !== task.id ? (
+                                <option key={t.id} value={t.id}>
+                                  Task {t.order}
+                                </option>
+                              ) : null
+                            )}
                           </select>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -376,21 +426,10 @@ export default function TemplateDetail() {
                         </label>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-0.5 flex-shrink-0">
-                      <button
-                        onClick={() => moveTask(index, "up")}
-                        disabled={index === 0}
-                        className="p-1 text-mist hover:text-navy disabled:opacity-30 transition-colors"
-                      >
-                        <ChevronUp size={14} />
-                      </button>
-                      <button
-                        onClick={() => moveTask(index, "down")}
-                        disabled={index === tasks.length - 1}
-                        className="p-1 text-mist hover:text-navy disabled:opacity-30 transition-colors"
-                      >
-                        <ChevronDown size={14} />
-                      </button>
+                    <div className="flex gap-0.5 flex-shrink-0">
+                      <div className="p-1 text-mist cursor-grab active:cursor-grabbing">
+                        <GripVertical size={16} />
+                      </div>
                       <button
                         onClick={() => deleteTask(task.id)}
                         className="p-1 text-mist hover:text-ember transition-colors"
