@@ -16,8 +16,11 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { UpgradeGateModal } from "../../components/shared/UpgradeGateModal";
 import { useAuth } from "../../hooks/useAuth";
-import { queryDocuments, setDocument } from "../../lib/firestore";
+import { usePlanGate } from "../../hooks/usePlanGate";
+import { useCompanyStore } from "../../store/companyStore";
+import { queryDocuments, setDocument, updateDocument } from "../../lib/firestore";
 import type { OffboardTemplate } from "../../types/offboarding.types";
 
 const DEPARTMENTS = [
@@ -55,11 +58,14 @@ interface FormErrors {
 export default function NewOffboarding() {
   const navigate = useNavigate();
   const { companyId, appUser } = useAuth();
+  const { canStartOffboarding } = usePlanGate();
+  const company = useCompanyStore((s) => s.company);
 
   const [templates, setTemplates] = useState<OffboardTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Form state
   const [employeeName, setEmployeeName] = useState("");
@@ -122,6 +128,12 @@ export default function NewOffboarding() {
     e.preventDefault();
     if (!validate() || !companyId || !appUser) return;
 
+    const gate = canStartOffboarding();
+    if (!gate.allowed) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const flowId = crypto.randomUUID();
@@ -181,6 +193,13 @@ export default function NewOffboarding() {
         });
         await Promise.all(taskPromises);
       }
+
+      await updateDocument("companies", companyId, {
+        "usageCount.offboardingsThisYear":
+          (company?.usageCount?.offboardingsThisYear ?? 0) + 1,
+        "usageCount.activeOffboardings":
+          (company?.usageCount?.activeOffboardings ?? 0) + 1,
+      });
 
       navigate(`/offboardings/${flowId}`);
     } catch (err) {
@@ -475,6 +494,13 @@ export default function NewOffboarding() {
           </div>
         </div>
       </form>
+
+      <UpgradeGateModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        usedCount={company?.usageCount?.offboardingsThisYear ?? 0}
+        limit={3}
+      />
     </div>
   );
 }
