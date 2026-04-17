@@ -201,15 +201,7 @@ export default function Interviews() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <Badge
-                          variant={
-                            sentimentColor === "positive"
-                              ? "teal"
-                              : sentimentColor === "negative"
-                                ? "ember"
-                                : "mist"
-                          }
-                        >
+                        <Badge variant={sentimentColor as "teal" | "ember" | "mist"}>
                           {(response.sentimentLabel || response.sentiment)
                             .charAt(0)
                             .toUpperCase() +
@@ -301,7 +293,7 @@ export default function Interviews() {
                           Risk Flags
                         </h3>
                         <ul className="space-y-2">
-                          {response.riskFlags.map((flag, idx) => (
+                          {response.riskFlags!.map((flag, idx) => (
                             <li
                               key={idx}
                               className="text-sm text-ember flex items-start gap-2"
