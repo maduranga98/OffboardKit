@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   BookOpen,
   User,
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   CheckCircle,
   Search,
+  Users,
 } from "lucide-react";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -64,6 +65,8 @@ export default function KnowledgeBase() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<KnowledgeItemType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<KnowledgeItemStatus | "all">("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [groupByEmployee, setGroupByEmployee] = useState(false);
   const [reviewingIds, setReviewingIds] = useState<Set<string>>(new Set());
 
   const loadData = useCallback(async () => {
@@ -84,6 +87,11 @@ export default function KnowledgeBase() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const departments = useMemo(() => {
+    const depts = [...new Set(items.map((i) => i.employeeDepartment).filter(Boolean))];
+    return depts.sort();
+  }, [items]);
 
   async function handleMarkReviewed(item: KnowledgeItem) {
     if (!appUser) return;
@@ -124,16 +132,30 @@ export default function KnowledgeBase() {
   const filtered = items.filter((item) => {
     if (typeFilter !== "all" && item.type !== typeFilter) return false;
     if (statusFilter !== "all" && item.status !== statusFilter) return false;
+    if (departmentFilter !== "all" && item.employeeDepartment !== departmentFilter)
+      return false;
     if (search) {
       const q = search.toLowerCase();
       return (
         item.title.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
-        item.employeeName.toLowerCase().includes(q)
+        item.employeeName.toLowerCase().includes(q) ||
+        (item.employeeDepartment ?? "").toLowerCase().includes(q)
       );
     }
     return true;
   });
+
+  const grouped = useMemo(() => {
+    if (!groupByEmployee) return null;
+    const groups: Record<string, KnowledgeItem[]> = {};
+    for (const item of filtered) {
+      const key = item.employeeName || "Unknown";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    }
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered, groupByEmployee]);
 
   const totalItems = items.length;
   const reviewedCount = items.filter((i) => i.status === "reviewed").length;
@@ -158,7 +180,7 @@ export default function KnowledgeBase() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <div className="space-y-1">
             <p className="text-xs font-medium text-mist">Total Items</p>
@@ -177,10 +199,16 @@ export default function KnowledgeBase() {
             <p className="text-2xl font-semibold text-amber-600">{pendingCount}</p>
           </div>
         </Card>
+        <Card>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-mist">Departments</p>
+            <p className="text-2xl font-semibold text-navy">{departments.length}</p>
+          </div>
+        </Card>
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search
             size={16}
@@ -220,6 +248,28 @@ export default function KnowledgeBase() {
           <option value="submitted">Submitted</option>
           <option value="reviewed">Reviewed</option>
         </select>
+        <select
+          value={departmentFilter}
+          onChange={(e) => setDepartmentFilter(e.target.value)}
+          className="px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+        >
+          <option value="all">All Departments</option>
+          {departments.map((dept) => (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setGroupByEmployee(!groupByEmployee)}
+          className={clsx(
+            "px-3 py-2 text-sm border rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap",
+            groupByEmployee
+              ? "bg-teal/10 border-teal/30 text-teal"
+              : "border-navy/10 text-mist hover:text-navy"
+          )}
+        >
+          <Users size={14} />
+          Group by employee
+        </button>
       </div>
 
       {/* Items list */}
@@ -230,6 +280,104 @@ export default function KnowledgeBase() {
             description="Items submitted by departing employees will appear here."
           />
         </Card>
+      ) : grouped ? (
+        <div className="space-y-4">
+          {grouped.map(([employeeName, groupItems]) => {
+            const firstItem = groupItems[0];
+            return (
+              <Card key={employeeName} padding="none">
+                <div className="px-6 py-3 border-b border-navy/5 bg-navy/2 flex items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal/10 text-teal text-xs font-semibold">
+                    {employeeName[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-navy">{employeeName}</p>
+                  </div>
+                  {firstItem.employeeDepartment && (
+                    <Badge variant="mist">{firstItem.employeeDepartment}</Badge>
+                  )}
+                  <span className="text-xs text-mist">{groupItems.length} item{groupItems.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="divide-y divide-navy/5">
+                  {groupItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-start gap-3 px-6 py-4"
+                    >
+                      {/* Type icon */}
+                      <span
+                        className={clsx(
+                          "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium flex-shrink-0 mt-0.5",
+                          TYPE_COLORS[item.type]
+                        )}
+                      >
+                        {TYPE_ICONS[item.type]}
+                        {TYPE_LABELS[item.type]}
+                      </span>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-navy">{item.title}</p>
+                        {item.description && (
+                          <p className="text-xs text-mist mt-0.5 line-clamp-1">
+                            {item.description}
+                          </p>
+                        )}
+                        {item.successor && (
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-xs text-teal">
+                              → {item.successor}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-mist hover:text-teal transition-colors"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                        <Badge
+                          variant={
+                            item.status === "reviewed"
+                              ? "teal"
+                              : item.status === "submitted"
+                                ? "amber"
+                                : "mist"
+                          }
+                        >
+                          {item.status === "reviewed"
+                            ? "Reviewed"
+                            : item.status === "submitted"
+                              ? "Submitted"
+                              : "Draft"}
+                        </Badge>
+                        {item.status === "submitted" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkReviewed(item)}
+                            loading={reviewingIds.has(item.id)}
+                          >
+                            <CheckCircle size={14} className="mr-1" />
+                            Mark Reviewed
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <Card padding="none">
           <div className="divide-y divide-navy/5">
