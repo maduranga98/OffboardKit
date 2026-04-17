@@ -25,6 +25,11 @@ export interface KnowledgeItem {
   submittedBy: string;
   reviewedBy: string;
   reviewedAt: Timestamp | null;
+  hasGap: boolean;
+  gapReason?: string;
+  managerVerified: boolean;
+  managerVerifiedBy?: string;
+  managerVerifiedAt?: Timestamp | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

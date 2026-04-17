@@ -595,6 +595,32 @@ function TasksList({
               </div>
             )}
 
+            {/* Form/Link tasks */}
+            {(task.type === "form" || task.type === "link") && (
+              <div className="px-4 pb-3">
+                {task.status === "completed" ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={16} className="text-teal flex-shrink-0" />
+                    <span className="text-xs text-navy">
+                      {task.type === "form" ? "Form completed" : "Link accessed"}
+                    </span>
+                  </div>
+                ) : (
+                  <a
+                    href={task.description || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => handleToggleTask(task)}
+                    className="inline-block w-full"
+                  >
+                    <Button size="sm" className="w-full">
+                      {task.type === "form" ? "Open Form" : "Open Link"}
+                    </Button>
+                  </a>
+                )}
+              </div>
+            )}
+
             {/* File upload area for upload tasks */}
             {isUploadTask && (
               <div className="px-4 pb-3">
