@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -21,12 +22,14 @@ import {
   TrendingDown,
   Clock,
   BarChart2,
+  Plus,
 } from "lucide-react";
 
 import type { OffboardFlow } from "../../types/offboarding.types";
 import type { ExitInterviewResponse } from "../../types/interview.types";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { useAuth } from "../../hooks/useAuth";
@@ -215,20 +218,18 @@ export default function Analytics() {
     [exitReasonCounts]
   );
 
-  // Department breakdown
+  // Department breakdown — ALL flows, not just filtered
   const departmentData = useMemo(() => {
     const counts: Record<string, number> = {};
-    filteredFlows.forEach((f) => {
-      if (f.employeeDepartment) {
-        counts[f.employeeDepartment] =
-          (counts[f.employeeDepartment] || 0) + 1;
-      }
+    flows.forEach((f) => {
+      const dept = f.employeeDepartment || "Unknown";
+      counts[dept] = (counts[dept] || 0) + 1;
     });
     return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([dept, count]) => ({ dept, count }));
-  }, [filteredFlows]);
+      .map(([dept, count]) => ({ dept, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [flows]);
 
   // Avg completion scores
   const avgScores = useMemo(() => {
@@ -313,20 +314,28 @@ export default function Analytics() {
     );
   }
 
-  if (flows.length === 0) {
+  if (!loading && flows.length === 0) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl text-navy">Analytics</h1>
-          <p className="text-sm text-mist">
-            Insights across your offboarding processes
+          <h1 className="text-2xl font-display text-navy">Analytics</h1>
+          <p className="text-sm text-mist mt-1">
+            Offboarding insights and trends
           </p>
         </div>
         <Card>
           <EmptyState
-            icon={<BarChart2 className="h-10 w-10 text-mist" />}
-            title="No offboarding data yet"
-            description="Analytics will appear here once you start offboarding employees."
+            icon={<BarChart2 size={48} strokeWidth={1.5} />}
+            title="No data yet"
+            description="Analytics will appear after your first offboarding is created."
+            action={
+              <Link to="/offboardings/new">
+                <Button>
+                  <Plus size={16} className="mr-1.5" />
+                  Start First Offboarding
+                </Button>
+              </Link>
+            }
           />
         </Card>
       </div>
@@ -397,29 +406,36 @@ export default function Analytics() {
           <h2 className="font-display text-lg font-semibold text-navy mb-4">
             Monthly Exits
           </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#0F1C2E"
-                strokeOpacity={0.06}
-              />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#6B7280" }}
-                allowDecimals={false}
-              />
-              <Tooltip />
-              <Bar dataKey="exits" fill="#0D9E8A" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {monthlyData.some((d) => d.exits > 0) ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={monthlyData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#0F1C2E"
+                  strokeOpacity={0.06}
+                />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6B7280" }}
+                  allowDecimals={false}
+                />
+                <Tooltip />
+                <Bar dataKey="exits" fill="#0D9E8A" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState
+              title="No exit data yet"
+              description="Exit trends will appear here once offboardings are recorded."
+            />
+          )}
         </Card>
 
         {/* Exit Reasons Pie Chart */}
@@ -451,9 +467,10 @@ export default function Analytics() {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-[220px]">
-              <p className="text-sm text-mist">No interview responses yet</p>
-            </div>
+            <EmptyState
+              title="No exit interview data yet"
+              description="Exit reasons appear after employees complete their interviews."
+            />
           )}
         </Card>
       </div>
@@ -713,7 +730,7 @@ export default function Analytics() {
         ) : (
           <EmptyState
             title="No completed offboardings yet"
-            description="Completed offboardings will be listed here."
+            description="Completed offboardings will appear here once employees finish their offboarding process."
           />
         )}
       </Card>
