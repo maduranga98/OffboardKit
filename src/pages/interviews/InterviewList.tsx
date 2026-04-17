@@ -15,6 +15,8 @@ import {
   Star,
   XCircle,
   Lightbulb,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import clsx from "clsx";
@@ -174,102 +176,149 @@ function ResponseDetailModal({
           </div>
         </div>
 
-        {/* AI Insights — show only if AI analysis has run */}
-        {response.aiAnalyzedAt && (
-          <div className="space-y-3 pb-4 border-b border-navy/5">
-            <h3 className="text-sm font-semibold text-navy flex items-center gap-2">
-              <Lightbulb size={14} className="text-teal" />
-              AI Analysis
-            </h3>
-
-            {/* Summary */}
-            {response.aiSummary && (
-              <p className="text-sm text-navy bg-navy/[0.02] rounded-lg p-3 border border-navy/5">
+        {/* A) AI SUMMARY SECTION */}
+        {response.aiSummary && response.aiAnalyzedAt && (
+          <>
+            <div className="rounded-lg p-4 bg-[#0D9E8A]/5 border border-[#0D9E8A]/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={14} className="text-[#0D9E8A]" />
+                <p className="text-xs font-semibold text-[#0D9E8A] uppercase tracking-wide">
+                  AI Summary
+                </p>
+              </div>
+              <p className="text-sm text-navy leading-relaxed">
                 {response.aiSummary}
               </p>
-            )}
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
+        )}
 
-            {/* Key Themes */}
-            {response.keyThemes && response.keyThemes.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-mist mb-1.5">Key themes</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {response.keyThemes.map((theme, i) => (
-                    <span key={i} className="px-2 py-0.5 text-xs font-medium bg-teal/10 text-teal rounded-full">
-                      {theme}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Risk Flags */}
-            {response.riskFlags && response.riskFlags.length > 0 && (
-              <div className="bg-ember/5 border border-ember/20 rounded-lg p-3">
-                <p className="text-xs font-semibold text-ember mb-1.5 flex items-center gap-1">
-                  <AlertCircle size={12} />
-                  Risk flags detected
+        {/* AI analysis pending */}
+        {!response.aiAnalyzedAt && !response.aiAnalysisError && (
+          <>
+            <div className="rounded-lg p-4 bg-[#0D9E8A]/5 border border-[#0D9E8A]/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={14} className="text-[#0D9E8A]" />
+                <p className="text-xs font-semibold text-[#0D9E8A] uppercase tracking-wide">
+                  AI Summary
                 </p>
-                <ul className="space-y-1">
-                  {response.riskFlags.map((flag, i) => (
-                    <li key={i} className="text-xs text-ember/80">• {flag}</li>
-                  ))}
-                </ul>
               </div>
-            )}
+              <p className="text-sm text-mist italic">
+                AI analysis in progress...
+              </p>
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
+        )}
 
-            {/* Recommended Actions */}
-            {response.recommendedActions && response.recommendedActions.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-mist mb-1.5">Recommended actions</p>
-                <ul className="space-y-1">
-                  {response.recommendedActions.map((action, i) => (
-                    <li key={i} className="text-xs text-navy flex items-start gap-1.5">
-                      <CheckCircle size={10} className="text-teal mt-0.5 flex-shrink-0" />
-                      {action}
-                    </li>
-                  ))}
-                </ul>
+        {/* B) KEY THEMES */}
+        {response.keyThemes && response.keyThemes.length > 0 && response.aiAnalyzedAt && (
+          <>
+            <div className="space-y-2 pt-4">
+              <p className="text-xs font-semibold text-mist uppercase tracking-wide mb-3">
+                Key Themes
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {response.keyThemes.map((theme, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full px-3 py-1 text-xs font-medium border border-[#0D9E8A]/30 text-[#0D9E8A] bg-[#0D9E8A]/5"
+                  >
+                    {theme}
+                  </span>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
+        )}
+
+        {/* C) RISK FLAGS */}
+        {response.riskFlags && response.riskFlags.length > 0 && response.aiAnalyzedAt && (
+          <>
+            <div className="space-y-3 pt-4 bg-[#FF6B47]/5 border border-[#FF6B47]/20 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} className="text-[#FF6B47]" />
+                <p className="text-xs font-semibold text-[#FF6B47] uppercase tracking-wide">
+                  Risk Flags — HR Review Recommended
+                </p>
+              </div>
+              <ul className="space-y-2">
+                {response.riskFlags.map((flag, i) => (
+                  <li key={i} className="text-sm text-navy flex items-start gap-2">
+                    <span className="text-[#FF6B47] flex-shrink-0">•</span>
+                    <span>{flag}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
+        )}
+
+        {/* D) RECOMMENDED ACTIONS */}
+        {response.recommendedActions && response.recommendedActions.length > 0 && response.aiAnalyzedAt && (
+          <>
+            <div className="space-y-2 pt-4">
+              <p className="text-xs font-semibold text-mist uppercase tracking-wide mb-3">
+                Recommended Actions
+              </p>
+              <ol className="space-y-2">
+                {response.recommendedActions.map((action, i) => (
+                  <li key={i} className="text-sm text-navy flex items-start gap-2">
+                    <span className="font-semibold text-[#0D9E8A] flex-shrink-0">
+                      {i + 1}.
+                    </span>
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
         )}
 
         {/* Show if AI analysis failed */}
         {response.aiAnalysisError && !response.aiAnalyzedAt && (
-          <div className="text-xs text-mist bg-navy/[0.02] rounded-lg p-3 border border-navy/5">
-            AI analysis could not be completed for this response.
-          </div>
+          <>
+            <div className="text-xs text-mist bg-navy/[0.02] rounded-lg p-3 border border-navy/5 italic">
+              AI analysis could not be completed for this response.
+            </div>
+            <div className="border-t border-navy/5" />
+          </>
         )}
 
         {/* Answers */}
-        {response.answers.map((answer, index) => (
-          <div key={answer.questionId} className="space-y-2">
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-medium text-mist bg-navy/5 rounded px-1.5 py-0.5 flex-shrink-0">
-                Q{index + 1}
-              </span>
-              <p className="text-sm font-medium text-navy">
-                {answer.questionText}
-              </p>
-            </div>
-            <div className="pl-7">
-              {answer.type === "rating" ? (
-                <RatingDisplay value={Number(answer.value)} />
-              ) : answer.type === "yes_no" ? (
-                <YesNoDisplay value={String(answer.value)} />
-              ) : answer.type === "multiple_choice" ? (
-                <Badge variant="navy">{String(answer.value)}</Badge>
-              ) : (
-                <p className="text-sm text-navy/80 leading-relaxed">
-                  {String(answer.value) || (
-                    <span className="text-mist italic">No answer provided</span>
-                  )}
+        <div className="pt-4">
+          {response.answers.map((answer, index) => (
+            <div key={answer.questionId} className="space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-xs font-medium text-mist bg-navy/5 rounded px-1.5 py-0.5 flex-shrink-0">
+                  Q{index + 1}
+                </span>
+                <p className="text-sm font-medium text-navy">
+                  {answer.questionText}
                 </p>
-              )}
+              </div>
+              <div className="pl-7">
+                {answer.type === "rating" ? (
+                  <RatingDisplay value={Number(answer.value)} />
+                ) : answer.type === "yes_no" ? (
+                  <YesNoDisplay value={String(answer.value)} />
+                ) : answer.type === "multiple_choice" ? (
+                  <Badge variant="navy">{String(answer.value)}</Badge>
+                ) : (
+                  <p className="text-sm text-navy/80 leading-relaxed">
+                    {String(answer.value) || (
+                      <span className="text-mist italic">No answer provided</span>
+                    )}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </Modal>
   );
@@ -936,6 +985,130 @@ export default function InterviewList() {
         </div>
       </div>
 
+      {/* Response Stats — only on Responses tab */}
+      {!loading && activeTab === "responses" && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {(() => {
+            const totalResponses = responses.length;
+            const positiveCount = responses.filter(
+              (r) => (r.sentimentLabel || r.sentiment) === "positive"
+            ).length;
+            const positivePercent =
+              totalResponses > 0
+                ? Math.round((positiveCount / totalResponses) * 100)
+                : 0;
+            const riskFlagCount = responses.filter(
+              (r) => r.riskFlags && r.riskFlags.length > 0
+            ).length;
+            const sentimentScores = responses
+              .filter((r) => r.sentimentScore !== undefined)
+              .map((r) => r.sentimentScore ?? 0);
+            const avgScore =
+              sentimentScores.length > 0
+                ? (sentimentScores.reduce((a, b) => a + b, 0) /
+                    sentimentScores.length).toFixed(2)
+                : null;
+
+            return (
+              <>
+                <Card>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm text-mist">Total Responses</p>
+                      <p className="mt-2 text-2xl font-semibold text-navy">
+                        {totalResponses}
+                      </p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal/10">
+                      <MessageSquare size={18} className="text-teal" />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm text-mist">Positive</p>
+                      <p className="mt-2 text-2xl font-semibold text-navy">
+                        {positivePercent}%
+                      </p>
+                      <p className="text-xs text-mist mt-1">
+                        ({positiveCount} responses)
+                      </p>
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal/10">
+                      <CheckCircle size={18} className="text-teal" />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm text-mist">Risk Flags</p>
+                      <p className={clsx(
+                        "mt-2 text-2xl font-semibold",
+                        riskFlagCount > 0 ? "text-ember" : "text-navy"
+                      )}>
+                        {riskFlagCount}
+                      </p>
+                    </div>
+                    <div className={clsx(
+                      "flex h-10 w-10 items-center justify-center rounded-full",
+                      riskFlagCount > 0
+                        ? "bg-ember/10"
+                        : "bg-navy/10"
+                    )}>
+                      <AlertCircle size={18} className={riskFlagCount > 0 ? "text-ember" : "text-navy"} />
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm text-mist">Avg Score</p>
+                      <p className={clsx(
+                        "mt-2 text-2xl font-semibold",
+                        avgScore === null
+                          ? "text-mist"
+                          : parseFloat(avgScore) > 0
+                            ? "text-teal"
+                            : parseFloat(avgScore) < 0
+                              ? "text-ember"
+                              : "text-mist"
+                      )}>
+                        {avgScore === null ? "—" : `${parseFloat(avgScore) > 0 ? "+" : ""}${avgScore}`}
+                      </p>
+                    </div>
+                    <div className={clsx(
+                      "flex h-10 w-10 items-center justify-center rounded-full",
+                      avgScore === null
+                        ? "bg-mist/10"
+                        : parseFloat(avgScore) > 0
+                          ? "bg-teal/10"
+                          : parseFloat(avgScore) < 0
+                            ? "bg-ember/10"
+                            : "bg-mist/10"
+                    )}>
+                      <Star size={18} className={
+                        avgScore === null
+                          ? "text-mist"
+                          : parseFloat(avgScore) > 0
+                            ? "text-teal"
+                            : parseFloat(avgScore) < 0
+                              ? "text-ember"
+                              : "text-mist"
+                      } />
+                    </div>
+                  </div>
+                </Card>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Content */}
       {loading ? (
         <Card>
@@ -1028,34 +1201,47 @@ export default function InterviewList() {
               <button
                 key={response.id}
                 onClick={() => setViewingResponse(response)}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-navy/[0.02] transition-colors w-full text-left"
+                className="flex flex-col w-full px-6 py-4 hover:bg-navy/[0.02] transition-colors text-left"
               >
-                <div className="h-10 w-10 rounded-full bg-teal/10 flex items-center justify-center text-teal font-medium text-sm flex-shrink-0">
-                  {response.employeeName.charAt(0)}
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-teal/10 flex items-center justify-center text-teal font-medium text-sm flex-shrink-0">
+                    {response.employeeName.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-navy">
+                      {response.employeeName}
+                    </p>
+                    <p className="text-xs text-mist mt-0.5">
+                      {response.employeeRole} · {response.employeeDepartment}
+                    </p>
+                  </div>
+                  <div className="hidden sm:block text-right">
+                    <p className="text-xs text-mist">
+                      {response.submittedAt?.toDate
+                        ? format(response.submittedAt.toDate(), "MMM d, yyyy")
+                        : ""}
+                    </p>
+                  </div>
+                  {sentimentBadge(response.sentimentLabel || response.sentiment)}
+                  {response.riskFlags && response.riskFlags.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-ember/10 text-ember border border-ember/20 text-xs font-medium flex items-center gap-1 flex-shrink-0">
+                      <AlertTriangle size={10} />
+                      Risk flags
+                    </span>
+                  )}
+                  <Eye size={16} className="text-mist flex-shrink-0" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy">
-                    {response.employeeName}
+
+                {/* AI Summary preview or pending status */}
+                {response.aiSummary && response.aiAnalyzedAt ? (
+                  <p className="text-xs text-mist mt-2 line-clamp-1">
+                    {response.aiSummary}
                   </p>
-                  <p className="text-xs text-mist mt-0.5">
-                    {response.employeeRole} · {response.employeeDepartment}
+                ) : !response.aiAnalyzedAt && !response.aiAnalysisError ? (
+                  <p className="text-xs text-mist mt-2 italic">
+                    AI analysis pending
                   </p>
-                </div>
-                <div className="hidden sm:block text-right">
-                  <p className="text-xs text-mist">
-                    {response.submittedAt?.toDate
-                      ? format(response.submittedAt.toDate(), "MMM d, yyyy")
-                      : ""}
-                  </p>
-                </div>
-                {sentimentBadge(response.sentimentLabel || response.sentiment)}
-                {response.keyThemes && response.keyThemes.length > 0 && (
-                  <span className="text-xs text-teal flex items-center gap-1">
-                    <Lightbulb size={10} />
-                    AI
-                  </span>
-                )}
-                <Eye size={16} className="text-mist flex-shrink-0" />
+                ) : null}
               </button>
             ))}
           </div>
