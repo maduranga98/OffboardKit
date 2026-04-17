@@ -30,6 +30,7 @@ import { storage } from "../../lib/firebase";
 import type { OffboardFlow, FlowTask } from "../../types/offboarding.types";
 import ExitInterviewPortal from "./ExitInterviewPortal";
 import KnowledgePortal from "./KnowledgePortal";
+import SignatureCanvas from "../../components/ui/SignatureCanvas";
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
   if (!ts) return null;
@@ -204,6 +205,7 @@ function TasksList({
     {}
   );
   const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
+  const [signingTaskId, setSigningTaskId] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
@@ -286,6 +288,63 @@ function TasksList({
         prevTasks.filter((t) => t.status === "completed").length,
         prevTasks.length
       );
+    }
+  }
+
+  async function handleSignatureSave(
+    task: FlowTask,
+    signatureDataUrl: string
+  ) {
+    try {
+      const fileName = `${task.id}-signature-${Date.now()}.png`;
+      const filePath = `companies/${flow.companyId}/offboardings/${flow.id}/tasks/${task.id}/${fileName}`;
+      const storageRef = ref(storage, filePath);
+
+      const response = await fetch(signatureDataUrl);
+      const blob = await response.blob();
+      const uploadTask = uploadBytesResumable(storageRef, blob);
+
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          () => {},
+          reject,
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(
+                uploadTask.snapshot.ref
+              );
+              await updateDocument("flowTasks", task.id, {
+                status: "completed",
+                completedAt: serverTimestamp(),
+                completedBy: "employee",
+                uploadedFileUrl: downloadURL,
+              });
+              const updatedTasks = tasks.map((t) =>
+                t.id === task.id
+                  ? {
+                      ...t,
+                      status: "completed" as const,
+                      uploadedFileUrl: downloadURL,
+                    }
+                  : t
+              );
+              setTasks(updatedTasks);
+              setSigningTaskId(null);
+              onProgressChange(
+                updatedTasks.filter((t) => t.status === "completed").length,
+                updatedTasks.length
+              );
+              await syncFlowProgress(updatedTasks);
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
+    } catch {
+      // Signature save failed
     }
   }
 
@@ -381,6 +440,13 @@ function TasksList({
         const isUploadTask = task.type === "upload";
         const isClickable = !isUploadTask;
 
+        const dependsOnTask = task.dependsOnTaskId
+          ? tasks.find((t) => t.id === task.dependsOnTaskId)
+          : null;
+        const dependencyMet =
+          !dependsOnTask || dependsOnTask.status === "completed";
+        const isLocked = !dependencyMet;
+
         return (
           <div
             key={task.id}
@@ -390,14 +456,16 @@ function TasksList({
               {/* Checkbox — clickable for non-upload tasks */}
               {isClickable ? (
                 <button
-                  onClick={() => handleToggleTask(task)}
+                  onClick={() => !isLocked && handleToggleTask(task)}
                   aria-label={
                     task.status === "completed"
                       ? "Mark as pending"
                       : "Mark as completed"
                   }
+                  disabled={isLocked}
                   className={clsx(
                     "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                    isLocked && "opacity-50 cursor-not-allowed",
                     task.status === "completed"
                       ? "bg-teal border-teal text-white"
                       : "border-navy/20 hover:border-teal"
@@ -460,9 +528,9 @@ function TasksList({
                 {task.description && (
                   <p className="text-xs text-mist mt-0.5">{task.description}</p>
                 )}
-                {task.type === "signature" && task.status !== "completed" && (
-                  <p className="text-xs text-mist/60 mt-1 italic">
-                    Signature tasks will be enhanced in a future update
+                {isLocked && dependsOnTask && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Unlocks after: {dependsOnTask.title}
                   </p>
                 )}
               </div>
@@ -495,6 +563,37 @@ function TasksList({
                 </Badge>
               </div>
             </div>
+
+            {/* Signature area for signature tasks */}
+            {task.type === "signature" && (
+              <div className="px-4 pb-3">
+                {task.status === "completed" && task.uploadedFileUrl ? (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={16} className="text-teal flex-shrink-0" />
+                    <span className="text-xs text-navy">Signature captured</span>
+                    <button
+                      onClick={() => setSigningTaskId(task.id)}
+                      className="text-xs text-teal underline flex-shrink-0"
+                    >
+                      Re-sign
+                    </button>
+                  </div>
+                ) : signingTaskId === task.id ? (
+                  <SignatureCanvas
+                    onSignatureSave={(sig) => handleSignatureSave(task, sig)}
+                    onCancel={() => setSigningTaskId(null)}
+                  />
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => setSigningTaskId(task.id)}
+                    className="w-full"
+                  >
+                    Draw Signature
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* File upload area for upload tasks */}
             {isUploadTask && (

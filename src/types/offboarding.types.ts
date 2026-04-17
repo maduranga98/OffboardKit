@@ -13,6 +13,7 @@ export interface TemplateTask {
   dayOffset: number;
   isRequired: boolean;
   order: number;
+  dependsOnTaskId?: string;
 }
 
 export interface OffboardTemplate {
@@ -84,4 +85,5 @@ export interface FlowTask {
   uploadedFileUrl: string;
   notes: string;
   isRequired: boolean;
+  dependsOnTaskId?: string;
 }
