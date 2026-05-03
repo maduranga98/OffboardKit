@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useRouteError } from "react-router-dom";
 import AppLayout from "./components/layout/AppLayout";
 import AlumniLayout from "./components/layout/AlumniLayout";
 import Login from "./pages/auth/Login";
@@ -23,6 +23,34 @@ import BillingSettings from "./pages/settings/BillingSettings";
 import IntegrationSettings from "./pages/settings/IntegrationSettings";
 import PortalEntry from "./pages/portal/PortalEntry";
 
+function NotFound() {
+  const error = useRouteError() as { status?: number } | undefined;
+  const is404 = !error || error.status === 404;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-warm/30 p-4">
+      <div className="text-center">
+        <p className="text-6xl font-display text-teal mb-4">
+          {is404 ? "404" : "Error"}
+        </p>
+        <h1 className="text-xl font-semibold text-navy mb-2">
+          {is404 ? "Page not found" : "Something went wrong"}
+        </h1>
+        <p className="text-sm text-mist mb-6">
+          {is404
+            ? "The page you're looking for doesn't exist."
+            : "An unexpected error occurred."}
+        </p>
+        <a
+          href="/dashboard"
+          className="text-sm bg-teal text-white px-4 py-2 rounded-lg hover:bg-teal/90 transition-colors"
+        >
+          Go to Dashboard
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export const router = createBrowserRouter([
   // Public routes
   { path: "/login", element: <Login /> },
@@ -46,6 +74,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <AppLayout />,
+    errorElement: <NotFound />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: "dashboard", element: <Dashboard /> },
@@ -65,4 +94,5 @@ export const router = createBrowserRouter([
       { path: "settings/integrations", element: <IntegrationSettings /> },
     ],
   },
+  { path: "*", element: <NotFound /> },
 ]);

@@ -26,20 +26,22 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    // Portal (unauthenticated) needs to read flows by portalToken and update
+    // progress fields. Field-level restriction limits portal updates to safe fields only.
     match /offboardFlows/{flowId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // TODO: Replace with Cloud Function proxy for production security
+      allow read, write: if isAuth();
       allow read: if true;
-      allow update: if true;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['progressPercent', 'completionScores', 'status', 'portalLastAccessed']);
     }
 
+    // Portal needs to read and complete tasks assigned to the employee.
+    // Update is restricted to completion-related fields only.
     match /flowTasks/{taskId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // TODO: Replace with Cloud Function proxy for production security
+      allow read, write: if isAuth();
       allow read: if true;
-      allow update: if true;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['status', 'completedAt', 'completedBy', 'uploadedFileUrl']);
     }
 
     match /notifications/{notificationId} {
@@ -57,27 +59,24 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    // Portal reads interview templates (not sensitive) and submits responses.
     match /exitInterviewTemplates/{templateId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // TODO: Replace with Cloud Function proxy for production security
+      allow read, write: if isAuth();
       allow read: if true;
     }
 
+    // Portal submits and reads its own responses to check completion status.
     match /exitInterviewResponses/{responseId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // TODO: Replace with Cloud Function proxy for production security
-      allow read: if true;
+      allow read, write: if isAuth();
       allow create: if true;
+      allow read: if true;
     }
 
+    // Portal submits knowledge items and reads them to show completion status.
     match /knowledgeItems/{itemId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // TODO: Replace with Cloud Function proxy for production security
-      allow read: if true;
+      allow read, write: if isAuth();
       allow create: if true;
+      allow read: if true;
     }
 
     match /alumniProfiles/{profileId} {

@@ -7,7 +7,7 @@ const transporter = nodemailer.createTransport({
   port: 587,
   secure: false, // STARTTLS
   auth: {
-    user: "a67446001@smtp-brevo.com",
+    user: process.env.BREVO_SMTP_USER || "a67446001@smtp-brevo.com",
     pass: process.env.BREVO_SMTP_KEY || "",
   },
 });
