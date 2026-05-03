@@ -20,6 +20,14 @@ export const generateAnalyticsPdf = functions.https.onCall(
 
     const { companyId, dateRange, customStartDate, customEndDate } = data;
 
+    // Verify caller belongs to the requested company
+    const db = getFirestore();
+    const callerDoc = await db.collection("users").doc(context.auth.uid).get();
+    const caller = callerDoc.data();
+    if (!caller || caller.companyId !== companyId) {
+      throw new functions.https.HttpsError("permission-denied", "Not authorized");
+    }
+
     try {
       const html = await generateAnalyticsHtml({
         companyId,
@@ -28,7 +36,10 @@ export const generateAnalyticsPdf = functions.https.onCall(
         customEndDate,
       });
 
-      const browser = await puppeteer.launch({ headless: true });
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      });
       const page = await browser.newPage();
 
       await page.setContent(html, { waitUntil: "networkidle0" });

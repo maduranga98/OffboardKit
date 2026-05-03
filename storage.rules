@@ -1,11 +1,16 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // TODO: Replace with Cloud Function proxy for production security
-    // Portal task file uploads — public write allowed for offboarding task files
+    // Portal task file uploads — unauthenticated employees upload via the exit portal.
+    // Size limited to 25 MB; only common document and image types accepted.
     match /companies/{companyId}/offboardings/{flowId}/tasks/{taskId}/{fileName} {
       allow read: if true;
-      allow write: if request.resource.size < 25 * 1024 * 1024; // 25 MB max
+      allow write: if request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches(
+          'image/.*|application/pdf|application/msword|'
+          + 'application/vnd\\.openxmlformats-officedocument\\..*|'
+          + 'text/plain|image/png|image/jpeg|image/gif|image/webp'
+        );
     }
 
     // All other paths require authentication
