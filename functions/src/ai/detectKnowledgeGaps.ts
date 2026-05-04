@@ -38,6 +38,24 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
     throw new functions.https.HttpsError("permission-denied", "Not authorized");
   }
 
+  // Verify the company has AI gap detection enabled (growth plan or higher)
+  const companyDoc = await db.collection("companies").doc(flow.companyId as string).get();
+  const company = companyDoc.data();
+  const planOrder = ["free", "starter", "growth", "business", "enterprise"];
+  const companyPlan = (company?.plan as string) || "free";
+  if (planOrder.indexOf(companyPlan) < planOrder.indexOf("growth")) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "AI gap detection requires a Growth plan or higher"
+    );
+  }
+  if (company?.features?.aiGapDetection === false) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "AI gap detection is not enabled for this company"
+    );
+  }
+
   const knowledgeItems = await db
     .collection("knowledgeItems")
     .where("flowId", "==", flowId)
@@ -136,9 +154,6 @@ Rules:
         overallAssessment: typeof result.overallAssessment === "string" ? result.overallAssessment : "",
         analyzedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
-    });
-
-    await db.collection("offboardFlows").doc(flowId).update({
       "completionScores.knowledge": completenessScore,
     });
 

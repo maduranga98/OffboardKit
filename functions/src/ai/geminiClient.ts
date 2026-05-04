@@ -13,10 +13,13 @@ function getClient(): GoogleGenerativeAI {
   return genAI;
 }
 
+const JSON_MODEL = "gemini-2.0-flash";
+const TEXT_MODEL = "gemini-2.0-flash";
+
 export async function generateJSON<T>(prompt: string): Promise<T> {
   const client = getClient();
   const model = client.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: JSON_MODEL,
     generationConfig: {
       responseMimeType: "application/json",
       temperature: 0.3,
@@ -29,7 +32,7 @@ export async function generateJSON<T>(prompt: string): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    console.error("Failed to parse Gemini JSON response:", text);
+    console.error("Failed to parse Gemini JSON response (first 500 chars):", text.slice(0, 500));
     throw new Error("Invalid JSON response from Gemini");
   }
 }
@@ -37,7 +40,7 @@ export async function generateJSON<T>(prompt: string): Promise<T> {
 export async function generateText(prompt: string): Promise<string> {
   const client = getClient();
   const model = client.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: TEXT_MODEL,
     generationConfig: {
       temperature: 0.4,
     },

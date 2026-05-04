@@ -26,6 +26,7 @@ import { Progress } from "../ui/Progress";
 import { EmptyState } from "../shared/EmptyState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
+import { usePlanGate } from "../../hooks/usePlanGate";
 import {
   queryDocuments,
   setDocument,
@@ -99,6 +100,8 @@ export default function KnowledgeTracker({
   onScoreUpdate,
 }: KnowledgeTrackerProps) {
   const { appUser } = useAuth();
+  const { canUseAiGapDetection } = usePlanGate();
+  const aiEnabled = canUseAiGapDetection();
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -613,17 +616,25 @@ export default function KnowledgeTracker({
           <div>
             <h3 className="text-sm font-semibold text-navy">AI Knowledge Gap Analysis</h3>
             <p className="text-xs text-mist mt-0.5">
-              Analyze what knowledge may be missing from the handover
+              {aiEnabled
+                ? "Analyze what knowledge may be missing from the handover"
+                : "Upgrade to Growth or higher to enable AI gap detection"}
             </p>
           </div>
-          <Button
-            size="sm"
-            onClick={handleAnalyzeGaps}
-            loading={analyzing}
-            disabled={analyzing}
-          >
-            {analyzing ? "Analyzing..." : gapAnalysis ? "Re-analyze" : "Analyze Gaps"}
-          </Button>
+          {aiEnabled ? (
+            <Button
+              size="sm"
+              onClick={handleAnalyzeGaps}
+              loading={analyzing}
+              disabled={analyzing}
+            >
+              {analyzing ? "Analyzing..." : gapAnalysis ? "Re-analyze" : "Analyze Gaps"}
+            </Button>
+          ) : (
+            <span className="text-xs text-mist border border-navy/10 rounded-lg px-3 py-1.5">
+              Growth plan required
+            </span>
+          )}
         </div>
 
         {gapAnalysis && (
