@@ -34,6 +34,7 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
+import { usePlanGate } from "../../hooks/usePlanGate";
 import {
   subscribeToCollection,
   queryDocuments,
@@ -228,6 +229,7 @@ interface GapRowProps {
   onAssign: (item: KnowledgeItem) => void;
   onReanalyze: (item: KnowledgeItem) => void;
   reanalyzingIds: Set<string>;
+  aiEnabled: boolean;
 }
 
 function GapRow({
@@ -239,6 +241,7 @@ function GapRow({
   onAssign,
   onReanalyze,
   reanalyzingIds,
+  aiEnabled,
 }: GapRowProps) {
   const severity = item.gapSeverity ?? "low";
   const isResolved = item.gapStatus === "resolved";
@@ -396,7 +399,7 @@ function GapRow({
                 View offboarding →
               </Link>
             )}
-            {!isResolved && item.flowId && (
+            {!isResolved && item.flowId && aiEnabled && (
               <Button
                 size="sm"
                 variant="ghost"
@@ -419,6 +422,8 @@ function GapRow({
 
 export default function KnowledgeGaps() {
   const { companyId, appUser } = useAuth();
+  const { canUseAiGapDetection } = usePlanGate();
+  const aiEnabled = canUseAiGapDetection();
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [users, setUsers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -835,6 +840,7 @@ export default function KnowledgeGaps() {
                   onAssign={setAssigningItem}
                   onReanalyze={handleReanalyze}
                   reanalyzingIds={reanalyzingIds}
+                  aiEnabled={aiEnabled}
                 />
               ))}
             </div>
