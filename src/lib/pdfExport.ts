@@ -6,21 +6,18 @@ interface AnalyticsPdfParams {
   dateRange: string;
   customStartDate?: string;
   customEndDate?: string;
+  departments?: string[];
+  roles?: string[];
 }
 
 export async function generateAnalyticsPdf(
   params: AnalyticsPdfParams
 ): Promise<void> {
   try {
-    const generatePdf = httpsCallable(
-      functions,
-      "generateAnalyticsPdf"
-    );
-
+    const generatePdf = httpsCallable(functions, "generateAnalyticsPdf");
     const result = await generatePdf(params);
     const data = result.data as { pdf: string };
 
-    // Convert base64 to blob
     const binaryString = atob(data.pdf);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -28,7 +25,6 @@ export async function generateAnalyticsPdf(
     }
     const blob = new Blob([bytes], { type: "application/pdf" });
 
-    // Create download link
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
