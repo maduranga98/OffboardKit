@@ -625,9 +625,7 @@ export default function KnowledgeGaps() {
     try {
       const detectGaps = httpsCallable(functions, "detectKnowledgeGaps");
       await detectGaps({ flowId: item.flowId });
-      showToast("success", "Re-analysis complete — refreshing data");
-      setLoading(true);
-      await loadData();
+      showToast("success", "Re-analysis complete — gaps updated");
     } catch {
       showToast("error", "Re-analysis failed. Please try again.");
     } finally {
