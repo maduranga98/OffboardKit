@@ -26,6 +26,7 @@ import {
   Filter,
   X,
   Download,
+  BookOpen,
 } from "lucide-react";
 
 import type { OffboardFlow } from "../../types/offboarding.types";
@@ -39,12 +40,26 @@ import { useAuth } from "../../hooks/useAuth";
 import { queryDocuments } from "../../lib/firestore";
 import { generateAnalyticsPdf } from "../../lib/pdfExport";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 type DateRange = "30d" | "90d" | "6m" | "1y" | "all" | "custom";
 
 interface DateRangeOption {
   value: DateRange;
   label: string;
 }
+
+interface KnowledgeItemBrief {
+  id: string;
+  companyId: string;
+  status: "draft" | "submitted" | "reviewed";
+  hasGap: boolean;
+  managerVerified: boolean;
+  managerVerificationStatus?: "pending" | "approved" | "rejected";
+  gapStatus?: "open" | "resolved";
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const DATE_RANGE_OPTIONS: DateRangeOption[] = [
   { value: "30d", label: "30 days" },
@@ -63,6 +78,8 @@ const PIE_COLORS = [
   "#6B7280",
   "#D1D5DB",
 ];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function filterByDateRange<T extends { createdAt: { toDate?: () => Date } }>(
   items: T[],
@@ -90,6 +107,31 @@ function filterByDateRange<T extends { createdAt: { toDate?: () => Date } }>(
   });
 }
 
+function getPrevPeriodFlows(flows: OffboardFlow[], range: DateRange): OffboardFlow[] {
+  const msMap: Partial<Record<DateRange, number>> = {
+    "30d": 30 * 86_400_000,
+    "90d": 90 * 86_400_000,
+    "6m": 183 * 86_400_000,
+    "1y": 365 * 86_400_000,
+  };
+  const ms = msMap[range];
+  if (!ms) return [];
+  const now = new Date();
+  const currentStart = new Date(now.getTime() - ms);
+  const prevEnd = currentStart;
+  const prevStart = new Date(prevEnd.getTime() - ms);
+  return flows.filter((f) => {
+    const d = f.createdAt?.toDate?.();
+    return d && d >= prevStart && d < prevEnd;
+  });
+}
+
+function pctDelta(curr: number, prev: number): string | null {
+  if (prev === 0) return null;
+  const d = Math.round(((curr - prev) / prev) * 100);
+  return `${d >= 0 ? "+" : ""}${d}% vs prev period`;
+}
+
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
@@ -101,18 +143,103 @@ function scoreColor(value: number): string {
   return "text-ember";
 }
 
+function exportFlowsToCsv(flows: OffboardFlow[]) {
+  const headers = [
+    "Employee", "Role", "Department", "Status", "Progress %",
+    "Start Date", "Last Working Day", "Completed On",
+    "Tasks Score", "Knowledge Score", "Access Score", "Interview Score", "Assets Score",
+  ];
+  const rows = flows.map((f) => [
+    f.employeeName,
+    f.employeeRole,
+    f.employeeDepartment,
+    f.status,
+    f.progressPercent ?? 0,
+    f.startDate?.toDate ? format(f.startDate.toDate(), "yyyy-MM-dd") : "",
+    f.lastWorkingDay?.toDate ? format(f.lastWorkingDay.toDate(), "yyyy-MM-dd") : "",
+    f.completedAt?.toDate ? format(f.completedAt.toDate(), "yyyy-MM-dd") : "",
+    f.completionScores?.tasks ?? 0,
+    f.completionScores?.knowledge ?? 0,
+    f.completionScores?.accessRevocation ?? 0,
+    f.completionScores?.exitInterview ?? 0,
+    f.completionScores?.assets ?? 0,
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `analytics-${format(new Date(), "yyyy-MM-dd")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ─── KpiCard ──────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  label,
+  value,
+  icon,
+  iconColor,
+  truncate,
+  delta,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  iconColor: "teal" | "ember" | "navy";
+  truncate?: boolean;
+  delta?: string | null;
+}) {
+  const iconBg = {
+    teal: "bg-teal/10 text-teal",
+    ember: "bg-ember/10 text-ember",
+    navy: "bg-navy/10 text-navy",
+  };
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <p className="text-sm text-mist">{label}</p>
+          <p
+            className={clsx("mt-1 text-3xl font-semibold text-navy", truncate && "truncate")}
+            title={truncate ? value : undefined}
+          >
+            {value}
+          </p>
+          {delta && <p className="text-xs text-mist mt-1">{delta}</p>}
+        </div>
+        <div
+          className={clsx(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+            iconBg[iconColor]
+          )}
+        >
+          {icon}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function Analytics() {
   const { companyId } = useAuth();
   const [flows, setFlows] = useState<OffboardFlow[]>([]);
-  const [interviewResponses, setInterviewResponses] = useState<
-    ExitInterviewResponse[]
-  >([]);
+  const [interviewResponses, setInterviewResponses] = useState<ExitInterviewResponse[]>([]);
+  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItemBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [selectedExitTypes, setSelectedExitTypes] = useState<string[]>([]);
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -125,7 +252,7 @@ export default function Analytics() {
       setLoading(true);
       setError(null);
       try {
-        const [flowsData, responsesData] = await Promise.all([
+        const [flowsData, responsesData, knowledgeData] = await Promise.all([
           queryDocuments<OffboardFlow>("offboardFlows", [
             where("companyId", "==", companyId),
             orderBy("createdAt", "desc"),
@@ -134,10 +261,14 @@ export default function Analytics() {
             where("companyId", "==", companyId),
             orderBy("createdAt", "desc"),
           ]),
+          queryDocuments<KnowledgeItemBrief>("knowledgeItems", [
+            where("companyId", "==", companyId),
+          ]),
         ]);
         setFlows(flowsData ?? []);
         setInterviewResponses(responsesData ?? []);
-      } catch (err) {
+        setKnowledgeItems(knowledgeData ?? []);
+      } catch {
         setError("Failed to load analytics data.");
       } finally {
         setLoading(false);
@@ -147,41 +278,46 @@ export default function Analytics() {
     fetchData();
   }, [companyId]);
 
+  // Flows with only department/role filters applied (used for monthly trend chart)
+  const deptRoleFilteredFlows = useMemo(() => {
+    let result = flows;
+    if (selectedDepartments.length > 0)
+      result = result.filter((f) => selectedDepartments.includes(f.employeeDepartment));
+    if (selectedRoles.length > 0)
+      result = result.filter((f) => selectedRoles.includes(f.employeeRole));
+    return result;
+  }, [flows, selectedDepartments, selectedRoles]);
+
+  // Flows with all filters applied
   const filteredFlows = useMemo(() => {
-    let result = filterByDateRange(
-      flows,
+    const byDate = filterByDateRange(
+      deptRoleFilteredFlows,
       dateRange,
       customStartDate ? new Date(customStartDate) : undefined,
       customEndDate ? new Date(customEndDate) : undefined
     );
-
-    if (selectedDepartments.length > 0) {
-      result = result.filter((f) => selectedDepartments.includes(f.employeeDepartment));
-    }
-    if (selectedRoles.length > 0) {
-      result = result.filter((f) => selectedRoles.includes(f.employeeRole));
-    }
-    if (selectedExitTypes.length > 0) {
-      result = result.filter((f) => {
-        const flowExitType = f.employeeDepartment;
-        return selectedExitTypes.some((et) => flowExitType?.includes(et));
-      });
-    }
-
-    return result;
-  }, [flows, dateRange, customStartDate, customEndDate, selectedDepartments, selectedRoles, selectedExitTypes]);
+    return byDate;
+  }, [deptRoleFilteredFlows, dateRange, customStartDate, customEndDate]);
 
   const filteredResponses = useMemo(
-    () => filterByDateRange(
-      interviewResponses,
-      dateRange,
-      customStartDate ? new Date(customStartDate) : undefined,
-      customEndDate ? new Date(customEndDate) : undefined
-    ),
+    () =>
+      filterByDateRange(
+        interviewResponses,
+        dateRange,
+        customStartDate ? new Date(customStartDate) : undefined,
+        customEndDate ? new Date(customEndDate) : undefined
+      ),
     [interviewResponses, dateRange, customStartDate, customEndDate]
   );
 
-  // KPI metrics
+  // Previous period flows (for delta calculation)
+  const prevPeriodFlows = useMemo(
+    () => getPrevPeriodFlows(flows, dateRange),
+    [flows, dateRange]
+  );
+
+  // ── KPI metrics ─────────────────────────────────────────────────────────────
+
   const totalExits = filteredFlows.length;
 
   const completedFlows = useMemo(
@@ -200,16 +336,21 @@ export default function Analytics() {
     [completedFlows]
   );
 
-  // Top exit reason from interview multiple_choice answers
+  const avgDaysToComplete = useMemo(() => {
+    const withDates = completedFlows.filter((f) => f.completedAt && f.startDate);
+    if (withDates.length === 0) return 0;
+    return Math.round(
+      withDates.reduce((sum, f) => {
+        return sum + Math.abs(differenceInDays(f.completedAt!.toDate(), f.startDate.toDate()));
+      }, 0) / withDates.length
+    );
+  }, [completedFlows]);
+
   const exitReasonCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     filteredResponses.forEach((r) => {
       r.answers?.forEach((a) => {
-        if (
-          a.type === "multiple_choice" &&
-          typeof a.value === "string" &&
-          a.value
-        ) {
+        if (a.type === "multiple_choice" && typeof a.value === "string" && a.value) {
           counts[a.value] = (counts[a.value] || 0) + 1;
         }
       });
@@ -218,42 +359,53 @@ export default function Analytics() {
   }, [filteredResponses]);
 
   const topExitReason = useMemo(() => {
-    const sorted = Object.entries(exitReasonCounts).sort(
-      (a, b) => b[1] - a[1]
-    );
+    const sorted = Object.entries(exitReasonCounts).sort((a, b) => b[1] - a[1]);
     return sorted[0]?.[0] ?? "N/A";
   }, [exitReasonCounts]);
 
-  // Avg days to complete
-  const avgDaysToComplete = useMemo(() => {
-    const completedWithDates = completedFlows.filter(
-      (f) => f.completedAt && f.startDate
-    );
-    if (completedWithDates.length === 0) return 0;
-    return Math.round(
-      completedWithDates.reduce((sum, f) => {
-        const start = f.startDate.toDate();
-        const end = f.completedAt!.toDate();
-        return sum + Math.abs(differenceInDays(end, start));
-      }, 0) / completedWithDates.length
-    );
-  }, [completedFlows]);
+  // ── Period-over-period deltas ────────────────────────────────────────────────
 
-  // Monthly exits (always last 6 months, unfiltered)
+  const prevCompletedFlows = prevPeriodFlows.filter((f) => f.status === "completed");
+
+  const prevAvgCompletion =
+    prevCompletedFlows.length > 0
+      ? Math.round(
+          prevCompletedFlows.reduce((s, f) => s + (f.progressPercent ?? 0), 0) /
+            prevCompletedFlows.length
+        )
+      : 0;
+
+  const prevAvgDays = useMemo(() => {
+    const withDates = prevCompletedFlows.filter((f) => f.completedAt && f.startDate);
+    if (withDates.length === 0) return 0;
+    return Math.round(
+      withDates.reduce(
+        (s, f) =>
+          s + Math.abs(differenceInDays(f.completedAt!.toDate(), f.startDate.toDate())),
+        0
+      ) / withDates.length
+    );
+  }, [prevCompletedFlows]);
+
+  const exitsDelta = pctDelta(totalExits, prevPeriodFlows.length);
+  const completionDelta = pctDelta(avgCompletionRate, prevAvgCompletion);
+  const daysDelta = pctDelta(avgDaysToComplete, prevAvgDays);
+
+  // ── Chart data ───────────────────────────────────────────────────────────────
+
+  // Monthly exits: always last 6 months, respects dept/role filters but not date range
   const monthlyData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
       const d = subMonths(new Date(), 5 - i);
-      const label = format(d, "MMM");
       const monthKey = format(d, "MMM yyyy");
-      const count = flows.filter((f) => {
+      const count = deptRoleFilteredFlows.filter((f) => {
         const fd = f.createdAt?.toDate?.();
         return fd && format(fd, "MMM yyyy") === monthKey;
       }).length;
-      return { month: label, exits: count };
+      return { month: format(d, "MMM"), exits: count };
     });
-  }, [flows]);
+  }, [deptRoleFilteredFlows]);
 
-  // Exit reasons pie chart data
   const exitReasonData = useMemo(
     () =>
       Object.entries(exitReasonCounts)
@@ -263,10 +415,10 @@ export default function Analytics() {
     [exitReasonCounts]
   );
 
-  // Department breakdown — ALL flows, not just filtered
+  // Department breakdown: uses filteredFlows so date + dept + role filters apply
   const departmentData = useMemo(() => {
     const counts: Record<string, number> = {};
-    flows.forEach((f) => {
+    filteredFlows.forEach((f) => {
       const dept = f.employeeDepartment || "Unknown";
       counts[dept] = (counts[dept] || 0) + 1;
     });
@@ -274,39 +426,37 @@ export default function Analytics() {
       .map(([dept, count]) => ({ dept, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
-  }, [flows]);
+  }, [filteredFlows]);
 
   // Avg completion scores
   const avgScores = useMemo(() => {
-    if (filteredFlows.length === 0) {
-      return { tasks: 0, accessRevocation: 0, exitInterview: 0, assets: 0 };
-    }
+    if (filteredFlows.length === 0)
+      return { tasks: 0, accessRevocation: 0, exitInterview: 0, assets: 0, knowledge: 0 };
     return {
       tasks: avg(filteredFlows.map((f) => f.completionScores?.tasks ?? 0)),
-      accessRevocation: avg(
-        filteredFlows.map((f) => f.completionScores?.accessRevocation ?? 0)
-      ),
-      exitInterview: avg(
-        filteredFlows.map((f) => f.completionScores?.exitInterview ?? 0)
-      ),
+      knowledge: avg(filteredFlows.map((f) => f.completionScores?.knowledge ?? 0)),
+      accessRevocation: avg(filteredFlows.map((f) => f.completionScores?.accessRevocation ?? 0)),
+      exitInterview: avg(filteredFlows.map((f) => f.completionScores?.exitInterview ?? 0)),
       assets: avg(filteredFlows.map((f) => f.completionScores?.assets ?? 0)),
     };
   }, [filteredFlows]);
 
-  // Sentiment breakdown — prefer AI sentimentLabel when available
+  // Sentiment breakdown
   const sentimentCounts = useMemo(
     () => ({
-      positive: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "positive")
-        .length,
-      neutral: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "neutral")
-        .length,
-      negative: filteredResponses.filter((r) => (r.sentimentLabel || r.sentiment) === "negative")
-        .length,
+      positive: filteredResponses.filter(
+        (r) => (r.sentimentLabel || r.sentiment) === "positive"
+      ).length,
+      neutral: filteredResponses.filter(
+        (r) => (r.sentimentLabel || r.sentiment) === "neutral"
+      ).length,
+      negative: filteredResponses.filter(
+        (r) => (r.sentimentLabel || r.sentiment) === "negative"
+      ).length,
     }),
     [filteredResponses]
   );
 
-  // Aggregate AI themes across all responses
   const aggregatedThemes = useMemo(() => {
     const themeCounts: Record<string, number> = {};
     filteredResponses.forEach((r) => {
@@ -326,19 +476,86 @@ export default function Analytics() {
   const totalSentimentResponses =
     sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
 
-  // Recent completed flows
+  // Knowledge metrics (company-wide, no date filter)
+  const knowledgeStats = useMemo(() => {
+    const total = knowledgeItems.length;
+    if (total === 0)
+      return { total: 0, reviewedPct: 0, gapPct: 0, openGaps: 0, verificationPending: 0 };
+    const reviewed = knowledgeItems.filter((i) => i.status === "reviewed").length;
+    const withGaps = knowledgeItems.filter((i) => i.hasGap).length;
+    const openGaps = knowledgeItems.filter(
+      (i) => i.hasGap && i.gapStatus !== "resolved"
+    ).length;
+    const verificationPending = knowledgeItems.filter(
+      (i) =>
+        i.managerVerificationStatus === "pending" ||
+        (!i.managerVerified && i.status === "reviewed")
+    ).length;
+    return {
+      total,
+      reviewedPct: Math.round((reviewed / total) * 100),
+      gapPct: Math.round((withGaps / total) * 100),
+      openGaps,
+      verificationPending,
+    };
+  }, [knowledgeItems]);
+
+  // Department completion breakdown
+  const deptCompletionData = useMemo(() => {
+    const groups: Record<string, OffboardFlow[]> = {};
+    filteredFlows.forEach((f) => {
+      const dept = f.employeeDepartment || "Unknown";
+      if (!groups[dept]) groups[dept] = [];
+      groups[dept].push(f);
+    });
+    return Object.entries(groups)
+      .map(([dept, dFlows]) => ({
+        dept,
+        count: dFlows.length,
+        avgCompletion: avg(dFlows.map((f) => f.progressPercent ?? 0)),
+        avgTasks: avg(dFlows.map((f) => f.completionScores?.tasks ?? 0)),
+        avgKnowledge: avg(dFlows.map((f) => f.completionScores?.knowledge ?? 0)),
+        avgInterview: avg(dFlows.map((f) => f.completionScores?.exitInterview ?? 0)),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [filteredFlows]);
+
+  // Recently completed
   const recentCompleted = useMemo(
     () =>
       [...completedFlows]
         .filter((f) => f.completedAt)
-        .sort((a, b) => {
-          const aDate = a.completedAt!.toDate().getTime();
-          const bDate = b.completedAt!.toDate().getTime();
-          return bDate - aDate;
-        })
+        .sort((a, b) => b.completedAt!.toDate().getTime() - a.completedAt!.toDate().getTime())
         .slice(0, 5),
     [completedFlows]
   );
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
+
+  async function handleExportPdf() {
+    if (!companyId) return;
+    setExportingPdf(true);
+    try {
+      await generateAnalyticsPdf({
+        companyId,
+        dateRange,
+        customStartDate,
+        customEndDate,
+        departments: selectedDepartments.length > 0 ? selectedDepartments : undefined,
+        roles: selectedRoles.length > 0 ? selectedRoles : undefined,
+      });
+    } catch {
+      alert("Failed to export PDF. Please try again.");
+    } finally {
+      setExportingPdf(false);
+    }
+  }
+
+  const activeFilterCount =
+    selectedDepartments.length + selectedRoles.length + (dateRange === "custom" ? 1 : 0);
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -351,22 +568,17 @@ export default function Analytics() {
   if (error) {
     return (
       <Card>
-        <EmptyState
-          title="Something went wrong"
-          description={error}
-        />
+        <EmptyState title="Something went wrong" description={error} />
       </Card>
     );
   }
 
-  if (!loading && flows.length === 0) {
+  if (flows.length === 0) {
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-display text-navy">Analytics</h1>
-          <p className="text-sm text-mist mt-1">
-            Offboarding insights and trends
-          </p>
+          <p className="text-sm text-mist mt-1">Offboarding insights and trends</p>
         </div>
         <Card>
           <EmptyState
@@ -387,85 +599,77 @@ export default function Analytics() {
     );
   }
 
-  const activeFilterCount = selectedDepartments.length + selectedRoles.length + selectedExitTypes.length + (dateRange === "custom" ? 1 : 0);
-
-  async function handleExportPdf() {
-    if (!companyId) return;
-    setExportingPdf(true);
-    try {
-      await generateAnalyticsPdf({
-        companyId,
-        dateRange,
-        customStartDate,
-        customEndDate,
-      });
-    } catch (err) {
-      alert("Failed to export PDF. Please try again.");
-    } finally {
-      setExportingPdf(false);
-    }
-  }
-
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl text-navy">Analytics</h1>
-          <p className="text-sm text-mist">
-            Insights across your offboarding processes
-          </p>
+          <p className="text-sm text-mist">Insights across your offboarding processes</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleExportPdf}
-            loading={exportingPdf}
-            disabled={flows.length === 0}
-          >
-            <Download size={14} className="mr-1.5" />
-            Export PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => exportFlowsToCsv(filteredFlows)}
+              disabled={filteredFlows.length === 0}
+            >
+              <Download size={14} className="mr-1.5" />
+              CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportPdf}
+              loading={exportingPdf}
+              disabled={flows.length === 0}
+            >
+              <Download size={14} className="mr-1.5" />
+              PDF
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
-          {DATE_RANGE_OPTIONS.map((opt) => (
+            {DATE_RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  setDateRange(opt.value);
+                  if (opt.value !== "custom") {
+                    setCustomStartDate("");
+                    setCustomEndDate("");
+                  }
+                }}
+                className={clsx(
+                  "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                  dateRange === opt.value
+                    ? "bg-teal text-white"
+                    : "bg-navy/5 text-navy hover:bg-navy/10"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
             <button
-              key={opt.value}
-              onClick={() => {
-                setDateRange(opt.value);
-                if (opt.value !== "custom") {
-                  setCustomStartDate("");
-                  setCustomEndDate("");
-                }
-              }}
+              onClick={() => setShowFilters(!showFilters)}
               className={clsx(
-                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                dateRange === opt.value
+                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5",
+                showFilters
                   ? "bg-teal text-white"
-                  : "bg-navy/5 text-navy hover:bg-navy/10"
+                  : "bg-navy/5 text-navy hover:bg-navy/10",
+                activeFilterCount > 0 && !showFilters && "ring-2 ring-teal ring-offset-1"
               )}
             >
-              {opt.label}
+              <Filter size={14} />
+              {activeFilterCount > 0 && (
+                <span className="text-xs font-semibold">{activeFilterCount}</span>
+              )}
             </button>
-          ))}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={clsx(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5",
-              showFilters
-                ? "bg-teal text-white"
-                : "bg-navy/5 text-navy hover:bg-navy/10",
-              activeFilterCount > 0 && !showFilters && "ring-2 ring-teal ring-offset-1"
-            )}
-          >
-            <Filter size={14} />
-            {activeFilterCount > 0 && <span className="text-xs font-semibold">{activeFilterCount}</span>}
-          </button>
           </div>
         </div>
       </div>
 
-      {/* Filters Panel */}
+      {/* ── Filters Panel ── */}
       {showFilters && (
         <Card className="bg-navy/5 p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
@@ -475,18 +679,16 @@ export default function Analytics() {
                 setShowFilters(false);
                 setSelectedDepartments([]);
                 setSelectedRoles([]);
-                setSelectedExitTypes([]);
                 setCustomStartDate("");
                 setCustomEndDate("");
               }}
-              className="text-mist hover:text-navy transition-colors"
+              className="text-mist hover:text-navy transition-colors text-sm"
             >
               Clear all
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Custom Date Range */}
             {dateRange === "custom" && (
               <>
                 <div>
@@ -514,15 +716,16 @@ export default function Analytics() {
               </>
             )}
 
-            {/* Department Filter */}
             <div>
-              <label className="block text-sm font-medium text-navy mb-2">
-                Department
-              </label>
+              <label className="block text-sm font-medium text-navy mb-2">Department</label>
               <select
                 multiple
                 value={selectedDepartments}
-                onChange={(e) => setSelectedDepartments(Array.from(e.target.selectedOptions, (o) => o.value))}
+                onChange={(e) =>
+                  setSelectedDepartments(
+                    Array.from(e.target.selectedOptions, (o) => o.value)
+                  )
+                }
                 className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
               >
                 {Array.from(new Set(flows.map((f) => f.employeeDepartment)))
@@ -543,8 +746,9 @@ export default function Analytics() {
                     >
                       {dept}
                       <button
-                        onClick={() => setSelectedDepartments(selectedDepartments.filter((d) => d !== dept))}
-                        className="hover:text-navy transition-colors"
+                        onClick={() =>
+                          setSelectedDepartments(selectedDepartments.filter((d) => d !== dept))
+                        }
                       >
                         <X size={12} />
                       </button>
@@ -554,15 +758,14 @@ export default function Analytics() {
               )}
             </div>
 
-            {/* Role Filter */}
             <div>
-              <label className="block text-sm font-medium text-navy mb-2">
-                Role
-              </label>
+              <label className="block text-sm font-medium text-navy mb-2">Role</label>
               <select
                 multiple
                 value={selectedRoles}
-                onChange={(e) => setSelectedRoles(Array.from(e.target.selectedOptions, (o) => o.value))}
+                onChange={(e) =>
+                  setSelectedRoles(Array.from(e.target.selectedOptions, (o) => o.value))
+                }
                 className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
               >
                 {Array.from(new Set(flows.map((f) => f.employeeRole)))
@@ -583,8 +786,9 @@ export default function Analytics() {
                     >
                       {role}
                       <button
-                        onClick={() => setSelectedRoles(selectedRoles.filter((r) => r !== role))}
-                        className="hover:text-navy transition-colors"
+                        onClick={() =>
+                          setSelectedRoles(selectedRoles.filter((r) => r !== role))
+                        }
                       >
                         <X size={12} />
                       </button>
@@ -597,19 +801,21 @@ export default function Analytics() {
         </Card>
       )}
 
-      {/* Section 1: KPI Cards */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard
           label="Total Exits"
           value={totalExits.toString()}
           icon={<Users className="h-5 w-5" />}
           iconColor="teal"
+          delta={exitsDelta}
         />
         <KpiCard
           label="Avg Completion"
           value={`${avgCompletionRate}%`}
           icon={<CheckCircle className="h-5 w-5" />}
           iconColor="teal"
+          delta={completionDelta}
         />
         <KpiCard
           label="Top Exit Reason"
@@ -620,27 +826,24 @@ export default function Analytics() {
         />
         <KpiCard
           label="Avg Days to Complete"
-          value={`${avgDaysToComplete} days`}
+          value={`${avgDaysToComplete}d`}
           icon={<Clock className="h-5 w-5" />}
           iconColor="navy"
+          delta={daysDelta}
         />
       </div>
 
-      {/* Section 2: Charts Row */}
+      {/* ── Charts Row ── */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Monthly Exits Bar Chart */}
         <Card>
-          <h2 className="font-display text-lg font-semibold text-navy mb-4">
+          <h2 className="font-display text-lg font-semibold text-navy mb-1">
             Monthly Exits
           </h2>
+          <p className="text-xs text-mist mb-4">Last 6 months</p>
           {monthlyData.some((d) => d.exits > 0) ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthlyData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#0F1C2E"
-                  strokeOpacity={0.06}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#0F1C2E" strokeOpacity={0.06} />
                 <XAxis
                   dataKey="month"
                   axisLine={false}
@@ -665,11 +868,8 @@ export default function Analytics() {
           )}
         </Card>
 
-        {/* Exit Reasons Pie Chart */}
         <Card>
-          <h2 className="font-display text-lg font-semibold text-navy mb-4">
-            Exit Reasons
-          </h2>
+          <h2 className="font-display text-lg font-semibold text-navy mb-4">Exit Reasons</h2>
           {exitReasonData.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -683,10 +883,7 @@ export default function Analytics() {
                   paddingAngle={2}
                 >
                   {exitReasonData.map((_, idx) => (
-                    <Cell
-                      key={idx}
-                      fill={PIE_COLORS[idx % PIE_COLORS.length]}
-                    />
+                    <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -702,16 +899,13 @@ export default function Analytics() {
         </Card>
       </div>
 
-      {/* Section 3: Department Turnover */}
+      {/* ── Exits by Department ── */}
       <Card>
         <h2 className="font-display text-lg font-semibold text-navy mb-4">
           Exits by Department
         </h2>
         {departmentData.length > 0 ? (
-          <ResponsiveContainer
-            width="100%"
-            height={Math.max(200, departmentData.length * 44)}
-          >
+          <ResponsiveContainer width="100%" height={Math.max(200, departmentData.length * 44)}>
             <BarChart layout="vertical" data={departmentData}>
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -740,15 +934,79 @@ export default function Analytics() {
           </ResponsiveContainer>
         ) : (
           <EmptyState
-            title="No department data yet"
-            description="Department breakdowns will appear once offboarding flows have department information."
+            title="No department data"
+            description="Department breakdowns appear once offboarding flows include department information."
           />
         )}
       </Card>
 
-      {/* Section 4: Completion Scores + Sentiment */}
+      {/* ── Knowledge Coverage ── */}
+      {knowledgeItems.length > 0 && (
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <BookOpen size={18} className="text-teal" />
+            <h2 className="font-display text-lg font-semibold text-navy">
+              Knowledge Coverage
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-6">
+            {(
+              [
+                { label: "Total Items", value: knowledgeStats.total, color: "text-navy" },
+                {
+                  label: "Reviewed",
+                  value: `${knowledgeStats.reviewedPct}%`,
+                  color: knowledgeStats.reviewedPct >= 80 ? "text-teal" : "text-amber-600",
+                },
+                {
+                  label: "Gap Rate",
+                  value: `${knowledgeStats.gapPct}%`,
+                  color: knowledgeStats.gapPct > 20 ? "text-ember" : "text-navy",
+                },
+                {
+                  label: "Open Gaps",
+                  value: knowledgeStats.openGaps,
+                  color: knowledgeStats.openGaps > 0 ? "text-ember" : "text-navy",
+                },
+                {
+                  label: "Pending Verification",
+                  value: knowledgeStats.verificationPending,
+                  color:
+                    knowledgeStats.verificationPending > 0 ? "text-amber-600" : "text-navy",
+                },
+              ] as const
+            ).map(({ label, value, color }) => (
+              <div key={label} className="text-center">
+                <p className={clsx("text-2xl font-semibold", color)}>{value}</p>
+                <p className="text-xs text-mist mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 pt-4 border-t border-navy/5">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 rounded-full bg-navy/10">
+                <div
+                  className={clsx(
+                    "h-full rounded-full transition-all",
+                    knowledgeStats.reviewedPct >= 80
+                      ? "bg-teal"
+                      : knowledgeStats.reviewedPct >= 40
+                        ? "bg-amber-400"
+                        : "bg-ember"
+                  )}
+                  style={{ width: `${knowledgeStats.reviewedPct}%` }}
+                />
+              </div>
+              <span className="text-xs text-mist flex-shrink-0">
+                {knowledgeStats.reviewedPct}% reviewed
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Completion Scores + Sentiment ── */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Avg Completion Scores */}
         <Card>
           <h2 className="font-display text-lg font-semibold text-navy mb-4">
             Avg Completion Scores
@@ -757,15 +1015,14 @@ export default function Analytics() {
             {(
               [
                 { label: "Tasks", value: avgScores.tasks },
+                { label: "Knowledge", value: avgScores.knowledge },
                 { label: "Access Revocation", value: avgScores.accessRevocation },
                 { label: "Exit Interview", value: avgScores.exitInterview },
                 { label: "Assets", value: avgScores.assets },
               ] as const
             ).map((row) => (
               <div key={row.label} className="flex items-center gap-3">
-                <span className="w-36 text-sm text-mist shrink-0">
-                  {row.label}
-                </span>
+                <span className="w-36 text-sm text-mist shrink-0">{row.label}</span>
                 <div className="flex-1 h-2 rounded-full bg-navy/10">
                   <div
                     className="h-full rounded-full bg-teal transition-all"
@@ -773,10 +1030,7 @@ export default function Analytics() {
                   />
                 </div>
                 <span
-                  className={clsx(
-                    "w-10 text-right text-sm font-semibold",
-                    scoreColor(row.value)
-                  )}
+                  className={clsx("w-10 text-right text-sm font-semibold", scoreColor(row.value))}
                 >
                   {row.value}%
                 </span>
@@ -785,7 +1039,6 @@ export default function Analytics() {
           </div>
         </Card>
 
-        {/* Exit Interview Sentiment */}
         <Card>
           <h2 className="font-display text-lg font-semibold text-navy mb-4">
             Exit Interview Sentiment
@@ -833,17 +1086,13 @@ export default function Analytics() {
                     </div>
                     <div className="h-2 rounded-full bg-navy/10">
                       <div
-                        className={clsx(
-                          "h-full rounded-full transition-all",
-                          row.barColor
-                        )}
+                        className={clsx("h-full rounded-full transition-all", row.barColor)}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
                 );
               })}
-              {/* Top AI Themes */}
               {aggregatedThemes.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-navy/5">
                   <h3 className="text-xs font-semibold text-mist uppercase tracking-wide mb-2">
@@ -860,7 +1109,7 @@ export default function Analytics() {
                             }}
                           />
                         </div>
-                        <span className="text-xs text-navy capitalize min-w-0 truncate max-w-[120px]">
+                        <span className="text-xs text-navy capitalize truncate max-w-[120px]">
                           {theme}
                         </span>
                         <span className="text-xs text-mist flex-shrink-0">{count}</span>
@@ -879,7 +1128,58 @@ export default function Analytics() {
         </Card>
       </div>
 
-      {/* Section 5: Recent Completed Offboardings */}
+      {/* ── Completion by Department ── */}
+      {deptCompletionData.length > 1 && (
+        <Card>
+          <h2 className="font-display text-lg font-semibold text-navy mb-4">
+            Completion by Department
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-navy/10">
+                  <th className="pb-3 text-left font-medium text-mist">Department</th>
+                  <th className="pb-3 text-center font-medium text-mist">Exits</th>
+                  <th className="pb-3 text-center font-medium text-mist">Avg Progress</th>
+                  <th className="pb-3 text-center font-medium text-mist">Tasks</th>
+                  <th className="pb-3 text-center font-medium text-mist">Knowledge</th>
+                  <th className="pb-3 text-center font-medium text-mist">Interview</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deptCompletionData.map((row) => (
+                  <tr key={row.dept} className="border-b border-navy/5 last:border-0">
+                    <td className="py-3 pr-4 font-medium text-navy">{row.dept}</td>
+                    <td className="py-3 text-center text-mist">{row.count}</td>
+                    <td className="py-3 text-center">
+                      <span className={clsx("font-semibold", scoreColor(row.avgCompletion))}>
+                        {row.avgCompletion}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className={clsx("font-semibold", scoreColor(row.avgTasks))}>
+                        {row.avgTasks}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className={clsx("font-semibold", scoreColor(row.avgKnowledge))}>
+                        {row.avgKnowledge}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-center">
+                      <span className={clsx("font-semibold", scoreColor(row.avgInterview))}>
+                        {row.avgInterview}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Recently Completed ── */}
       <Card>
         <h2 className="font-display text-lg font-semibold text-navy mb-4">
           Recently Completed
@@ -889,59 +1189,38 @@ export default function Analytics() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-navy/10">
-                  <th className="pb-3 text-left font-medium text-mist">
-                    Employee
-                  </th>
-                  <th className="pb-3 text-left font-medium text-mist">
-                    Department
-                  </th>
-                  <th className="pb-3 text-left font-medium text-mist">
-                    Progress
-                  </th>
-                  <th className="pb-3 text-left font-medium text-mist">
-                    Completed On
-                  </th>
+                  <th className="pb-3 text-left font-medium text-mist">Employee</th>
+                  <th className="pb-3 text-left font-medium text-mist">Department</th>
+                  <th className="pb-3 text-left font-medium text-mist">Progress</th>
+                  <th className="pb-3 text-left font-medium text-mist">Completed On</th>
                 </tr>
               </thead>
               <tbody>
                 {recentCompleted.map((flow) => (
-                  <tr
-                    key={flow.id}
-                    className="border-b border-navy/5 last:border-0"
-                  >
+                  <tr key={flow.id} className="border-b border-navy/5 last:border-0">
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal text-white text-xs font-semibold">
                           {(flow.employeeName ?? "?")[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-navy">
-                            {flow.employeeName}
-                          </p>
-                          <p className="text-xs text-mist">
-                            {flow.employeeRole}
-                          </p>
+                          <p className="font-medium text-navy">{flow.employeeName}</p>
+                          <p className="text-xs text-mist">{flow.employeeRole}</p>
                         </div>
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      <Badge variant="mist">
-                        {flow.employeeDepartment ?? "—"}
-                      </Badge>
+                      <Badge variant="mist">{flow.employeeDepartment ?? "—"}</Badge>
                     </td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
                         <div className="h-2 w-24 rounded-full bg-navy/10">
                           <div
                             className="h-full rounded-full bg-teal"
-                            style={{
-                              width: `${Math.min(flow.progressPercent ?? 0, 100)}%`,
-                            }}
+                            style={{ width: `${Math.min(flow.progressPercent ?? 0, 100)}%` }}
                           />
                         </div>
-                        <span className="text-xs text-mist">
-                          {flow.progressPercent ?? 0}%
-                        </span>
+                        <span className="text-xs text-mist">{flow.progressPercent ?? 0}%</span>
                       </div>
                     </td>
                     <td className="py-3 text-mist">
@@ -962,52 +1241,5 @@ export default function Analytics() {
         )}
       </Card>
     </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  icon,
-  iconColor,
-  truncate,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  iconColor: "teal" | "ember" | "navy";
-  truncate?: boolean;
-}) {
-  const iconBg = {
-    teal: "bg-teal/10 text-teal",
-    ember: "bg-ember/10 text-ember",
-    navy: "bg-navy/10 text-navy",
-  };
-
-  return (
-    <Card>
-      <div className="flex items-start justify-between">
-        <div className="min-w-0">
-          <p className="text-sm text-mist">{label}</p>
-          <p
-            className={clsx(
-              "mt-1 text-3xl font-semibold text-navy",
-              truncate && "truncate"
-            )}
-            title={truncate ? value : undefined}
-          >
-            {value}
-          </p>
-        </div>
-        <div
-          className={clsx(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            iconBg[iconColor]
-          )}
-        >
-          {icon}
-        </div>
-      </div>
-    </Card>
   );
 }
