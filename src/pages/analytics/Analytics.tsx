@@ -52,11 +52,21 @@ interface DateRangeOption {
 interface KnowledgeItemBrief {
   id: string;
   companyId: string;
+  employeeDepartment?: string;
   status: "draft" | "submitted" | "reviewed";
   hasGap: boolean;
+  gapSeverity?: "critical" | "high" | "medium" | "low";
   managerVerified: boolean;
   managerVerificationStatus?: "pending" | "approved" | "rejected";
   gapStatus?: "open" | "resolved";
+}
+
+interface FlowTaskBrief {
+  id: string;
+  flowId: string;
+  title: string;
+  status: "pending" | "in_progress" | "completed" | "overdue" | "skipped";
+  dueDate?: { toDate?: () => Date };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -234,6 +244,7 @@ export default function Analytics() {
   const [flows, setFlows] = useState<OffboardFlow[]>([]);
   const [interviewResponses, setInterviewResponses] = useState<ExitInterviewResponse[]>([]);
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItemBrief[]>([]);
+  const [flowTasks, setFlowTasks] = useState<FlowTaskBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -268,6 +279,20 @@ export default function Analytics() {
         setFlows(flowsData ?? []);
         setInterviewResponses(responsesData ?? []);
         setKnowledgeItems(knowledgeData ?? []);
+
+        // Fetch tasks in batches of 30 (Firestore 'in' limit)
+        const flowIds = (flowsData ?? []).map((f) => f.id);
+        if (flowIds.length > 0) {
+          const BATCH = 30;
+          const taskBatches = await Promise.all(
+            Array.from({ length: Math.ceil(flowIds.length / BATCH) }, (_, i) =>
+              queryDocuments<FlowTaskBrief>("flowTasks", [
+                where("flowId", "in", flowIds.slice(i * BATCH, (i + 1) * BATCH)),
+              ]).catch(() => [] as FlowTaskBrief[])
+            )
+          );
+          setFlowTasks(taskBatches.flat());
+        }
       } catch {
         setError("Failed to load analytics data.");
       } finally {
@@ -520,6 +545,42 @@ export default function Analytics() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [filteredFlows]);
+
+  // Gaps by department
+  const gapsByDepartment = useMemo(() => {
+    const counts: Record<string, { open: number; resolved: number; critical: number; high: number }> = {};
+    knowledgeItems.filter((i) => i.hasGap).forEach((i) => {
+      const dept = i.employeeDepartment || "Unknown";
+      if (!counts[dept]) counts[dept] = { open: 0, resolved: 0, critical: 0, high: 0 };
+      if (i.gapStatus === "resolved") {
+        counts[dept].resolved++;
+      } else {
+        counts[dept].open++;
+        if (i.gapSeverity === "critical") counts[dept].critical++;
+        if (i.gapSeverity === "high") counts[dept].high++;
+      }
+    });
+    return Object.entries(counts)
+      .map(([dept, v]) => ({ dept, ...v, total: v.open + v.resolved }))
+      .sort((a, b) => b.open - a.open)
+      .slice(0, 10);
+  }, [knowledgeItems]);
+
+  // Task completion heatmap — top overdue/skipped tasks
+  const taskFrequency = useMemo(() => {
+    const freq: Record<string, { title: string; overdue: number; skipped: number; total: number }> = {};
+    flowTasks.forEach((t) => {
+      const key = t.title.trim().toLowerCase();
+      if (!freq[key]) freq[key] = { title: t.title.trim(), overdue: 0, skipped: 0, total: 0 };
+      freq[key].total++;
+      if (t.status === "overdue") freq[key].overdue++;
+      else if (t.status === "skipped") freq[key].skipped++;
+    });
+    return Object.values(freq)
+      .filter((r) => r.overdue + r.skipped > 0)
+      .sort((a, b) => b.overdue + b.skipped - (a.overdue + a.skipped))
+      .slice(0, 10);
+  }, [flowTasks]);
 
   // Recently completed
   const recentCompleted = useMemo(
@@ -1001,6 +1062,137 @@ export default function Analytics() {
                 {knowledgeStats.reviewedPct}% reviewed
               </span>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Gaps by Department ── */}
+      {gapsByDepartment.length > 0 && (
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <BookOpen size={18} className="text-ember" />
+            <h2 className="font-display text-lg font-semibold text-navy">
+              Knowledge Gaps by Department
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-navy/10">
+                  <th className="pb-3 text-left font-medium text-mist">Department</th>
+                  <th className="pb-3 text-center font-medium text-mist">Open</th>
+                  <th className="pb-3 text-center font-medium text-mist">Resolved</th>
+                  <th className="pb-3 text-center font-medium text-mist">Critical</th>
+                  <th className="pb-3 text-center font-medium text-mist">High</th>
+                  <th className="pb-3 text-left font-medium text-mist w-32">Open rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gapsByDepartment.map((row) => {
+                  const openPct = row.total > 0 ? Math.round((row.open / row.total) * 100) : 0;
+                  return (
+                    <tr key={row.dept} className="border-b border-navy/5 last:border-0">
+                      <td className="py-3 pr-4 font-medium text-navy">{row.dept}</td>
+                      <td className="py-3 text-center">
+                        <span className={clsx("font-semibold", row.open > 0 ? "text-ember" : "text-navy")}>
+                          {row.open}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center text-teal font-semibold">{row.resolved}</td>
+                      <td className="py-3 text-center">
+                        {row.critical > 0 ? (
+                          <span className="font-semibold text-ember">{row.critical}</span>
+                        ) : (
+                          <span className="text-mist">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 text-center">
+                        {row.high > 0 ? (
+                          <span className="font-semibold text-orange-600">{row.high}</span>
+                        ) : (
+                          <span className="text-mist">—</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 rounded-full bg-navy/10">
+                            <div
+                              className={clsx("h-full rounded-full", openPct > 50 ? "bg-ember" : "bg-teal")}
+                              style={{ width: `${openPct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-mist w-8 text-right">{openPct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Task Completion Heatmap ── */}
+      {taskFrequency.length > 0 && (
+        <Card>
+          <h2 className="font-display text-lg font-semibold text-navy mb-1">
+            Most Overdue &amp; Skipped Tasks
+          </h2>
+          <p className="text-xs text-mist mb-4">Tasks most frequently delayed or skipped across all offboardings</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-navy/10">
+                  <th className="pb-3 text-left font-medium text-mist">Task</th>
+                  <th className="pb-3 text-center font-medium text-mist">Total</th>
+                  <th className="pb-3 text-center font-medium text-mist">Overdue</th>
+                  <th className="pb-3 text-center font-medium text-mist">Skipped</th>
+                  <th className="pb-3 text-left font-medium text-mist w-28">Problem rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taskFrequency.map((row) => {
+                  const problemPct = row.total > 0
+                    ? Math.round(((row.overdue + row.skipped) / row.total) * 100)
+                    : 0;
+                  return (
+                    <tr key={row.title} className="border-b border-navy/5 last:border-0">
+                      <td className="py-3 pr-4 font-medium text-navy max-w-xs truncate">{row.title}</td>
+                      <td className="py-3 text-center text-mist">{row.total}</td>
+                      <td className="py-3 text-center">
+                        {row.overdue > 0 ? (
+                          <span className="font-semibold text-ember">{row.overdue}</span>
+                        ) : (
+                          <span className="text-mist">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 text-center">
+                        {row.skipped > 0 ? (
+                          <span className="font-semibold text-amber-600">{row.skipped}</span>
+                        ) : (
+                          <span className="text-mist">—</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 rounded-full bg-navy/10">
+                            <div
+                              className={clsx(
+                                "h-full rounded-full",
+                                problemPct >= 50 ? "bg-ember" : problemPct >= 25 ? "bg-amber-400" : "bg-teal"
+                              )}
+                              style={{ width: `${problemPct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-mist w-8 text-right">{problemPct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </Card>
       )}

@@ -35,6 +35,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  subscribeToCollection,
   queryDocuments,
   updateDocument,
   deleteDocument,
@@ -42,6 +43,7 @@ import {
   where,
   orderBy,
 } from "../../lib/firestore";
+import { generateKnowledgePdf } from "../../lib/pdfExport";
 import type {
   KnowledgeItem,
   KnowledgeItemType,
@@ -535,35 +537,37 @@ export default function KnowledgeBase() {
   const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!companyId) return;
     try {
-      const [data, usersData] = await Promise.all([
-        queryDocuments<KnowledgeItem>("knowledgeItems", [
-          where("companyId", "==", companyId),
-          orderBy("createdAt", "desc"),
-        ]),
-        queryDocuments<AppUser>("users", [
-          where("companyId", "==", companyId),
-        ]),
+      const usersData = await queryDocuments<AppUser>("users", [
+        where("companyId", "==", companyId),
       ]);
-      setItems(data);
       const userMap: Record<string, string> = {};
       usersData.forEach((u) => {
         userMap[u.id] = u.displayName || u.email;
       });
       setUsers(userMap);
     } catch {
-      showToast("error", "Failed to load knowledge items");
-    } finally {
-      setLoading(false);
+      showToast("error", "Failed to load team data");
     }
   }, [companyId]);
 
   useEffect(() => {
+    if (!companyId) return;
     loadData();
-  }, [loadData]);
+    const unsub = subscribeToCollection<KnowledgeItem>(
+      "knowledgeItems",
+      [where("companyId", "==", companyId), orderBy("createdAt", "desc")],
+      (data) => {
+        setItems(data);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [companyId, loadData]);
 
   // Reset to first page whenever any filter changes
   useEffect(() => {
@@ -812,15 +816,43 @@ export default function KnowledgeBase() {
             Captured knowledge from departing employees
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => exportToCsv(filtered)}
-          disabled={filtered.length === 0}
-        >
-          <Download size={14} className="mr-1.5" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => exportToCsv(filtered)}
+            disabled={filtered.length === 0}
+          >
+            <Download size={14} className="mr-1.5" />
+            CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            loading={exportingPdf}
+            disabled={filtered.length === 0}
+            onClick={async () => {
+              if (!companyId) return;
+              setExportingPdf(true);
+              try {
+                await generateKnowledgePdf({
+                  companyId,
+                  typeFilter: typeFilter !== "all" ? typeFilter : undefined,
+                  statusFilter: statusFilter !== "all" ? statusFilter : undefined,
+                  departmentFilter: departmentFilter !== "all" ? departmentFilter : undefined,
+                  gapFilter: gapFilter !== "all" ? String(gapFilter) : undefined,
+                });
+              } catch {
+                showToast("error", "Failed to export PDF");
+              } finally {
+                setExportingPdf(false);
+              }
+            }}
+          >
+            <Download size={14} className="mr-1.5" />
+            PDF
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
