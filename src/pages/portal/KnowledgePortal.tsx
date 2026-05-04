@@ -6,6 +6,10 @@ import {
   Video,
   StickyNote,
   CheckCircle,
+  XCircle,
+  AlertCircle,
+  Edit2,
+  RotateCcw,
 } from "lucide-react";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -14,7 +18,8 @@ import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import {
-  queryDocuments,
+  subscribeToCollection,
+  updateDocument,
   setDocument,
   serverTimestamp,
   where,
@@ -64,101 +69,127 @@ interface KnowledgePortalProps {
   flow: OffboardFlow;
 }
 
+type FormMode = "new" | "resubmit";
+
+interface EditForm {
+  id: string;
+  title: string;
+  type: KnowledgeItemType;
+  description: string;
+  url: string;
+  successor: string;
+}
+
 export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>("new");
 
   // Form state
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<KnowledgeItemType>("process");
-  const [description, setDescription] = useState("");
-  const [url, setUrl] = useState("");
-  const [successor, setSuccessor] = useState("");
+  const [editForm, setEditForm] = useState<EditForm>({
+    id: "",
+    title: "",
+    type: "process",
+    description: "",
+    url: "",
+    successor: "",
+  });
 
-  const loadItems = useCallback(async () => {
-    try {
-      const data = await queryDocuments<KnowledgeItem>("knowledgeItems", [
-        where("flowId", "==", flow.id),
-      ]);
-      setItems(data);
-    } catch {
-      // Error loading
-    } finally {
-      setLoading(false);
-    }
-  }, [flow.id]);
+  const resetToNew = useCallback(() => {
+    setFormMode("new");
+    setEditForm({ id: "", title: "", type: "process", description: "", url: "", successor: "" });
+  }, []);
 
   useEffect(() => {
-    loadItems();
-  }, [loadItems]);
+    if (!flow.id) return;
+    const unsub = subscribeToCollection<KnowledgeItem>(
+      "knowledgeItems",
+      [where("flowId", "==", flow.id)],
+      (data) => {
+        setItems(data.sort((a, b) => {
+          const aMs = (a.createdAt as unknown as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
+          const bMs = (b.createdAt as unknown as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
+          return bMs - aMs;
+        }));
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [flow.id]);
+
+  function startResubmit(item: KnowledgeItem) {
+    setFormMode("resubmit");
+    setEditForm({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      description: item.description || "",
+      url: item.url || "",
+      successor: item.successor || "",
+    });
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
 
   async function handleSubmit() {
-    if (!title.trim()) return;
+    if (!editForm.title.trim()) return;
     setSaving(true);
-
-    const id = crypto.randomUUID();
+    setErrorMsg(null);
 
     try {
-      await setDocument("knowledgeItems", id, {
-        id,
-        companyId: flow.companyId,
-        flowId: flow.id,
-        employeeName: flow.employeeName,
-        employeeDepartment: flow.employeeDepartment,
-        title: title.trim(),
-        description: description.trim(),
-        type,
-        url: url.trim(),
-        successor: successor.trim(),
-        status: "submitted",
-        submittedBy: "employee",
-        reviewedBy: "",
-        reviewedAt: null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      if (formMode === "resubmit" && editForm.id) {
+        await updateDocument("knowledgeItems", editForm.id, {
+          title: editForm.title.trim(),
+          type: editForm.type,
+          description: editForm.description.trim(),
+          url: editForm.url.trim(),
+          successor: editForm.successor.trim(),
+          status: "submitted",
+          managerVerificationStatus: "pending",
+          managerVerified: false,
+          managerVerifiedBy: null,
+          managerVerifiedAt: null,
+          updatedAt: serverTimestamp(),
+        });
+        setSuccessMsg("Item resubmitted for review");
+      } else {
+        const id = crypto.randomUUID();
+        await setDocument("knowledgeItems", id, {
+          id,
+          companyId: flow.companyId,
+          flowId: flow.id,
+          employeeName: flow.employeeName,
+          employeeDepartment: flow.employeeDepartment,
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          type: editForm.type,
+          url: editForm.url.trim(),
+          successor: editForm.successor.trim(),
+          status: "submitted",
+          submittedBy: "employee",
+          reviewedBy: "",
+          reviewedAt: null,
+          hasGap: false,
+          managerVerified: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        setSuccessMsg("Item submitted successfully");
+      }
 
-      const newItem: KnowledgeItem = {
-        id,
-        companyId: flow.companyId,
-        flowId: flow.id,
-        employeeName: flow.employeeName,
-        employeeDepartment: flow.employeeDepartment,
-        title: title.trim(),
-        description: description.trim(),
-        hasGap: false,
-        managerVerified: false,
-        type,
-        url: url.trim(),
-        successor: successor.trim(),
-        status: "submitted",
-        submittedBy: "employee",
-        reviewedBy: "",
-        reviewedAt: null,
-        createdAt: null as unknown as KnowledgeItem["createdAt"],
-        updatedAt: null as unknown as KnowledgeItem["updatedAt"],
-      };
-
-      setItems((prev) => [newItem, ...prev]);
-
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setType("process");
-      setUrl("");
-      setSuccessor("");
-
-      // Show success message
-      setSuccessMsg(true);
-      setTimeout(() => setSuccessMsg(false), 3000);
+      resetToNew();
+      setTimeout(() => setSuccessMsg(null), 3500);
     } catch {
-      // Error saving
+      setErrorMsg("Failed to save. Please try again.");
     } finally {
       setSaving(false);
     }
   }
+
+  const rejectedItems = items.filter((i) => i.managerVerificationStatus === "rejected");
+  const otherItems = items.filter((i) => i.managerVerificationStatus !== "rejected");
 
   if (loading) {
     return (
@@ -181,13 +212,64 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
       {/* Progress indicator */}
       <div className="flex items-center gap-2 text-sm text-mist">
         <CheckCircle size={16} className="text-teal" />
-        {items.length} items submitted
+        {items.length} item{items.length !== 1 ? "s" : ""} submitted
+        {rejectedItems.length > 0 && (
+          <span className="ml-2 flex items-center gap-1 text-ember">
+            <XCircle size={14} />
+            {rejectedItems.length} rejected
+          </span>
+        )}
       </div>
 
-      {/* Existing items list */}
-      {items.length > 0 && (
+      {/* Rejected items — needs action */}
+      {rejectedItems.length > 0 && (
         <div className="space-y-2">
-          {items.map((item) => (
+          <p className="text-xs font-semibold text-ember uppercase tracking-wide flex items-center gap-1.5">
+            <AlertCircle size={13} />
+            Action needed — rejected items
+          </p>
+          {rejectedItems.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-start gap-3 px-4 py-3 bg-ember/5 border border-ember/20 rounded-lg"
+            >
+              <span
+                className={clsx(
+                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5",
+                  TYPE_COLORS[item.type]
+                )}
+              >
+                {TYPE_ICONS[item.type]}
+                {TYPE_LABELS[item.type]}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-navy">{item.title}</p>
+                {item.description && (
+                  <p className="text-xs text-mist mt-0.5 line-clamp-1">{item.description}</p>
+                )}
+                <p className="text-xs text-ember mt-1 flex items-center gap-1">
+                  <XCircle size={11} />
+                  Rejected by manager — please update and resubmit
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => startResubmit(item)}
+                className="flex-shrink-0"
+              >
+                <Edit2 size={13} className="mr-1" />
+                Edit &amp; Resubmit
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Other submitted items */}
+      {otherItems.length > 0 && (
+        <div className="space-y-2">
+          {otherItems.map((item) => (
             <div
               key={item.id}
               className="flex items-center gap-3 px-4 py-3 bg-white border border-navy/5 rounded-lg"
@@ -202,76 +284,102 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
                 {TYPE_LABELS[item.type]}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-navy truncate">
-                  {item.title}
-                </p>
+                <p className="text-sm font-medium text-navy truncate">{item.title}</p>
                 {item.description && (
                   <p className="text-xs text-mist truncate">{item.description}</p>
                 )}
               </div>
               <Badge
                 variant={
-                  item.status === "reviewed"
+                  item.managerVerified
                     ? "teal"
-                    : item.status === "submitted"
-                      ? "amber"
-                      : "mist"
+                    : item.status === "reviewed"
+                      ? "teal"
+                      : item.status === "submitted"
+                        ? "amber"
+                        : "mist"
                 }
               >
-                {item.status === "reviewed"
-                  ? "Reviewed"
-                  : item.status === "submitted"
-                    ? "Submitted"
-                    : "Draft"}
+                {item.managerVerified
+                  ? "Approved"
+                  : item.status === "reviewed"
+                    ? "Reviewed"
+                    : item.status === "submitted"
+                      ? "Submitted"
+                      : "Draft"}
               </Badge>
             </div>
           ))}
         </div>
       )}
 
-      {/* Success message */}
+      {/* Success / error messages */}
       {successMsg && (
         <div className="flex items-center gap-2 text-sm text-teal bg-teal/5 border border-teal/20 rounded-lg px-4 py-3">
           <CheckCircle size={16} />
-          Item submitted
+          {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="flex items-center gap-2 text-sm text-ember bg-ember/5 border border-ember/20 rounded-lg px-4 py-3">
+          <AlertCircle size={16} />
+          {errorMsg}
         </div>
       )}
 
-      {/* Add new item form */}
+      {/* Form */}
       <Card>
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-navy">
-            Add Knowledge Item
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-navy">
+              {formMode === "resubmit" ? (
+                <span className="flex items-center gap-1.5">
+                  <RotateCcw size={14} className="text-teal" />
+                  Edit &amp; Resubmit
+                </span>
+              ) : (
+                "Add Knowledge Item"
+              )}
+            </h3>
+            {formMode === "resubmit" && (
+              <button
+                onClick={resetToNew}
+                className="text-xs text-mist hover:text-navy transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {formMode === "resubmit" && (
+            <div className="text-xs bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800">
+              Update this item and resubmit it for manager review.
+            </div>
+          )}
+
           <Input
             label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            value={editForm.title}
+            onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
             placeholder="e.g., How to run the monthly billing report"
           />
           <div>
-            <label className="block text-sm font-medium text-navy mb-1">
-              Type
-            </label>
+            <label className="block text-sm font-medium text-navy mb-1">Type</label>
             <select
-              value={type}
-              onChange={(e) => setType(e.target.value as KnowledgeItemType)}
+              value={editForm.type}
+              onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value as KnowledgeItemType }))}
               className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
             >
               {EMPLOYEE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-navy mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-navy mb-1">Description</label>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={editForm.description}
+              onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
               rows={4}
               placeholder="Describe this in detail — who should know this, where to find it, key context..."
               className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal resize-none"
@@ -279,23 +387,30 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           </div>
           <Input
             label="URL"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            value={editForm.url}
+            onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
             placeholder="Link to document, video, or resource"
           />
           <Input
             label="Who needs this?"
-            value={successor}
-            onChange={(e) => setSuccessor(e.target.value)}
+            value={editForm.successor}
+            onChange={(e) => setEditForm((f) => ({ ...f, successor: e.target.value }))}
             placeholder="Name or role of the person who should receive this"
           />
           <Button
             fullWidth
             onClick={handleSubmit}
             loading={saving}
-            disabled={!title.trim()}
+            disabled={!editForm.title.trim()}
           >
-            Submit Item
+            {formMode === "resubmit" ? (
+              <>
+                <RotateCcw size={14} className="mr-1.5" />
+                Resubmit for Review
+              </>
+            ) : (
+              "Submit Item"
+            )}
           </Button>
         </div>
       </Card>

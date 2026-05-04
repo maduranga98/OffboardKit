@@ -35,6 +35,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  subscribeToCollection,
   queryDocuments,
   updateDocument,
   serverTimestamp,
@@ -433,35 +434,39 @@ export default function KnowledgeGaps() {
   const [assigningItem, setAssigningItem] = useState<KnowledgeItem | null>(null);
   const [reanalyzingIds, setReanalyzingIds] = useState<Set<string>>(new Set());
 
-  const loadData = useCallback(async () => {
+  const loadUsers = useCallback(async () => {
     if (!companyId) return;
     try {
-      const [data, usersData] = await Promise.all([
-        queryDocuments<KnowledgeItem>("knowledgeItems", [
-          where("companyId", "==", companyId),
-          where("hasGap", "==", true),
-          orderBy("createdAt", "desc"),
-        ]),
-        queryDocuments<AppUser>("users", [
-          where("companyId", "==", companyId),
-        ]),
+      const usersData = await queryDocuments<AppUser>("users", [
+        where("companyId", "==", companyId),
       ]);
-      setItems(data);
       const userMap: Record<string, string> = {};
       usersData.forEach((u) => {
         userMap[u.id] = u.displayName || u.email;
       });
       setUsers(userMap);
     } catch {
-      showToast("error", "Failed to load knowledge gaps");
-    } finally {
-      setLoading(false);
+      showToast("error", "Failed to load team data");
     }
   }, [companyId]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!companyId) return;
+    loadUsers();
+    const unsub = subscribeToCollection<KnowledgeItem>(
+      "knowledgeItems",
+      [
+        where("companyId", "==", companyId),
+        where("hasGap", "==", true),
+        orderBy("createdAt", "desc"),
+      ],
+      (data) => {
+        setItems(data);
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, [companyId, loadUsers]);
 
   useEffect(() => {
     setPage(0);

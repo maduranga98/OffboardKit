@@ -340,6 +340,153 @@ export function knowledgeReviewEmail(params: {
 }
 
 // ---------------------------------------------------------------------------
+// 3g. Knowledge Item Rejected — sent to submitting employee
+// ---------------------------------------------------------------------------
+export function knowledgeRejectedEmail(params: {
+  employeeName: string;
+  itemTitle: string;
+  managerName: string;
+  portalUrl: string;
+}): { subject: string; html: string } {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:${FONT};font-size:24px;font-weight:700;color:${BRAND.navy};letter-spacing:-0.3px;">
+      Knowledge item needs revision
+    </h1>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.muted};line-height:1.5;">
+      Hi ${params.employeeName},
+    </p>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.navy};line-height:1.6;">
+      One of your knowledge items was reviewed and returned for revision by <strong>${params.managerName}</strong>.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#FEF2F2;border-left:4px solid ${BRAND.red};border-radius:0 6px 6px 0;">
+      <tr><td style="padding:16px 20px;">
+        <p style="margin:0;font-family:${FONT};font-size:14px;color:#991B1B;font-weight:500;">
+          &ldquo;${params.itemTitle}&rdquo;
+        </p>
+        <p style="margin:6px 0 0;font-family:${FONT};font-size:13px;color:#B91C1C;line-height:1.5;">
+          Please update this item and resubmit it for review.
+        </p>
+      </td></tr>
+    </table>
+    ${ctaButton("Update &amp; Resubmit", params.portalUrl)}
+    ${divider()}
+    <p style="margin:0;font-family:${FONT};font-size:13px;color:${BRAND.muted};line-height:1.6;">
+      Open your exit portal, find the rejected item, and click &ldquo;Edit &amp; Resubmit&rdquo; to update it.
+    </p>
+  `;
+
+  return {
+    subject: `Action needed: knowledge item returned for revision`,
+    html: emailWrapper(body),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 3h. Gap Escalation Alert — sent to HR Admin
+// ---------------------------------------------------------------------------
+export function gapEscalationEmail(params: {
+  hrName: string;
+  gaps: { title: string; severity: string; employeeName: string; daysOpen: number }[];
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const gapRows = params.gaps
+    .map(
+      (g) => `
+      <tr>
+        <td style="padding:10px 12px;font-family:${FONT};font-size:13px;color:${BRAND.navy};border-bottom:1px solid #F3F4F6;vertical-align:top;">${g.title}</td>
+        <td style="padding:10px 12px;font-family:${FONT};font-size:13px;color:${BRAND.red};font-weight:600;border-bottom:1px solid #F3F4F6;vertical-align:top;text-transform:uppercase;">${g.severity}</td>
+        <td style="padding:10px 12px;font-family:${FONT};font-size:13px;color:${BRAND.muted};border-bottom:1px solid #F3F4F6;vertical-align:top;">${g.employeeName}</td>
+        <td style="padding:10px 12px;font-family:${FONT};font-size:13px;color:${BRAND.red};border-bottom:1px solid #F3F4F6;vertical-align:top;white-space:nowrap;">${g.daysOpen}d open</td>
+      </tr>`
+    )
+    .join("");
+
+  const body = `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
+      <tr>
+        <td style="vertical-align:middle;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:${BRAND.red};margin-right:8px;vertical-align:middle;"></span>
+          <h1 style="display:inline;margin:0;font-family:${FONT};font-size:22px;font-weight:700;color:${BRAND.navy};letter-spacing:-0.3px;vertical-align:middle;">
+            Unresolved knowledge gaps
+          </h1>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.muted};line-height:1.5;">
+      Hi ${params.hrName},
+    </p>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.navy};line-height:1.6;">
+      The following <strong>critical or high-severity knowledge gaps</strong> have been open for more than 7 days and require attention.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="border:1px solid #E5E7EB;border-radius:6px;overflow:hidden;">
+      <thead>
+        <tr style="background-color:#F9FAFB;">
+          <th style="padding:10px 12px;font-family:${FONT};font-size:12px;font-weight:600;color:${BRAND.muted};text-align:left;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #E5E7EB;">Gap</th>
+          <th style="padding:10px 12px;font-family:${FONT};font-size:12px;font-weight:600;color:${BRAND.muted};text-align:left;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #E5E7EB;">Severity</th>
+          <th style="padding:10px 12px;font-family:${FONT};font-size:12px;font-weight:600;color:${BRAND.muted};text-align:left;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #E5E7EB;">Employee</th>
+          <th style="padding:10px 12px;font-family:${FONT};font-size:12px;font-weight:600;color:${BRAND.muted};text-align:left;text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid #E5E7EB;">Age</th>
+        </tr>
+      </thead>
+      <tbody>${gapRows}</tbody>
+    </table>
+    ${ctaButton("Review Knowledge Gaps", params.dashboardUrl)}
+    ${divider()}
+    <p style="margin:0;font-family:${FONT};font-size:13px;color:${BRAND.muted};line-height:1.6;">
+      This is an automated alert. Assign these gaps to team members or mark them as resolved in the dashboard.
+    </p>
+  `;
+
+  return {
+    subject: `⚠️ ${params.gaps.length} unresolved knowledge gap${params.gaps.length > 1 ? "s" : ""} need attention`,
+    html: emailWrapper(body),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 3i. Knowledge Submission Reminder — sent to employee via portal link
+// ---------------------------------------------------------------------------
+export function knowledgeReminderEmail(params: {
+  employeeName: string;
+  companyName: string;
+  lastWorkingDay: string;
+  portalUrl: string;
+  daysRemaining: number;
+}): { subject: string; html: string } {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:${FONT};font-size:24px;font-weight:700;color:${BRAND.navy};letter-spacing:-0.3px;">
+      Don&rsquo;t forget your knowledge transfer
+    </h1>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.muted};line-height:1.5;">
+      Hi ${params.employeeName},
+    </p>
+    <p style="margin:0 0 16px;font-family:${FONT};font-size:15px;color:${BRAND.navy};line-height:1.6;">
+      Your last day at ${params.companyName} is coming up in <strong>${params.daysRemaining} day${params.daysRemaining !== 1 ? "s" : ""}</strong>.
+      You haven't submitted any knowledge items yet — this helps your team continue running smoothly after you leave.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+           style="background-color:#F0FDF4;border-left:4px solid ${BRAND.teal};border-radius:0 6px 6px 0;">
+      <tr><td style="padding:16px 20px;">
+        <p style="margin:0;font-family:${FONT};font-size:14px;color:#166534;line-height:1.6;">
+          Document processes, contacts, credentials, and any other knowledge your team will need.
+        </p>
+      </td></tr>
+    </table>
+    ${ctaButton("Open My Exit Portal", params.portalUrl)}
+    ${divider()}
+    <p style="margin:0;font-family:${FONT};font-size:13px;color:${BRAND.muted};line-height:1.6;">
+      Your last working day is ${params.lastWorkingDay}. The portal closes 7 days after your last day.
+    </p>
+  `;
+
+  return {
+    subject: `Reminder: complete your knowledge transfer before ${params.lastWorkingDay}`,
+    html: emailWrapper(body),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 3f. Exit Interview Submitted — sent to HR Admin
 // ---------------------------------------------------------------------------
 export function exitInterviewSubmittedEmail(params: {
