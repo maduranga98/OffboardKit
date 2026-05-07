@@ -6,7 +6,7 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, React Router v7
 - **Backend**: Firebase (Firestore, Auth, Storage, Cloud Functions, Hosting)
-- **Email**: Brevo (SMTP relay)
+- **Email**: Space Email / configurable SMTP (Nodemailer)
 - **AI**: Google Gemini (knowledge gap analysis, sentiment analysis)
 - **PDF**: Puppeteer (analytics reports)
 - **Analytics**: Mixpanel
@@ -56,11 +56,15 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 Set these before deploying functions:
 
 ```bash
-firebase functions:config:set \
-  brevo.smtp_user="your_smtp_login@smtp-brevo.com" \
-  brevo.smtp_key="your_brevo_smtp_password" \
-  gemini.api_key="your_gemini_api_key" \
-  app.url="https://your-project.web.app"
+SMTP_HOST="mail.spacemail.com"
+SMTP_PORT="465"
+SMTP_SECURE="true"
+SMTP_USER="hello@feedsolve.com"
+SMTP_PASSWORD="your_smtp_password"
+SMTP_FROM_EMAIL="hello@feedsolve.com"
+SMTP_FROM_NAME="OffboardKit"
+GEMINI_API_KEY="your_gemini_api_key"
+APP_URL="https://your-project.web.app"
 ```
 
 Or use a `functions/.env` file (Firebase Gen 2 / Node 20 supports this natively).
@@ -109,7 +113,7 @@ src/
 functions/src/
 ├── triggers/        # Firestore event triggers and scheduled functions
 ├── ai/              # Gemini-powered knowledge gap and sentiment analysis
-├── email/           # Brevo SMTP client and HTML email templates
+├── email/           # SMTP client and HTML email templates
 └── analytics/       # Puppeteer-based PDF report generation
 ```
 
