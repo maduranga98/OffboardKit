@@ -37,7 +37,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { usePlanGate } from "../../hooks/usePlanGate";
 import {
   subscribeToCollection,
-  queryDocuments,
   updateDocument,
   serverTimestamp,
   where,
@@ -442,9 +441,9 @@ export default function KnowledgeGaps() {
   const loadUsers = useCallback(async () => {
     if (!companyId) return;
     try {
-      const usersData = await queryDocuments<AppUser>("users", [
-        where("companyId", "==", companyId),
-      ]);
+      const getMembers = httpsCallable(functions, "getCompanyMembers");
+      const result = await getMembers();
+      const usersData = (result.data as { members: AppUser[] }).members;
       const userMap: Record<string, string> = {};
       usersData.forEach((u) => {
         userMap[u.id] = u.displayName || u.email;

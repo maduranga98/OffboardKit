@@ -29,7 +29,6 @@ import {
   deleteDocument,
   serverTimestamp,
   where,
-  orderBy,
 } from "../../lib/firestore";
 import type { AppUser, UserRole } from "../../types/user.types";
 
@@ -117,10 +116,9 @@ export default function TeamSettings() {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await queryDocuments<AppUser>("users", [
-          where("companyId", "==", companyId),
-          orderBy("createdAt", "asc"),
-        ]);
+        const getMembers = httpsCallable(functions, "getCompanyMembers");
+        const result = await getMembers();
+        const data = (result.data as { members: AppUser[] }).members;
         setMembers(data);
       } catch {
         showToast("error", "Failed to load team members");

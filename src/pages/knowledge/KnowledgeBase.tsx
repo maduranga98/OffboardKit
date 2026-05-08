@@ -24,7 +24,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
+import { httpsCallable } from "firebase/functions";
 import clsx from "clsx";
+import { functions } from "../../lib/firebase";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -36,7 +38,6 @@ import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
   subscribeToCollection,
-  queryDocuments,
   updateDocument,
   deleteDocument,
   serverTimestamp,
@@ -542,9 +543,9 @@ export default function KnowledgeBase() {
   const loadData = useCallback(async () => {
     if (!companyId) return;
     try {
-      const usersData = await queryDocuments<AppUser>("users", [
-        where("companyId", "==", companyId),
-      ]);
+      const getMembers = httpsCallable(functions, "getCompanyMembers");
+      const result = await getMembers();
+      const usersData = (result.data as { members: AppUser[] }).members;
       const userMap: Record<string, string> = {};
       usersData.forEach((u) => {
         userMap[u.id] = u.displayName || u.email;

@@ -16,6 +16,7 @@ export { sendKnowledgeReminders } from "./triggers/knowledgeReminder";
 
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
+export { getCompanyMembers } from "./triggers/getCompanyMembers";
 
 // AI Functions
 export { analyzeSentiment } from "./ai/analyzeSentiment";
