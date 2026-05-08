@@ -5,14 +5,50 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function currentUserPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasUserProfile() {
+      return isAuth() && exists(currentUserPath());
+    }
+
+    function currentUser() {
+      return get(currentUserPath()).data;
+    }
+
+    function currentCompanyId() {
+      return hasUserProfile() ? currentUser().companyId : null;
+    }
+
+    function currentRole() {
+      return hasUserProfile() ? currentUser().role : null;
+    }
+
     function isCompanyMember(companyId) {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
+      return isAuth() && currentCompanyId() == companyId;
+    }
+
+    function isTeamAdmin() {
+      return isAuth() && currentRole() in ['super_admin', 'hr_admin'];
     }
 
     match /users/{userId} {
-      allow read: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth() && (
+        request.auth.uid == userId ||
+        resource.data.companyId == currentCompanyId()
+      );
       allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && (
+        request.auth.uid == userId ||
+        (
+          isTeamAdmin() &&
+          resource.data.companyId == currentCompanyId() &&
+          resource.data.role != 'super_admin' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['role', 'companyId', 'isActive', 'updatedAt'])
+        )
+      );
     }
 
     match /companies/{companyId} {
@@ -88,10 +124,16 @@ service cloud.firestore {
     }
 
     match /invites/{inviteId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
-      allow delete: if isAuth();
+      allow read: if isAuth() && (
+        resource.data.email == request.auth.token.email ||
+        resource.data.companyId == currentCompanyId()
+      );
+      allow create: if isTeamAdmin() && request.resource.data.companyId == currentCompanyId();
+      allow update: if isAuth() && (
+        resource.data.email == request.auth.token.email ||
+        resource.data.companyId == currentCompanyId()
+      );
+      allow delete: if isTeamAdmin() && resource.data.companyId == currentCompanyId();
     }
   }
 }

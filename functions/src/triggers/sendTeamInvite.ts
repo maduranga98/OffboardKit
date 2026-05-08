@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { sendBrevoEmail } from "../email/brevoClient";
+import { sendSmtpEmail } from "../email/smtpClient";
 
 const ROLE_LABELS: Record<string, string> = {
   hr_admin: "HR Admin",
@@ -34,7 +34,7 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "Not authorized");
   }
 
-  const appUrl = process.env.APP_URL || "https://offboardkit.com";
+  const appUrl = process.env.APP_URL || functions.config().app?.url || "https://offboardkit.com";
   const signupUrl = `${appUrl}/signup?invite=${inviteId}`;
   const roleLabel = ROLE_LABELS[invite.role] || invite.role;
 
@@ -83,7 +83,7 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
 </body>
 </html>`;
 
-  await sendBrevoEmail({
+  await sendSmtpEmail({
     to: [{ email: invite.email }],
     subject: `${invite.invitedByName} invited you to join ${invite.companyName} on OffboardKit`,
     htmlContent: html,
