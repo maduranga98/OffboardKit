@@ -95,6 +95,12 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
+    match /assets/{assetId} {
+      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
+    }
+
     // Portal reads interview templates (not sensitive) and submits responses.
     match /exitInterviewTemplates/{templateId} {
       allow read, write: if isAuth();

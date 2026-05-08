@@ -173,7 +173,7 @@ export default function OffboardingDetail() {
       // 3. If alumni opt-in, create alumni record
       if (addToAlumni) {
         const alumniId = crypto.randomUUID();
-        await setDocument("alumni", alumniId, {
+        await setDocument("alumniProfiles", alumniId, {
           id: alumniId,
           companyId: flow.companyId,
           flowId: flow.id,
