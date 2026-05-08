@@ -34,7 +34,7 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "Not authorized");
   }
 
-  const appUrl = process.env.APP_URL || "https://offboardkit.com";
+  const appUrl = process.env.APP_URL || functions.config().app?.url || "https://offboardkit.com";
   const signupUrl = `${appUrl}/signup?invite=${inviteId}`;
   const roleLabel = ROLE_LABELS[invite.role] || invite.role;
 

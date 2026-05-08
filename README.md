@@ -53,7 +53,7 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 
 ### Cloud Functions Environment Variables
 
-Set these before deploying functions:
+Set these before deploying functions. For Firebase Functions runtime config:
 
 ```bash
 SMTP_HOST="mail.spacemail.com"
@@ -67,7 +67,19 @@ GEMINI_API_KEY="your_gemini_api_key"
 APP_URL="https://your-project.web.app"
 ```
 
-Or use a `functions/.env` file (Firebase Gen 2 / Node 20 supports this natively).
+For environment variables or `functions/.env`, use:
+
+```bash
+SMTP_HOST="mail.spacemail.com"
+SMTP_PORT="465"
+SMTP_SECURE="true"
+SMTP_USER="hello@feedsolve.com"
+SMTP_PASSWORD="your_smtp_password"
+SMTP_FROM_EMAIL="hello@feedsolve.com"
+SMTP_FROM_NAME="OffboardKit"
+GEMINI_API_KEY="your_gemini_api_key"
+APP_URL="https://your-project.web.app"
+```
 
 ## Deployment
 

@@ -201,8 +201,9 @@ export default function TeamSettings() {
     }
 
     setInviting(true);
+    let inviteId: string | null = null;
     try {
-      const inviteId = crypto.randomUUID();
+      inviteId = crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const companyDoc = await getDocument<{ name: string }>("companies", companyId);
@@ -229,7 +230,16 @@ export default function TeamSettings() {
       loadPendingInvites();
     } catch (error) {
       console.error("Invite error:", error);
-      showToast("error", "Failed to send invite", "Please try again.");
+      if (inviteId) {
+        await deleteDocument("invites", inviteId).catch((deleteError) =>
+          console.error("Failed to roll back invite after email error:", deleteError)
+        );
+      }
+      showToast(
+        "error",
+        "Failed to send invite",
+        "The invite was not saved. Check the SMTP function configuration and try again."
+      );
     } finally {
       setInviting(false);
     }
