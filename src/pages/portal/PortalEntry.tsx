@@ -304,7 +304,9 @@ function TasksList({
 
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
-      const uploadTask = uploadBytesResumable(storageRef, blob);
+      const uploadTask = uploadBytesResumable(storageRef, blob, {
+        contentType: "image/png",
+      });
 
       await new Promise<void>((resolve, reject) => {
         uploadTask.on(
@@ -357,7 +359,9 @@ function TasksList({
     try {
       const filePath = `companies/${flow.companyId}/offboardings/${flow.id}/tasks/${task.id}/${file.name}`;
       const storageRef = ref(storage, filePath);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        contentType: file.type || "application/octet-stream",
+      });
 
       await new Promise<void>((resolve, reject) => {
         uploadTask.on(
