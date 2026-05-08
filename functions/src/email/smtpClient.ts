@@ -51,7 +51,10 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
   }
 
   try {
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log("SMTP accepted:", result.response);
+    console.log("SMTP envelope:", JSON.stringify(result.envelope));
+    console.log("SMTP messageId:", result.messageId);
   } catch (error) {
     console.error("SMTP email error:", error);
     throw error;

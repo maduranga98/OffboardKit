@@ -133,7 +133,10 @@ service cloud.firestore {
         resource.data.email == request.auth.token.email ||
         resource.data.companyId == currentCompanyId()
       );
-      allow delete: if isTeamAdmin() && resource.data.companyId == currentCompanyId();
+      allow delete: if isAuth() && (
+        (isTeamAdmin() && resource.data.companyId == currentCompanyId()) ||
+        resource.data.invitedBy == request.auth.uid
+      );
     }
   }
 }
