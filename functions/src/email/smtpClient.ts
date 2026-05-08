@@ -1,49 +1,20 @@
-import * as functions from "firebase-functions";
 import * as nodemailer from "nodemailer";
 
-const smtpConfig = functions.config().smtp ?? {};
+const smtpPort = Number(process.env.SMTP_PORT || "465");
+const smtpSecure =
+  process.env.SMTP_SECURE !== undefined
+    ? process.env.SMTP_SECURE === "true"
+    : smtpPort === 465;
 
-function configValue(envName: string, configName: string, fallback = ""): string {
-  const envValue = process.env[envName];
-  if (envValue) return envValue;
-
-  const configuredValue = smtpConfig[configName];
-  if (typeof configuredValue === "string" && configuredValue) {
-    return configuredValue;
-  }
-
-  return fallback;
-}
-
-function booleanConfigValue(
-  envName: string,
-  configName: string,
-  fallback: boolean
-): boolean {
-  const rawValue = configValue(envName, configName);
-  if (!rawValue) return fallback;
-  return rawValue === "true";
-}
-
-function createTransporter() {
-  const port = Number(configValue("SMTP_PORT", "port", "465"));
-  const secure = booleanConfigValue("SMTP_SECURE", "secure", port === 465);
-  const user = configValue("SMTP_USER", "user", "hello@feedsolve.com");
-  const pass = configValue("SMTP_PASSWORD", "password");
-
-  if (!pass) {
-    throw new Error(
-      "SMTP password is not configured. Set SMTP_PASSWORD or firebase functions config smtp.password."
-    );
-  }
-
-  return nodemailer.createTransport({
-    host: configValue("SMTP_HOST", "host", "mail.spacemail.com"),
-    port,
-    secure,
-    auth: { user, pass },
-  });
-}
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "mail.spacemail.com",
+  port: smtpPort,
+  secure: smtpSecure,
+  auth: {
+    user: process.env.SMTP_USER || "hello@feedsolve.com",
+    pass: process.env.SMTP_PASSWORD || "",
+  },
+});
 
 export interface EmailRecipient {
   email: string;
@@ -63,10 +34,9 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
     .map((r) => (r.name ? `"${r.name}" <${r.email}>` : r.email))
     .join(", ");
 
-  const smtpUser = configValue("SMTP_USER", "user", "hello@feedsolve.com");
   const sender = params.sender ?? {
-    email: configValue("SMTP_FROM_EMAIL", "from_email", smtpUser),
-    name: configValue("SMTP_FROM_NAME", "from_name", "OffboardKit"),
+    email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "hello@feedsolve.com",
+    name: process.env.SMTP_FROM_NAME || "OffboardKit",
   };
 
   const mailOptions: nodemailer.SendMailOptions = {
@@ -81,7 +51,7 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
   }
 
   try {
-    await createTransporter().sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
   } catch (error) {
     console.error("SMTP email error:", error);
     throw error;

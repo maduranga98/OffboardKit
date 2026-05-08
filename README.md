@@ -56,15 +56,15 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 Set these before deploying functions. For Firebase Functions runtime config:
 
 ```bash
-firebase functions:config:set \
-  smtp.host="mail.spacemail.com" \
-  smtp.port="465" \
-  smtp.secure="true" \
-  smtp.user="hello@feedsolve.com" \
-  smtp.password="your_smtp_password" \
-  smtp.from_email="hello@feedsolve.com" \
-  smtp.from_name="OffboardKit" \
-  app.url="https://your-project.web.app"
+SMTP_HOST="mail.spacemail.com"
+SMTP_PORT="465"
+SMTP_SECURE="true"
+SMTP_USER="hello@feedsolve.com"
+SMTP_PASSWORD="your_smtp_password"
+SMTP_FROM_EMAIL="hello@feedsolve.com"
+SMTP_FROM_NAME="OffboardKit"
+GEMINI_API_KEY="your_gemini_api_key"
+APP_URL="https://your-project.web.app"
 ```
 
 For environment variables or `functions/.env`, use:
