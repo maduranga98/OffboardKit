@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
   Zap,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { format } from "date-fns";
+import { httpsCallable } from "firebase/functions";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -20,6 +22,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import { getDocument } from "../../lib/firestore";
+import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
 
 type PlanKey = "free" | "starter" | "growth" | "business" | "enterprise";
@@ -163,6 +166,8 @@ export default function BillingSettings() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [subscribingPlan, setSubscribingPlan] = useState<PlanKey | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!companyId) return;
@@ -178,6 +183,23 @@ export default function BillingSettings() {
       }
     })();
   }, [companyId]);
+
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (checkout === "success") {
+      showToast("success", "Payment successful! Your plan has been upgraded.");
+      setSearchParams({}, { replace: true });
+      // Refresh company data to reflect new plan
+      if (companyId) {
+        getDocument<Company>("companies", companyId).then((data) => {
+          if (data) setCompany(data);
+        });
+      }
+    } else if (checkout === "canceled") {
+      showToast("info", "Checkout canceled. No changes were made.");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, companyId]);
 
   if (loading) {
     return (
@@ -207,6 +229,25 @@ export default function BillingSettings() {
     : "Unknown";
 
   const annualSavingsPct = 17; // 2 months free
+
+  const handleSubscribe = async (plan: PlanKey) => {
+    if (!companyId) return;
+    setSubscribingPlan(plan);
+    try {
+      const createSession = httpsCallable(functions, "createCheckoutSession");
+      const result = await createSession({ plan, billingCycle });
+      const { url } = result.data as { url: string | null };
+      if (url) {
+        window.location.href = url;
+      } else {
+        showToast("error", "Failed to start checkout");
+      }
+    } catch (err: any) {
+      showToast("error", err.message || "Failed to start checkout");
+    } finally {
+      setSubscribingPlan(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -325,11 +366,13 @@ export default function BillingSettings() {
             </div>
             <div>
               <p className="text-sm font-medium text-navy">Payment Method</p>
-              <p className="text-xs text-mist mt-0.5">Stripe integration coming soon</p>
+              <p className="text-xs text-mist mt-0.5">
+                {company.stripeCustomerId ? "Managed via Stripe" : "No card on file"}
+              </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" disabled>
-            Add Card
+          <Button variant="outline" size="sm" disabled={!company.stripeCustomerId}>
+            {company.stripeCustomerId ? "Manage in Stripe" : "Add Card"}
           </Button>
         </div>
       </Card>
@@ -354,7 +397,7 @@ export default function BillingSettings() {
           <div>
             <h3 className="text-lg font-display text-navy">Plans</h3>
             <p className="text-sm text-mist mt-0.5">
-              Stripe billing coming soon — contact us to upgrade early.
+              Choose a plan that fits your team. You can upgrade or downgrade anytime.
             </p>
           </div>
           {/* Billing cycle toggle */}
@@ -457,9 +500,11 @@ export default function BillingSettings() {
                     <Button
                       fullWidth
                       variant={cfg.popular ? "primary" : "outline"}
-                      disabled
+                      onClick={() => handleSubscribe(plan)}
+                      loading={subscribingPlan === plan}
+                      disabled={subscribingPlan !== null}
                     >
-                      Coming Soon
+                      {subscribingPlan === plan ? "Redirecting..." : "Subscribe"}
                     </Button>
                   )}
                 </div>

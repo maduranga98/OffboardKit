@@ -25,3 +25,7 @@ export { detectKnowledgeGaps } from "./ai/detectKnowledgeGaps";
 // Analytics Functions
 export { generateAnalyticsPdf } from "./analytics/generateAnalyticsPdf";
 export { generateKnowledgePdf } from "./analytics/generateKnowledgePdf";
+
+// Billing Functions
+export { createCheckoutSession } from "./billing/createCheckoutSession";
+export { stripeWebhook } from "./billing/stripeWebhook";

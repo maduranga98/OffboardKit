@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type CompanyPlan = "free" | "starter" | "pro" | "enterprise";
+export type CompanyPlan = "free" | "starter" | "growth" | "business" | "enterprise";
 export type CompanySize = "10-50" | "50-200" | "200-500" | "500+";
 
 export interface CompanySettings {
