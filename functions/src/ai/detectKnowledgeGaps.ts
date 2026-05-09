@@ -26,6 +26,11 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
 
   const db = admin.firestore();
 
+  // Verify Gemini API key is available before doing any work
+  if (!process.env.GEMINI_API_KEY) {
+    throw new functions.https.HttpsError("failed-precondition", "GEMINI_API_KEY is not configured");
+  }
+
   const flowDoc = await db.collection("offboardFlows").doc(flowId).get();
   if (!flowDoc.exists) {
     throw new functions.https.HttpsError("not-found", "Offboarding flow not found");
@@ -147,8 +152,9 @@ Rules:
       strengths: Array.isArray(result.strengths) ? result.strengths.slice(0, 3) : [],
       overallAssessment: typeof result.overallAssessment === "string" ? result.overallAssessment : "",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Knowledge gap detection failed for flow ${flowId}:`, error);
-    throw new functions.https.HttpsError("internal", "AI analysis failed. Please try again.");
+    const message = error?.message || "Unknown error";
+    throw new functions.https.HttpsError("internal", `AI analysis failed: ${message}`);
   }
 });
