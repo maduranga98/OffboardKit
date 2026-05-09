@@ -8,7 +8,7 @@ import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import logo from "../../assets/logo.png";
 
 export default function AlumniLogin() {
-  const { user, alumniProfile, loading, signInWithEmail } = useAlumniAuth();
+  const { user, alumniProfile, loading, authError, signInWithEmail } = useAlumniAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -80,9 +80,9 @@ export default function AlumniLogin() {
             Sign in to access your profile and alumni community.
           </p>
 
-          {error && (
+          {(error || authError) && (
             <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
-              {error}
+              {error || authError}
             </div>
           )}
 
@@ -109,13 +109,13 @@ export default function AlumniLogin() {
           </form>
 
           <p className="mt-6 text-sm text-center text-mist">
-            Need help?{" "}
-            <a
-              href="mailto:support@example.com"
+            First time here?{" "}
+            <Link
+              to="/alumni-register"
               className="text-teal hover:text-teal-light font-medium"
             >
-              Contact support
-            </a>
+              Create your account
+            </Link>
           </p>
 
           <p className="mt-8 text-xs text-center text-mist/70">

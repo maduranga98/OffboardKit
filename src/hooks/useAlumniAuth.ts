@@ -19,6 +19,7 @@ export function useAlumniAuth() {
     setUser,
     setAlumniProfile,
     setLoading,
+    setAuthError,
     logout,
   } = useAlumniAuthStore();
 
@@ -39,14 +40,21 @@ export function useAlumniAuth() {
           [where("email", "==", firebaseUser.email || "")]
         );
 
-        if (alumni.length > 0 && alumni[0].optedIn) {
-          setAlumniProfile(alumni[0]);
-        } else {
+        if (alumni.length === 0) {
           await firebaseSignOut(auth);
+          setAuthError("No alumni account found with this email. Please check your email address.");
           logout();
+        } else if (!alumni[0].optedIn) {
+          await firebaseSignOut(auth);
+          setAuthError("Your alumni account has not been activated. Please contact your former company.");
+          logout();
+        } else {
+          setAlumniProfile(alumni[0]);
+          setAuthError(null);
         }
       } catch (error) {
         console.error("Error loading alumni profile:", error);
+        setAuthError("Something went wrong. Please try again later.");
         logout();
       } finally {
         setLoading(false);
@@ -58,6 +66,7 @@ export function useAlumniAuth() {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      setAuthError(null);
       await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will validate the alumni profile exists
     } catch (error) {
@@ -80,6 +89,7 @@ export function useAlumniAuth() {
     user,
     alumniProfile,
     loading,
+    authError,
     signInWithEmail,
     signOut,
   };
