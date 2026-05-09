@@ -107,7 +107,8 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
             setTemplate(anyTemplates[0]);
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("ExitInterviewPortal load error:", err);
         setError("Something went wrong loading the interview.");
       } finally {
         setLoading(false);
@@ -171,7 +172,8 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
       });
 
       setSubmitted(true);
-    } catch {
+    } catch (err) {
+      console.error("ExitInterviewPortal submit error:", err);
       setError("Failed to submit. Please try again.");
     } finally {
       setSubmitting(false);
