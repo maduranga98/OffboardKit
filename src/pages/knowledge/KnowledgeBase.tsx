@@ -551,7 +551,8 @@ export default function KnowledgeBase() {
         userMap[u.id] = u.displayName || u.email;
       });
       setUsers(userMap);
-    } catch {
+    } catch (err) {
+      console.error("getCompanyMembers error:", err);
       showToast("error", "Failed to load team data");
     }
   }, [companyId]);

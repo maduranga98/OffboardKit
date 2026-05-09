@@ -61,14 +61,15 @@ export default function AssetReturnTracker({
     const load = async () => {
       try {
         const data = await queryDocuments<Asset>("assets", [
+          where("companyId", "==", companyId),
           where("flowId", "==", flowId),
         ]);
         setAssets(data);
         const returned = data.filter((a) => a.returnedAt).length;
         const percent = data.length > 0 ? Math.round((returned / data.length) * 100) : 0;
         onScoreUpdate?.(percent);
-      } catch {
-        // Silent fail
+      } catch (err) {
+        console.error("AssetReturnTracker load error:", err);
       } finally {
         setLoading(false);
       }
