@@ -50,7 +50,16 @@ export function useAlumniAuth() {
           setAuthError("Your alumni account has not been activated. Please contact your former company.");
           logout();
         } else {
-          setAlumniProfile(alumni[0]);
+          const profile = alumni[0];
+          // Link the Firebase Auth UID if not already set
+          if (!profile.authUid && firebaseUser.uid) {
+            try {
+              await updateDocument("alumniProfiles", profile.id, { authUid: firebaseUser.uid });
+            } catch {
+              // Non-blocking: profile still works without authUid
+            }
+          }
+          setAlumniProfile({ ...profile, authUid: firebaseUser.uid });
           setAuthError(null);
         }
       } catch (error) {

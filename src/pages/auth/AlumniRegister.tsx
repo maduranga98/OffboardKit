@@ -1,73 +1,31 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Heart, ArrowLeft } from "lucide-react";
+import { Heart } from "lucide-react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../lib/firebase";
-import { queryDocuments, where, updateDocument } from "../../lib/firestore";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
-import type { AlumniProfile } from "../../types/alumni.types";
 import logo from "../../assets/logo.png";
 
 export default function AlumniRegister() {
-  const { user, alumniProfile, loading } = useAlumniAuth();
+  const { user, alumniProfile, loading, authError } = useAlumniAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [step, setStep] = useState<"email" | "password">("email");
-  const [foundProfile, setFoundProfile] = useState<AlumniProfile | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Already logged in
+  // Already logged in with a valid alumni profile
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && alumniProfile) return <Navigate to="/alumni-portal/profile" replace />;
 
-  const checkEmail = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!email.trim()) {
-      setError("Please enter your email address.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const alumni = await queryDocuments<AlumniProfile>("alumniProfiles", [
-        where("email", "==", email.trim().toLowerCase()),
-      ]);
-
-      if (alumni.length === 0) {
-        setError("No alumni account found with this email. Please check your email address.");
-        return;
-      }
-
-      const profile = alumni[0];
-      if (!profile.optedIn) {
-        setError("Your alumni account has not been activated. Please contact your former company.");
-        return;
-      }
-
-      if (profile.authUid) {
-        setError("You already have an account. Please sign in instead.");
-        return;
-      }
-
-      setFoundProfile(profile);
-      setStep("password");
-    } catch {
-      setError("Something went wrong. Please try again later.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const createAccount = async (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!password || !confirmPassword) {
+    if (!email.trim() || !password || !confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
@@ -79,18 +37,26 @@ export default function AlumniRegister() {
       setError("Passwords do not match.");
       return;
     }
-    if (!foundProfile) return;
 
     setSubmitting(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await updateDocument("alumniProfiles", foundProfile.id, {
-        authUid: cred.user.uid,
-      });
-      // onAuthStateChanged will auto-login and redirect
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      // onAuthStateChanged will validate the alumni profile and either:
+      // - set alumniProfile + redirect to /alumni-portal/profile
+      // - sign out + set authError (no profile / not activated)
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create account. Please try again.";
+      let message = "Failed to create account. Please try again.";
+      if (err instanceof Error) {
+        if (err.message.includes("auth/email-already-in-use")) {
+          message = "An account already exists with this email. Please sign in instead.";
+        } else if (err.message.includes("auth/invalid-email")) {
+          message = "Please enter a valid email address.";
+        } else if (err.message.includes("auth/weak-password")) {
+          message = "Password is too weak. Please use at least 6 characters.";
+        } else {
+          message = err.message;
+        }
+      }
       setError(message);
     } finally {
       setSubmitting(false);
@@ -128,70 +94,46 @@ export default function AlumniRegister() {
             <span className="font-display text-xl text-navy">OffboardKit</span>
           </div>
 
-          <h2 className="text-2xl font-semibold text-navy mb-1">
-            {step === "email" ? "Create Your Account" : "Set Your Password"}
-          </h2>
+          <h2 className="text-2xl font-semibold text-navy mb-1">Create Your Account</h2>
           <p className="text-sm text-mist mb-8">
-            {step === "email"
-              ? "Enter the email address associated with your alumni profile."
-              : `Creating account for ${email}`}
+            Enter your email and create a password to access the alumni portal.
           </p>
 
-          {error && (
+          {(error || authError) && (
             <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
-              {error}
+              {error || authError}
             </div>
           )}
 
-          {step === "email" ? (
-            <form onSubmit={checkEmail} className="space-y-4">
-              <Input
-                label="Email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <Button type="submit" fullWidth size="lg" loading={submitting}>
-                Continue
-              </Button>
-            </form>
-          ) : (
-            <form onSubmit={createAccount} className="space-y-4">
-              <Input
-                label="Password"
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <Input
-                label="Confirm Password"
-                type="password"
-                placeholder="Re-enter your password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
-              <Button type="submit" fullWidth size="lg" loading={submitting}>
-                Create Account
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                fullWidth
-                onClick={() => {
-                  setStep("email");
-                  setError("");
-                }}
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                Back
-              </Button>
-            </form>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="Create a password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <Input
+              label="Confirm Password"
+              type="password"
+              placeholder="Re-enter your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            <Button type="submit" fullWidth size="lg" loading={submitting}>
+              Create Account
+            </Button>
+          </form>
 
           <p className="mt-6 text-sm text-center text-mist">
             Already have an account?{" "}
