@@ -10,7 +10,7 @@ import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import logo from "../../assets/logo.png";
 
 export default function AlumniRegister() {
-  const { user, alumniProfile, loading, authError } = useAlumniAuth();
+  const { user, alumniProfile, loading, authError, setAuthError } = useAlumniAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,6 +39,7 @@ export default function AlumniRegister() {
     }
 
     setSubmitting(true);
+    setAuthError(null);
     try {
       await createUserWithEmailAndPassword(auth, email.trim(), password);
       // onAuthStateChanged will validate the alumni profile and either:

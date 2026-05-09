@@ -23,5 +23,5 @@ export const useAlumniAuthStore = create<AlumniAuthState>((set) => ({
   setAlumniProfile: (alumniProfile) => set({ alumniProfile }),
   setLoading: (loading) => set({ loading }),
   setAuthError: (authError) => set({ authError }),
-  logout: () => set({ user: null, alumniProfile: null, loading: false, authError: null }),
+  logout: () => set({ user: null, alumniProfile: null, loading: false }),
 }));

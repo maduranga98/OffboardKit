@@ -7,7 +7,7 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
-import { queryDocuments, where } from "../lib/firestore";
+import { queryDocuments, updateDocument, where } from "../lib/firestore";
 import { useAlumniAuthStore } from "../store/alumniAuthStore";
 import type { AlumniProfile } from "../types/alumni.types";
 
@@ -42,13 +42,11 @@ export function useAlumniAuth() {
         );
 
         if (alumni.length === 0) {
-          await firebaseSignOut(auth);
           setAuthError("No alumni account found with this email. Please check your email address.");
-          logout();
-        } else if (!alumni[0].optedIn) {
           await firebaseSignOut(auth);
+        } else if (!alumni[0].optedIn) {
           setAuthError("Your alumni account has not been activated. Please contact your former company.");
-          logout();
+          await firebaseSignOut(auth);
         } else {
           const profile = alumni[0];
           // Link the Firebase Auth UID if not already set
@@ -65,14 +63,14 @@ export function useAlumniAuth() {
       } catch (error) {
         console.error("Error loading alumni profile:", error);
         setAuthError("Something went wrong. Please try again later.");
-        logout();
+        await firebaseSignOut(auth);
       } finally {
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [setUser, setAlumniProfile, setLoading, logout]);
+  }, [setUser, setAlumniProfile, setLoading, setAuthError, logout]);
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
@@ -87,6 +85,7 @@ export function useAlumniAuth() {
 
   const signOut = async () => {
     try {
+      setAuthError(null);
       await firebaseSignOut(auth);
       logout();
     } catch (error) {
@@ -100,6 +99,7 @@ export function useAlumniAuth() {
     alumniProfile,
     loading,
     authError,
+    setAuthError,
     signInWithEmail,
     signOut,
   };
