@@ -14,9 +14,6 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../../lib/firebase";
-import { showToast } from "../ui/Toast";
 import clsx from "clsx";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -26,7 +23,6 @@ import { Progress } from "../ui/Progress";
 import { EmptyState } from "../shared/EmptyState";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-import { usePlanGate } from "../../hooks/usePlanGate";
 import {
   queryDocuments,
   setDocument,
@@ -83,25 +79,11 @@ interface KnowledgeTrackerProps {
   onScoreUpdate?: (score: number) => void;
 }
 
-interface KnowledgeGapAnalysis {
-  completenessScore: number;
-  gaps: {
-    area: string;
-    severity: "critical" | "high" | "medium" | "low";
-    description: string;
-    suggestedPrompt: string;
-  }[];
-  strengths: string[];
-  overallAssessment: string;
-}
-
 export default function KnowledgeTracker({
   flow,
   onScoreUpdate,
 }: KnowledgeTrackerProps) {
   const { appUser } = useAuth();
-  const { canUseAiGapDetection } = usePlanGate();
-  const aiEnabled = canUseAiGapDetection();
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -110,8 +92,6 @@ export default function KnowledgeTracker({
   const [verifyingIds, setVerifyingIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [analyzing, setAnalyzing] = useState(false);
-  const [gapAnalysis, setGapAnalysis] = useState<KnowledgeGapAnalysis | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -317,20 +297,6 @@ export default function KnowledgeTracker({
         next.delete(item.id);
         return next;
       });
-    }
-  }
-
-  async function handleAnalyzeGaps() {
-    setAnalyzing(true);
-    try {
-      const detectGaps = httpsCallable(functions, "detectKnowledgeGaps");
-      const result = await detectGaps({ flowId: flow.id });
-      setGapAnalysis(result.data as KnowledgeGapAnalysis);
-    } catch (error) {
-      console.error("Gap analysis failed:", error);
-      showToast("error", "Analysis failed. Please try again.");
-    } finally {
-      setAnalyzing(false);
     }
   }
 
@@ -610,94 +576,7 @@ export default function KnowledgeTracker({
         </Card>
       )}
 
-      {/* AI Gap Analysis Section */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-navy">AI Knowledge Gap Analysis</h3>
-            <p className="text-xs text-mist mt-0.5">
-              {aiEnabled
-                ? "Analyze what knowledge may be missing from the handover"
-                : "Upgrade to Growth or higher to enable AI gap detection"}
-            </p>
-          </div>
-          {aiEnabled ? (
-            <Button
-              size="sm"
-              onClick={handleAnalyzeGaps}
-              loading={analyzing}
-              disabled={analyzing}
-            >
-              {analyzing ? "Analyzing..." : gapAnalysis ? "Re-analyze" : "Analyze Gaps"}
-            </Button>
-          ) : (
-            <span className="text-xs text-mist border border-navy/10 rounded-lg px-3 py-1.5">
-              Growth plan required
-            </span>
-          )}
-        </div>
 
-        {gapAnalysis && (
-          <div className="space-y-4">
-            {/* Completeness Score */}
-            <div className="flex items-center gap-3">
-              <Progress value={gapAnalysis.completenessScore} size="sm" />
-              <span className="text-sm font-semibold text-navy">
-                {gapAnalysis.completenessScore}%
-              </span>
-            </div>
-
-            {/* Overall Assessment */}
-            <p className="text-sm text-navy bg-navy/[0.02] rounded-lg p-3 border border-navy/5">
-              {gapAnalysis.overallAssessment}
-            </p>
-
-            {/* Gaps */}
-            {gapAnalysis.gaps.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-mist uppercase tracking-wide">
-                  Identified Gaps
-                </h4>
-                {gapAnalysis.gaps.map((gap, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-navy/5">
-                    <Badge
-                      variant={
-                        gap.severity === "critical" ? "ember" :
-                        gap.severity === "high" ? "amber" :
-                        "mist"
-                      }
-                    >
-                      {gap.severity}
-                    </Badge>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-navy">{gap.area}</p>
-                      <p className="text-xs text-mist mt-0.5">{gap.description}</p>
-                      <p className="text-xs text-teal mt-1 italic">
-                        Ask: &ldquo;{gap.suggestedPrompt}&rdquo;
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Strengths */}
-            {gapAnalysis.strengths.length > 0 && (
-              <div className="space-y-1">
-                <h4 className="text-xs font-semibold text-mist uppercase tracking-wide">
-                  Well Documented
-                </h4>
-                {gapAnalysis.strengths.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-navy">
-                    <CheckCircle size={14} className="text-teal flex-shrink-0" />
-                    {s}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
