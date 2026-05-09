@@ -39,9 +39,10 @@ export function useAlumniAuth() {
           [where("email", "==", firebaseUser.email || "")]
         );
 
-        if (alumni.length > 0) {
+        if (alumni.length > 0 && alumni[0].optedIn) {
           setAlumniProfile(alumni[0]);
         } else {
+          await firebaseSignOut(auth);
           logout();
         }
       } catch (error) {
