@@ -124,12 +124,8 @@ service cloud.firestore {
     match /alumniProfiles/{profileId} {
       // Any authenticated user can create an alumni profile
       allow create: if isAuth();
-      // Company members and the alumni themselves can read
-      allow read: if isAuth() && (
-        resource == null ||
-        resource.data.companyId == currentCompanyId() ||
-        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
-      );
+      // Any authenticated user can read (needed for email-based list queries)
+      allow read: if isAuth();
       // Company members and the alumni themselves can update
       allow update: if isAuth() && (
         resource.data.companyId == currentCompanyId() ||

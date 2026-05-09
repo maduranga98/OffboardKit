@@ -57,25 +57,8 @@ export function useAlumniAuth() {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      // Check if alumni exists first
-      const alumni = await queryDocuments<AlumniProfile>(
-        "alumniProfiles",
-        [where("email", "==", email)]
-      );
-
-      if (alumni.length === 0) {
-        throw new Error(
-          "No alumni account found with this email. Please check your email address."
-        );
-      }
-
-      if (!alumni[0].optedIn) {
-        throw new Error(
-          "Your alumni account has not been activated. Please contact your former company."
-        );
-      }
-
       await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will validate the alumni profile exists
     } catch (error) {
       console.error("Email sign-in error:", error);
       throw error;
