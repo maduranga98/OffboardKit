@@ -11,7 +11,7 @@ import OffboardingDetail from "./pages/offboardings/OffboardingDetail";
 import NewOffboarding from "./pages/offboardings/NewOffboarding";
 import TemplateList from "./pages/templates/TemplateList";
 import TemplateDetail from "./pages/templates/TemplateDetail";
-import Interviews from "./pages/interviews/Interviews";
+import InterviewList from "./pages/interviews/InterviewList";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import KnowledgeGaps from "./pages/knowledge/KnowledgeGaps";
 import Analytics from "./pages/analytics/Analytics";
@@ -83,7 +83,7 @@ export const router = createBrowserRouter([
       { path: "offboardings/:id", element: <OffboardingDetail /> },
       { path: "templates", element: <TemplateList /> },
       { path: "templates/:id", element: <TemplateDetail /> },
-      { path: "interviews", element: <Interviews /> },
+      { path: "interviews", element: <InterviewList /> },
       { path: "knowledge", element: <KnowledgeBase /> },
       { path: "knowledge/gaps", element: <KnowledgeGaps /> },
       { path: "analytics", element: <Analytics /> },
