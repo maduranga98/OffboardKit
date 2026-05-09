@@ -16,6 +16,7 @@ export function useAlumniAuth() {
     user,
     alumniProfile,
     loading,
+    authError,
     setUser,
     setAlumniProfile,
     setLoading,
