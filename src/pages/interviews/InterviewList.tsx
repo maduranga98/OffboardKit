@@ -762,8 +762,8 @@ export default function InterviewList() {
         ]);
         setTemplates(tpls);
         setResponses(resps);
-      } catch {
-        // Collections may not exist yet
+      } catch (err) {
+        console.error("InterviewList load error:", err);
       } finally {
         setLoading(false);
       }

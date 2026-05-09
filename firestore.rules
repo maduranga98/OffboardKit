@@ -122,11 +122,21 @@ service cloud.firestore {
     }
 
     match /alumniProfiles/{profileId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-      // Alumni can read/update only their own profile
-      allow read: if isAuth() && resource.data.email == request.auth.token.email;
-      allow update: if isAuth() && resource.data.email == request.auth.token.email;
+      // Any authenticated user can create an alumni profile
+      allow create: if isAuth();
+      // Company members and the alumni themselves can read
+      allow read: if isAuth() && (
+        resource == null ||
+        resource.data.companyId == currentCompanyId() ||
+        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
+      );
+      // Company members and the alumni themselves can update
+      allow update: if isAuth() && (
+        resource.data.companyId == currentCompanyId() ||
+        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
+      );
+      // Only company members can delete
+      allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
     }
 
     match /invites/{inviteId} {

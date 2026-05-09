@@ -24,7 +24,8 @@ export const analyzeSentiment = functions.firestore
           return `Q: ${a.questionText}\nA: ${a.value}/5 stars`;
         }
         if (a.type === "yes_no") {
-          return `Q: ${a.questionText}\nA: ${a.value === "yes" || (a.value as unknown) === true ? "Yes" : "No"}`;
+          const val = String(a.value).toLowerCase();
+          return `Q: ${a.questionText}\nA: ${val === "yes" || val === "true" ? "Yes" : "No"}`;
         }
         if (a.type === "multiple_choice") {
           return `Q: ${a.questionText}\nA: ${a.value}`;

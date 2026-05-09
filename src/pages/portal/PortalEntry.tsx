@@ -763,8 +763,8 @@ export default function PortalEntry() {
         ]);
         setKnowledgeItemCount(knowledgeItems.length);
         setInterviewCompleted(interviews.length > 0);
-      } catch {
-        // Silent fail
+      } catch (err) {
+        console.error("PortalEntry completion status error:", err);
       }
     };
     loadCompletionStatus();

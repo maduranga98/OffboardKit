@@ -49,6 +49,7 @@ export default function Interviews() {
         );
         setResponses(data ?? []);
       } catch (err) {
+        console.error("Interviews load error:", err);
         setError("Failed to load interview responses.");
       } finally {
         setLoading(false);
