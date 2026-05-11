@@ -54,7 +54,15 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isCompanyMember(companyId);
       allow create: if isAuth();
-      allow update: if isCompanyMember(companyId);
+      // Billing-sensitive fields can only be mutated by team admins, and
+      // only from the server (Cloud Functions use admin SDK and bypass
+      // rules anyway). Regular company members can still update profile
+      // settings, feature toggles, usage counters, etc.
+      allow update: if isCompanyMember(companyId) && (
+        isTeamAdmin() ||
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['plan', 'stripeCustomerId', 'stripeSubscriptionId', 'stripeSubscriptionStatus'])
+      );
     }
 
     match /offboardTemplates/{templateId} {

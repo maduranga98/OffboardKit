@@ -187,19 +187,39 @@ export default function BillingSettings() {
   useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (checkout === "success") {
-      showToast("success", "Payment successful! Your plan has been upgraded.");
+      showToast("success", "Payment successful! Refreshing your plan…");
       setSearchParams({}, { replace: true });
-      // Refresh company data to reflect new plan
+      // The Stripe webhook fires asynchronously — poll the company doc
+      // every 2s for up to 30s so the UI reflects the new plan without
+      // a manual refresh. Stop as soon as the plan changes.
       if (companyId) {
-        getDocument<Company>("companies", companyId).then((data) => {
-          if (data) setCompany(data);
-        });
+        const startedPlan = company?.plan;
+        let attempts = 0;
+        const interval = window.setInterval(async () => {
+          attempts++;
+          try {
+            const data = await getDocument<Company>("companies", companyId);
+            if (data) {
+              setCompany(data);
+              if (data.plan !== startedPlan) {
+                window.clearInterval(interval);
+                showToast("success", `You're now on the ${data.plan} plan.`);
+              }
+            }
+          } catch (err) {
+            console.error("Post-checkout refresh failed", err);
+          }
+          if (attempts >= 15) {
+            window.clearInterval(interval);
+          }
+        }, 2000);
+        return () => window.clearInterval(interval);
       }
     } else if (checkout === "canceled") {
       showToast("info", "Checkout canceled. No changes were made.");
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams, companyId]);
+  }, [searchParams, setSearchParams, companyId, company?.plan]);
 
   if (loading) {
     return (

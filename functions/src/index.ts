@@ -28,6 +28,7 @@ export { checkGapEscalation } from "./triggers/gapEscalation";
 export { sendKnowledgeReminders } from "./triggers/knowledgeReminder";
 export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifications";
 export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
+export { resetAnnualUsage } from "./triggers/resetAnnualUsage";
 
 // Outbound HRIS / identity-provider webhooks
 export {

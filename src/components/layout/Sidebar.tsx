@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Network,
   Settings,
+  HelpCircle,
   X,
   LogOut,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const navItems = [
   { to: "/analytics/trends", label: "Trends", icon: TrendingUp },
   { to: "/interviews", label: "Exit Interviews", icon: MessageSquare },
   { to: "/alumni", label: "Alumni", icon: Network },
+  { to: "/help", label: "Help", icon: HelpCircle },
 ];
 
 function OffboardKitLogo() {
