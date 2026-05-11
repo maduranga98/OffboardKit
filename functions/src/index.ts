@@ -8,6 +8,16 @@ export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
 
+// Audit log triggers — record every state change in
+// offboardFlows/{flowId}/auditLog for compliance reporting.
+export {
+  auditFlowCreated,
+  auditFlowUpdated,
+  auditTaskUpdated,
+  auditExitInterviewSubmitted,
+  auditKnowledgeItemAdded,
+} from "./triggers/auditLog";
+
 // Scheduled functions
 export { checkOverdueTasks } from "./triggers/onTaskOverdue";
 export { expirePortals } from "./triggers/expirePortals";

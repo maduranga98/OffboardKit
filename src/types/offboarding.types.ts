@@ -69,6 +69,30 @@ export interface OffboardFlow {
   };
 }
 
+export type AuditAction =
+  | "flow_created"
+  | "flow_status_changed"
+  | "flow_cancelled"
+  | "flow_completed"
+  | "portal_accessed"
+  | "task_status_changed"
+  | "exit_interview_submitted"
+  | "knowledge_item_added";
+
+export interface AuditLogEntry {
+  id: string;
+  flowId: string;
+  companyId: string;
+  action: AuditAction;
+  actorType: "user" | "portal" | "system";
+  actorId: string | null;
+  actorName: string | null;
+  summary: string;
+  changes?: Record<string, { from: unknown; to: unknown }>;
+  metadata?: Record<string, unknown>;
+  createdAt: Timestamp;
+}
+
 export interface FlowTask {
   id: string;
   flowId: string;

@@ -74,6 +74,15 @@ service cloud.firestore {
       allow update: if request.resource.data.portalToken == resource.data.portalToken
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['progressPercent', 'completionScores', 'status', 'portalLastAccessed']);
+
+      // Audit log is read-only for company members and write-only via
+      // Cloud Functions (admin SDK bypasses rules). Deny all client writes
+      // so entries are tamper-evident.
+      match /auditLog/{entryId} {
+        allow read: if isAuth()
+          && get(/databases/$(database)/documents/offboardFlows/$(flowId)).data.companyId == currentCompanyId();
+        allow write: if false;
+      }
     }
 
     // Portal updates a task only if the task carries the same portalToken as

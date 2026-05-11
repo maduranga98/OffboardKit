@@ -19,6 +19,7 @@ import clsx from "clsx";
 import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
 import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
 import AssetReturnTracker from "../../components/offboardings/AssetReturnTracker";
+import AuditLogTab from "../../components/offboardings/AuditLogTab";
 import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -108,7 +109,9 @@ export default function OffboardingDetail() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge" | "assets">("tasks");
+  const [activeTab, setActiveTab] = useState<
+    "tasks" | "access" | "knowledge" | "assets" | "activity"
+  >("tasks");
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -154,12 +157,14 @@ export default function OffboardingDetail() {
     if (!flow || !id || !companyId) return;
     setCompleting(true);
     try {
-      // 1. Mark flow complete
+      // 1. Mark flow complete (lastUpdatedBy lets the audit trigger
+      // identify the actor).
       await updateDocument("offboardFlows", id, {
         status: "completed",
         completedAt: serverTimestamp(),
         progressPercent: 100,
         "completionScores.tasks": 100,
+        lastUpdatedBy: appUser?.id ?? null,
       });
 
       // 2. Decrement active offboardings on company
@@ -215,6 +220,7 @@ export default function OffboardingDetail() {
     try {
       await updateDocument("offboardFlows", id, {
         status: "cancelled",
+        lastUpdatedBy: appUser?.id ?? null,
       });
       setFlow({ ...flow, status: "cancelled" });
     } catch {
@@ -562,6 +568,17 @@ export default function OffboardingDetail() {
         >
           Assets
         </button>
+        <button
+          onClick={() => setActiveTab("activity")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "activity"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Activity
+        </button>
       </div>
 
       {/* Tab content */}
@@ -695,6 +712,8 @@ export default function OffboardingDetail() {
           onScoreUpdate={handleAssetScoreUpdate}
         />
       )}
+
+      {activeTab === "activity" && <AuditLogTab flowId={flow.id} />}
 
       <CompleteOffboardingModal
         isOpen={showCompleteModal}

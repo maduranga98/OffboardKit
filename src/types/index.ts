@@ -10,6 +10,8 @@ export type {
   CompletionScores,
   OffboardFlow,
   FlowTask,
+  AuditAction,
+  AuditLogEntry,
 } from "./offboarding.types";
 export type {
   QuestionType,
