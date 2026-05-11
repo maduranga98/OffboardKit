@@ -62,22 +62,38 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
-    // Portal (unauthenticated) needs to read flows by portalToken and update
-    // progress fields. Field-level restriction limits portal updates to safe fields only.
+    // Portal (unauthenticated) reads a flow only if it carries a portalToken
+    // and the link hasn't expired. Updates must echo the stored portalToken
+    // unchanged AND be confined to safe progress fields.
     match /offboardFlows/{flowId} {
       allow read, write: if isAuth();
-      allow read: if true;
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['progressPercent', 'completionScores', 'status', 'portalLastAccessed']);
+      allow read: if resource.data.portalToken != null
+        && (!('portalExpiresAt' in resource.data)
+            || resource.data.portalExpiresAt == null
+            || request.time < resource.data.portalExpiresAt);
+      allow update: if request.resource.data.portalToken == resource.data.portalToken
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['progressPercent', 'completionScores', 'status', 'portalLastAccessed']);
+
+      // Audit log is read-only for company members and write-only via
+      // Cloud Functions (admin SDK bypasses rules). Deny all client writes
+      // so entries are tamper-evident.
+      match /auditLog/{entryId} {
+        allow read: if isAuth()
+          && get(/databases/$(database)/documents/offboardFlows/$(flowId)).data.companyId == currentCompanyId();
+        allow write: if false;
+      }
     }
 
-    // Portal needs to read and complete tasks assigned to the employee.
-    // Update is restricted to completion-related fields only.
+    // Portal updates a task only if the task carries the same portalToken as
+    // its parent flow (denormalized at creation time) and only completion-
+    // related fields are touched.
     match /flowTasks/{taskId} {
       allow read, write: if isAuth();
-      allow read: if true;
-      allow update: if request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['status', 'completedAt', 'completedBy', 'uploadedFileUrl']);
+      allow read: if resource.data.portalToken != null;
+      allow update: if request.resource.data.portalToken == resource.data.portalToken
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'completedAt', 'completedBy', 'uploadedFileUrl']);
     }
 
     match /notifications/{notificationId} {
@@ -108,17 +124,27 @@ service cloud.firestore {
     }
 
     // Portal submits and reads its own responses to check completion status.
+    // Anonymous creates require a flowId + matching portalToken so attackers
+    // can't spam arbitrary companies / trigger AI sentiment analysis.
     match /exitInterviewResponses/{responseId} {
       allow read, write: if isAuth();
-      allow create: if true;
-      allow read: if true;
+      allow read: if resource.data.portalToken != null;
+      allow create: if request.resource.data.flowId is string
+        && request.resource.data.companyId is string
+        && request.resource.data.portalToken is string
+        && request.resource.data.portalToken ==
+           get(/databases/$(database)/documents/offboardFlows/$(request.resource.data.flowId)).data.portalToken;
     }
 
-    // Portal submits knowledge items and reads them to show completion status.
+    // Portal submits knowledge items; same guardrails as exit interview.
     match /knowledgeItems/{itemId} {
       allow read, write: if isAuth();
-      allow create: if true;
-      allow read: if true;
+      allow read: if resource.data.portalToken != null;
+      allow create: if request.resource.data.flowId is string
+        && request.resource.data.companyId is string
+        && request.resource.data.portalToken is string
+        && request.resource.data.portalToken ==
+           get(/databases/$(database)/documents/offboardFlows/$(request.resource.data.flowId)).data.portalToken;
     }
 
     match /alumniProfiles/{profileId} {
@@ -133,6 +159,24 @@ service cloud.firestore {
       );
       // Only company members can delete
       allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
+    }
+
+    // Outbound HRIS / identity-provider webhooks. Read/write limited to
+    // team admins because secrets live here.
+    match /integrations/{integrationId} {
+      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow create: if isTeamAdmin()
+        && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isTeamAdmin()
+        && resource.data.companyId == currentCompanyId();
+    }
+
+    // Compliance report archive. Only generated server-side; clients are
+    // read-only.
+    match /complianceReports/{reportId} {
+      allow read: if isTeamAdmin()
+        && resource.data.companyId == currentCompanyId();
+      allow write: if false;
     }
 
     match /invites/{inviteId} {

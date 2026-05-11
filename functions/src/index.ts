@@ -4,15 +4,36 @@ admin.initializeApp();
 
 // Firestore triggers
 export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
+export { onFlowApprovalChanged } from "./triggers/onFlowApprovalChanged";
 
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
+
+// Audit log triggers — record every state change in
+// offboardFlows/{flowId}/auditLog for compliance reporting.
+export {
+  auditFlowCreated,
+  auditFlowUpdated,
+  auditTaskUpdated,
+  auditExitInterviewSubmitted,
+  auditKnowledgeItemAdded,
+  auditAssetCreated,
+  auditAssetUpdated,
+} from "./triggers/auditLog";
 
 // Scheduled functions
 export { checkOverdueTasks } from "./triggers/onTaskOverdue";
 export { expirePortals } from "./triggers/expirePortals";
 export { checkGapEscalation } from "./triggers/gapEscalation";
 export { sendKnowledgeReminders } from "./triggers/knowledgeReminder";
+export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifications";
+export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
+
+// Outbound HRIS / identity-provider webhooks
+export {
+  fireFlowWebhooks,
+  fireAssetWebhooks,
+} from "./triggers/fireIntegrationWebhooks";
 
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";

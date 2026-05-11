@@ -65,19 +65,35 @@ export function useAuth() {
                 (inv) => inv.expiresAt.toDate() > new Date()
               );
               if (validInvite) {
+                // Create the user doc first so the invite is only marked
+                // accepted once the user actually exists. If marking the
+                // invite fails we still log it instead of silently dropping
+                // the error.
                 newUser.companyId = validInvite.companyId;
                 newUser.role = validInvite.role;
-                await updateDocument("invites", validInvite.id, {
-                  status: "accepted",
-                });
+                await setDocument("users", firebaseUser.uid, newUser);
+                existingUser = newUser;
+                try {
+                  await updateDocument("invites", validInvite.id, {
+                    status: "accepted",
+                  });
+                } catch (inviteErr) {
+                  console.error(
+                    "Failed to mark invite accepted",
+                    validInvite.id,
+                    inviteErr
+                  );
+                }
               }
-            } catch {
-              // Non-fatal: proceed with no company assignment
+            } catch (inviteLookupErr) {
+              console.error("Invite lookup failed", inviteLookupErr);
             }
           }
 
-          await setDocument("users", firebaseUser.uid, newUser);
-          existingUser = newUser;
+          if (!existingUser) {
+            await setDocument("users", firebaseUser.uid, newUser);
+            existingUser = newUser;
+          }
         }
 
         setAppUser(existingUser);

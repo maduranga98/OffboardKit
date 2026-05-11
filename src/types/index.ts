@@ -10,6 +10,11 @@ export type {
   CompletionScores,
   OffboardFlow,
   FlowTask,
+  AuditAction,
+  AuditLogEntry,
+  ApprovalStatus,
+  ApprovalStepStatus,
+  ApprovalStep,
 } from "./offboarding.types";
 export type {
   QuestionType,
@@ -29,3 +34,8 @@ export type {
   RehirePriority,
   AlumniProfile,
 } from "./alumni.types";
+export type {
+  IntegrationProvider,
+  IntegrationEvent,
+  Integration,
+} from "./integration.types";

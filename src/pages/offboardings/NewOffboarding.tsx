@@ -7,7 +7,8 @@ import {
   FileText,
   CheckCircle,
 } from "lucide-react";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, writeBatch, doc, increment } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { format, differenceInDays } from "date-fns";
 import clsx from "clsx";
 import { where } from "firebase/firestore";
@@ -20,8 +21,14 @@ import { UpgradeGateModal } from "../../components/shared/UpgradeGateModal";
 import { useAuth } from "../../hooks/useAuth";
 import { usePlanGate } from "../../hooks/usePlanGate";
 import { useCompanyStore } from "../../store/companyStore";
-import { queryDocuments, setDocument, updateDocument } from "../../lib/firestore";
-import type { OffboardTemplate } from "../../types/offboarding.types";
+import { queryDocuments } from "../../lib/firestore";
+import type {
+  OffboardTemplate,
+  ApprovalStep,
+  ApprovalStatus,
+  FlowStatus,
+} from "../../types/offboarding.types";
+import type { AppUser } from "../../types/user.types";
 
 const DEPARTMENTS = [
   "Engineering",
@@ -62,6 +69,8 @@ export default function NewOffboarding() {
   const company = useCompanyStore((s) => s.company);
 
   const [templates, setTemplates] = useState<OffboardTemplate[]>([]);
+  const [companyUsers, setCompanyUsers] = useState<AppUser[]>([]);
+  const [approverIds, setApproverIds] = useState<string[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -93,7 +102,25 @@ export default function NewOffboarding() {
       }
     };
     loadTemplates();
-  }, [companyId]);
+
+    // Company members are pickable as approvers. Filter out the current
+    // user so HR can't approve their own request and inactive accounts.
+    const loadUsers = async () => {
+      try {
+        const users = await queryDocuments<AppUser>("users", [
+          where("companyId", "==", companyId),
+        ]);
+        setCompanyUsers(
+          users.filter(
+            (u) => u.isActive !== false && u.id !== appUser?.id
+          )
+        );
+      } catch {
+        // No users yet — approvers section will be empty
+      }
+    };
+    loadUsers();
+  }, [companyId, appUser?.id]);
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
 
@@ -139,8 +166,33 @@ export default function NewOffboarding() {
       const flowId = crypto.randomUUID();
       const portalToken = crypto.randomUUID();
       const lwdDate = new Date(lastWorkingDay);
+      // Portal access expires 7 days after last working day.
+      const portalExpiresAt = Timestamp.fromDate(
+        new Date(lwdDate.getTime() + 7 * 86400000)
+      );
 
-      await setDocument("offboardFlows", flowId, {
+      const selectedApprovers = approverIds
+        .map((id) => companyUsers.find((u) => u.id === id))
+        .filter((u): u is AppUser => !!u);
+      const hasApprovers = selectedApprovers.length > 0;
+      const approvalSteps: ApprovalStep[] = selectedApprovers.map((u, i) => ({
+        approverId: u.id,
+        approverName: u.displayName || u.email,
+        approverEmail: u.email,
+        status: i === 0 ? "pending" : "waiting",
+        decidedAt: null,
+        note: "",
+      }));
+      const initialStatus: FlowStatus = hasApprovers
+        ? "pending_approval"
+        : "not_started";
+      const initialApprovalStatus: ApprovalStatus = hasApprovers
+        ? "pending"
+        : "not_required";
+
+      const batch = writeBatch(db);
+
+      batch.set(doc(db, "offboardFlows", flowId), {
         id: flowId,
         companyId,
         employeeId: flowId,
@@ -150,12 +202,16 @@ export default function NewOffboarding() {
         employeeDepartment: department,
         managerId: appUser.id,
         templateId: selectedTemplateId,
-        status: "not_started",
+        status: initialStatus,
+        approvalStatus: initialApprovalStatus,
+        approvalSteps,
+        currentApproverIndex: hasApprovers ? 0 : -1,
         startDate: Timestamp.now(),
         lastWorkingDay: Timestamp.fromDate(lwdDate),
         completedAt: null,
         progressPercent: 0,
         portalToken,
+        portalExpiresAt,
         completionScores: {
           tasks: 0,
           knowledge: 0,
@@ -166,16 +222,28 @@ export default function NewOffboarding() {
         createdAt: Timestamp.now(),
       });
 
-      // Create tasks from template
       if (selectedTemplate) {
-        const taskPromises = selectedTemplate.tasks.map((task) => {
-          const taskId = crypto.randomUUID();
+        // Pre-allocate IDs so we can rewrite dependsOnTaskId from template
+        // task IDs to the new flow task IDs.
+        const idMap = new Map<string, string>();
+        for (const task of selectedTemplate.tasks) {
+          idMap.set(task.id, crypto.randomUUID());
+        }
+        for (const task of selectedTemplate.tasks) {
+          const taskId = idMap.get(task.id)!;
           const dueDate = new Date(
             lwdDate.getTime() + task.dayOffset * 86400000
           );
-          return setDocument("flowTasks", taskId, {
+          const dependsOn =
+            task.dependsOnTaskId && idMap.has(task.dependsOnTaskId)
+              ? idMap.get(task.dependsOnTaskId)!
+              : null;
+          batch.set(doc(db, "flowTasks", taskId), {
             id: taskId,
             flowId,
+            // Denormalized so firestore.rules can authorize portal updates
+            // without an extra get() lookup.
+            portalToken,
             title: task.title,
             description: task.description,
             type: task.type,
@@ -189,21 +257,25 @@ export default function NewOffboarding() {
             uploadedFileUrl: "",
             notes: "",
             isRequired: task.isRequired,
+            dependsOnTaskId: dependsOn,
           });
-        });
-        await Promise.all(taskPromises);
+        }
       }
 
-      await updateDocument("companies", companyId, {
-        "usageCount.offboardingsThisYear":
-          (company?.usageCount?.offboardingsThisYear ?? 0) + 1,
-        "usageCount.activeOffboardings":
-          (company?.usageCount?.activeOffboardings ?? 0) + 1,
+      batch.update(doc(db, "companies", companyId), {
+        "usageCount.offboardingsThisYear": increment(1),
+        "usageCount.activeOffboardings": increment(1),
       });
 
+      await batch.commit();
       navigate(`/offboardings/${flowId}`);
     } catch (err) {
-      setErrors({ employeeName: "Failed to create offboarding. Please try again." });
+      const message =
+        err instanceof Error
+          ? `Failed to create offboarding: ${err.message}`
+          : "Failed to create offboarding. Please try again.";
+      console.error("NewOffboarding submit failed", err);
+      setErrors({ employeeName: message });
     } finally {
       setSubmitting(false);
     }
@@ -390,6 +462,66 @@ export default function NewOffboarding() {
                       </p>
                     </button>
                   ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Approvers (optional, sequential) */}
+            <Card>
+              <h2 className="text-base font-semibold text-navy mb-1">
+                Approvers <span className="text-mist font-normal text-sm">(optional)</span>
+              </h2>
+              <p className="text-xs text-mist mb-4">
+                If selected, the employee portal email won't go out until each
+                approver has signed off in order.
+              </p>
+              {companyUsers.length === 0 ? (
+                <p className="text-sm text-mist">
+                  No other company members are available to approve.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {companyUsers.map((u) => {
+                    const checked = approverIds.includes(u.id);
+                    const order = approverIds.indexOf(u.id);
+                    return (
+                      <label
+                        key={u.id}
+                        className={clsx(
+                          "flex items-center gap-3 rounded-md border px-3 py-2 cursor-pointer transition-colors",
+                          checked
+                            ? "border-teal bg-teal/5"
+                            : "border-navy/10 hover:border-navy/20"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setApproverIds((prev) =>
+                              e.target.checked
+                                ? [...prev, u.id]
+                                : prev.filter((id) => id !== u.id)
+                            );
+                          }}
+                          className="rounded border-navy/20 text-teal focus:ring-teal"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-navy truncate">
+                            {u.displayName || u.email}
+                          </p>
+                          <p className="text-xs text-mist truncate">
+                            {u.email} · {u.role.replace("_", " ")}
+                          </p>
+                        </div>
+                        {checked && (
+                          <span className="text-xs font-medium text-teal">
+                            Step {order + 1}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
               )}
             </Card>

@@ -19,6 +19,9 @@ import clsx from "clsx";
 import AccessRevocationTracker from "../../components/offboardings/AccessRevocationTracker";
 import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
 import AssetReturnTracker from "../../components/offboardings/AssetReturnTracker";
+import AuditLogTab from "../../components/offboardings/AuditLogTab";
+import ApprovalPanel from "../../components/offboardings/ApprovalPanel";
+import DependencyGraph from "../../components/offboardings/DependencyGraph";
 import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -48,7 +51,12 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
 }
 
 function statusBadge(status: FlowStatus) {
-  const map: Record<FlowStatus, { label: string; variant: "teal" | "mist" | "ember" }> = {
+  const map: Record<
+    FlowStatus,
+    { label: string; variant: "teal" | "mist" | "ember" | "amber" }
+  > = {
+    pending_approval: { label: "Pending Approval", variant: "amber" },
+    rejected: { label: "Rejected", variant: "ember" },
     not_started: { label: "Not Started", variant: "mist" },
     in_progress: { label: "In Progress", variant: "teal" },
     completed: { label: "Completed", variant: "teal" },
@@ -108,7 +116,9 @@ export default function OffboardingDetail() {
   const [copied, setCopied] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "access" | "knowledge" | "assets">("tasks");
+  const [activeTab, setActiveTab] = useState<
+    "tasks" | "access" | "knowledge" | "assets" | "graph" | "activity"
+  >("tasks");
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -155,12 +165,14 @@ export default function OffboardingDetail() {
     if (!flow || !id || !companyId) return;
     setCompleting(true);
     try {
-      // 1. Mark flow complete
+      // 1. Mark flow complete (lastUpdatedBy lets the audit trigger
+      // identify the actor).
       await updateDocument("offboardFlows", id, {
         status: "completed",
         completedAt: serverTimestamp(),
         progressPercent: 100,
         "completionScores.tasks": 100,
+        lastUpdatedBy: appUser?.id ?? null,
       });
 
       // 2. Decrement active offboardings on company
@@ -216,6 +228,7 @@ export default function OffboardingDetail() {
     try {
       await updateDocument("offboardFlows", id, {
         status: "cancelled",
+        lastUpdatedBy: appUser?.id ?? null,
       });
       setFlow({ ...flow, status: "cancelled" });
     } catch {
@@ -342,6 +355,29 @@ export default function OffboardingDetail() {
     );
   }
 
+  // Defense-in-depth: rely on Firestore rules but also gate the UI so a
+  // client-side bypass doesn't render sensitive employee data.
+  if (flow && (!companyId || flow.companyId !== companyId)) {
+    return (
+      <div className="space-y-4">
+        <Link
+          to="/offboardings"
+          className="inline-flex items-center gap-1 text-sm text-mist hover:text-navy transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Back to Offboardings
+        </Link>
+        <Card>
+          <div className="py-12 text-center">
+            <p className="text-sm text-ember font-medium">
+              You don't have access to this offboarding.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (error || !flow) {
     return (
       <div className="space-y-4">
@@ -375,7 +411,9 @@ export default function OffboardingDetail() {
     !!appUser &&
     flow !== null &&
     flow.status !== "completed" &&
-    flow.status !== "cancelled";
+    flow.status !== "cancelled" &&
+    flow.status !== "pending_approval" &&
+    flow.status !== "rejected";
 
   // Group tasks by role
   const tasksByRole = ROLE_SECTIONS.map((section) => ({
@@ -461,6 +499,13 @@ export default function OffboardingDetail() {
         </div>
       </div>
 
+      {/* Approval chain — shown only when approvals were configured. */}
+      <ApprovalPanel
+        flow={flow}
+        currentUserId={appUser?.id}
+        onUpdated={(patch) => setFlow((prev) => (prev ? { ...prev, ...patch } : prev))}
+      />
+
       {/* Section 2: Completion Scores */}
       <div className="flex gap-4 overflow-x-auto pb-1">
         {SCORE_CARDS.map((card) => {
@@ -539,6 +584,28 @@ export default function OffboardingDetail() {
           )}
         >
           Assets
+        </button>
+        <button
+          onClick={() => setActiveTab("graph")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "graph"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Dependencies
+        </button>
+        <button
+          onClick={() => setActiveTab("activity")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "activity"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Activity
         </button>
       </div>
 
@@ -673,6 +740,10 @@ export default function OffboardingDetail() {
           onScoreUpdate={handleAssetScoreUpdate}
         />
       )}
+
+      {activeTab === "graph" && <DependencyGraph tasks={tasks} />}
+
+      {activeTab === "activity" && <AuditLogTab flowId={flow.id} />}
 
       <CompleteOffboardingModal
         isOpen={showCompleteModal}

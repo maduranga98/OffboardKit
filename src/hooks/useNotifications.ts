@@ -41,6 +41,8 @@ export function useNotifications() {
             link: data.link || "",
             icon: mapTypeToIcon(data.type),
             read: data.isRead === true,
+            acked: !!data.ackedAt,
+            escalated: !!data.escalatedAt,
             createdAt: data.createdAt?.toDate?.() || new Date(),
           };
         });

@@ -5,6 +5,7 @@ import {
   portalLinkEmail,
   offboardingStartedEmail,
   taskAssignedEmail,
+  approvalRequestedEmail,
 } from "../email/templates";
 import { formatLongDate, formatShortDate } from "../utils/dates";
 
@@ -29,18 +30,55 @@ export const onOffboardingCreated = functions.firestore
     const dashboardUrl = `${APP_URL}/offboardings/${flowId}`;
     const lastWorkingDay = formatLongDate(flow.lastWorkingDay.toDate());
 
-    // 2. Send portal link to departing employee
-    const portalEmail = portalLinkEmail({
-      employeeName: flow.employeeName,
-      companyName: company.name as string,
-      lastWorkingDay,
-      portalUrl,
-    });
-    await sendEmailSafe({
-      to: [{ email: flow.employeeEmail as string, name: flow.employeeName as string }],
-      subject: portalEmail.subject,
-      htmlContent: portalEmail.html,
-    });
+    // 2. Send portal link to departing employee — but only if no approval
+    // chain is gating this flow. When approvalStatus === 'pending', the
+    // portal email is deferred until onFlowApprovalChanged sees the chain
+    // complete.
+    if (flow.approvalStatus !== "pending") {
+      const portalEmail = portalLinkEmail({
+        employeeName: flow.employeeName,
+        companyName: company.name as string,
+        lastWorkingDay,
+        portalUrl,
+      });
+      await sendEmailSafe({
+        to: [{ email: flow.employeeEmail as string, name: flow.employeeName as string }],
+        subject: portalEmail.subject,
+        htmlContent: portalEmail.html,
+      });
+    } else if (Array.isArray(flow.approvalSteps) && flow.approvalSteps.length > 0) {
+      // First approver in the chain — kick off the workflow. Subsequent
+      // approvers are notified by onFlowApprovalChanged.
+      const firstStep = flow.approvalSteps[0];
+      const email = approvalRequestedEmail({
+        approverName: firstStep.approverName,
+        employeeName: flow.employeeName,
+        employeeRole: flow.employeeRole,
+        lastWorkingDay,
+        stepNumber: 1,
+        totalSteps: flow.approvalSteps.length,
+        dashboardUrl,
+      });
+      await sendEmailSafe({
+        to: [
+          { email: firstStep.approverEmail, name: firstStep.approverName },
+        ],
+        subject: email.subject,
+        htmlContent: email.html,
+      });
+      const notifRef = db.collection("notifications").doc();
+      await notifRef.set({
+        id: notifRef.id,
+        companyId: flow.companyId,
+        userId: firstStep.approverId,
+        type: "approval_requested",
+        title: `Approval needed: ${flow.employeeName}`,
+        message: `Step 1 of ${flow.approvalSteps.length}`,
+        link: `/offboardings/${flowId}`,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
     // 3. Notify HR admins + create in-app notifications
     const hrSnapshot = await db

@@ -6,6 +6,7 @@ import {
   MessageSquare,
   BookOpen,
   BarChart2,
+  TrendingUp,
   Network,
   Settings,
   X,
@@ -27,6 +28,7 @@ const navItems = [
   { to: "/templates", label: "Templates", icon: FileText },
   { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { to: "/analytics", label: "Analytics", icon: BarChart2 },
+  { to: "/analytics/trends", label: "Trends", icon: TrendingUp },
   { to: "/interviews", label: "Exit Interviews", icon: MessageSquare },
   { to: "/alumni", label: "Alumni", icon: Network },
 ];

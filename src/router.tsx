@@ -16,12 +16,14 @@ import InterviewList from "./pages/interviews/InterviewList";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import KnowledgeGaps from "./pages/knowledge/KnowledgeGaps";
 import Analytics from "./pages/analytics/Analytics";
+import Trends from "./pages/analytics/Trends";
 import Alumni from "./pages/alumni/Alumni";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
 import Settings from "./pages/settings/Settings";
 import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
 import IntegrationSettings from "./pages/settings/IntegrationSettings";
+import WebhookSettings from "./pages/settings/WebhookSettings";
 import PortalEntry from "./pages/portal/PortalEntry";
 
 function NotFound() {
@@ -89,11 +91,13 @@ export const router = createBrowserRouter([
       { path: "knowledge", element: <KnowledgeBase /> },
       { path: "knowledge/gaps", element: <KnowledgeGaps /> },
       { path: "analytics", element: <Analytics /> },
+      { path: "analytics/trends", element: <Trends /> },
       { path: "alumni", element: <Alumni /> },
       { path: "settings", element: <Settings /> },
       { path: "settings/team", element: <TeamSettings /> },
       { path: "settings/billing", element: <BillingSettings /> },
       { path: "settings/integrations", element: <IntegrationSettings /> },
+      { path: "settings/webhooks", element: <WebhookSettings /> },
     ],
   },
   { path: "*", element: <NotFound /> },

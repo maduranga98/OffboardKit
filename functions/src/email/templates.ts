@@ -538,3 +538,71 @@ export function exitInterviewSubmittedEmail(params: {
     html: emailWrapper(body),
   };
 }
+
+// ---------------------------------------------------------------------------
+// 3g. Approval Requested — sent to the next approver in the chain
+// ---------------------------------------------------------------------------
+export function approvalRequestedEmail(params: {
+  approverName: string;
+  employeeName: string;
+  employeeRole: string;
+  lastWorkingDay: string;
+  stepNumber: number;
+  totalSteps: number;
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:${FONT};font-size:24px;font-weight:700;color:${BRAND.navy};letter-spacing:-0.3px;">
+      Approval needed: ${params.employeeName}
+    </h1>
+    <p style="margin:0 0 16px;font-family:${FONT};font-size:15px;color:${BRAND.muted};line-height:1.5;">
+      Hi ${params.approverName},
+    </p>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.navy};line-height:1.6;">
+      An offboarding is awaiting your sign-off (step ${params.stepNumber} of ${params.totalSteps}). The employee won't receive their exit portal until every approver in the chain has approved.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+      ${metaRow("Employee", params.employeeName)}
+      ${metaRow("Role", params.employeeRole)}
+      ${metaRow("Last working day", params.lastWorkingDay)}
+    </table>
+    ${ctaButton("Review & Decide", params.dashboardUrl)}
+  `;
+  return {
+    subject: `Approval needed: ${params.employeeName}`,
+    html: emailWrapper(body),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 3h. Approval Rejected — sent to HR when any approver rejects
+// ---------------------------------------------------------------------------
+export function approvalRejectedEmail(params: {
+  hrName: string;
+  employeeName: string;
+  rejectedBy: string;
+  note: string;
+  dashboardUrl: string;
+}): { subject: string; html: string } {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:${FONT};font-size:24px;font-weight:700;color:${BRAND.red};letter-spacing:-0.3px;">
+      Offboarding rejected
+    </h1>
+    <p style="margin:0 0 16px;font-family:${FONT};font-size:15px;color:${BRAND.muted};line-height:1.5;">
+      Hi ${params.hrName},
+    </p>
+    <p style="margin:0 0 24px;font-family:${FONT};font-size:15px;color:${BRAND.navy};line-height:1.6;">
+      <strong>${params.rejectedBy}</strong> rejected the offboarding for <strong>${params.employeeName}</strong>. The exit portal email will not be sent.
+    </p>
+    ${
+      params.note
+        ? `<p style="margin:0 0 24px;font-family:${FONT};font-size:14px;color:${BRAND.navy};line-height:1.6;font-style:italic;border-left:3px solid ${BRAND.red};padding-left:12px;">"${params.note}"</p>`
+        : ""
+    }
+    ${ctaButton("View Offboarding", params.dashboardUrl)}
+  `;
+  return {
+    subject: `Offboarding rejected: ${params.employeeName}`,
+    html: emailWrapper(body),
+  };
+}
