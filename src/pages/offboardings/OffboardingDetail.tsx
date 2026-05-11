@@ -140,7 +140,8 @@ export default function OffboardingDetail() {
 
   async function handleCopyPortalLink() {
     if (!flow) return;
-    const link = `${window.location.origin}/portal/${flow.portalToken}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const link = `${baseUrl}/portal/${flow.portalToken}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
