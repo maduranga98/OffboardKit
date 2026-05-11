@@ -223,11 +223,21 @@ export default function NewOffboarding() {
       });
 
       if (selectedTemplate) {
+        // Pre-allocate IDs so we can rewrite dependsOnTaskId from template
+        // task IDs to the new flow task IDs.
+        const idMap = new Map<string, string>();
         for (const task of selectedTemplate.tasks) {
-          const taskId = crypto.randomUUID();
+          idMap.set(task.id, crypto.randomUUID());
+        }
+        for (const task of selectedTemplate.tasks) {
+          const taskId = idMap.get(task.id)!;
           const dueDate = new Date(
             lwdDate.getTime() + task.dayOffset * 86400000
           );
+          const dependsOn =
+            task.dependsOnTaskId && idMap.has(task.dependsOnTaskId)
+              ? idMap.get(task.dependsOnTaskId)!
+              : null;
           batch.set(doc(db, "flowTasks", taskId), {
             id: taskId,
             flowId,
@@ -247,6 +257,7 @@ export default function NewOffboarding() {
             uploadedFileUrl: "",
             notes: "",
             isRequired: task.isRequired,
+            dependsOnTaskId: dependsOn,
           });
         }
       }

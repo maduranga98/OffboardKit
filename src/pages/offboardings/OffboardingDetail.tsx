@@ -21,6 +21,7 @@ import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
 import AssetReturnTracker from "../../components/offboardings/AssetReturnTracker";
 import AuditLogTab from "../../components/offboardings/AuditLogTab";
 import ApprovalPanel from "../../components/offboardings/ApprovalPanel";
+import DependencyGraph from "../../components/offboardings/DependencyGraph";
 import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -116,7 +117,7 @@ export default function OffboardingDetail() {
   const [completing, setCompleting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "tasks" | "access" | "knowledge" | "assets" | "activity"
+    "tasks" | "access" | "knowledge" | "assets" | "graph" | "activity"
   >("tasks");
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
@@ -584,6 +585,17 @@ export default function OffboardingDetail() {
           Assets
         </button>
         <button
+          onClick={() => setActiveTab("graph")}
+          className={clsx(
+            "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+            activeTab === "graph"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          Dependencies
+        </button>
+        <button
           onClick={() => setActiveTab("activity")}
           className={clsx(
             "px-4 py-2 text-sm font-medium rounded-md transition-colors",
@@ -727,6 +739,8 @@ export default function OffboardingDetail() {
           onScoreUpdate={handleAssetScoreUpdate}
         />
       )}
+
+      {activeTab === "graph" && <DependencyGraph tasks={tasks} />}
 
       {activeTab === "activity" && <AuditLogTab flowId={flow.id} />}
 
