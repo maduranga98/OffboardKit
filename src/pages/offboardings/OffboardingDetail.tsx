@@ -341,6 +341,29 @@ export default function OffboardingDetail() {
     );
   }
 
+  // Defense-in-depth: rely on Firestore rules but also gate the UI so a
+  // client-side bypass doesn't render sensitive employee data.
+  if (flow && (!companyId || flow.companyId !== companyId)) {
+    return (
+      <div className="space-y-4">
+        <Link
+          to="/offboardings"
+          className="inline-flex items-center gap-1 text-sm text-mist hover:text-navy transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Back to Offboardings
+        </Link>
+        <Card>
+          <div className="py-12 text-center">
+            <p className="text-sm text-ember font-medium">
+              You don't have access to this offboarding.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (error || !flow) {
     return (
       <div className="space-y-4">

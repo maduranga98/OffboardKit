@@ -7,7 +7,8 @@ import {
   FileText,
   CheckCircle,
 } from "lucide-react";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, writeBatch, doc, increment } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { format, differenceInDays } from "date-fns";
 import clsx from "clsx";
 import { where } from "firebase/firestore";
@@ -20,7 +21,7 @@ import { UpgradeGateModal } from "../../components/shared/UpgradeGateModal";
 import { useAuth } from "../../hooks/useAuth";
 import { usePlanGate } from "../../hooks/usePlanGate";
 import { useCompanyStore } from "../../store/companyStore";
-import { queryDocuments, setDocument, updateDocument } from "../../lib/firestore";
+import { queryDocuments } from "../../lib/firestore";
 import type { OffboardTemplate } from "../../types/offboarding.types";
 
 const DEPARTMENTS = [
@@ -139,8 +140,14 @@ export default function NewOffboarding() {
       const flowId = crypto.randomUUID();
       const portalToken = crypto.randomUUID();
       const lwdDate = new Date(lastWorkingDay);
+      // Portal access expires 7 days after last working day.
+      const portalExpiresAt = Timestamp.fromDate(
+        new Date(lwdDate.getTime() + 7 * 86400000)
+      );
 
-      await setDocument("offboardFlows", flowId, {
+      const batch = writeBatch(db);
+
+      batch.set(doc(db, "offboardFlows", flowId), {
         id: flowId,
         companyId,
         employeeId: flowId,
@@ -156,6 +163,7 @@ export default function NewOffboarding() {
         completedAt: null,
         progressPercent: 0,
         portalToken,
+        portalExpiresAt,
         completionScores: {
           tasks: 0,
           knowledge: 0,
@@ -166,16 +174,18 @@ export default function NewOffboarding() {
         createdAt: Timestamp.now(),
       });
 
-      // Create tasks from template
       if (selectedTemplate) {
-        const taskPromises = selectedTemplate.tasks.map((task) => {
+        for (const task of selectedTemplate.tasks) {
           const taskId = crypto.randomUUID();
           const dueDate = new Date(
             lwdDate.getTime() + task.dayOffset * 86400000
           );
-          return setDocument("flowTasks", taskId, {
+          batch.set(doc(db, "flowTasks", taskId), {
             id: taskId,
             flowId,
+            // Denormalized so firestore.rules can authorize portal updates
+            // without an extra get() lookup.
+            portalToken,
             title: task.title,
             description: task.description,
             type: task.type,
@@ -190,20 +200,23 @@ export default function NewOffboarding() {
             notes: "",
             isRequired: task.isRequired,
           });
-        });
-        await Promise.all(taskPromises);
+        }
       }
 
-      await updateDocument("companies", companyId, {
-        "usageCount.offboardingsThisYear":
-          (company?.usageCount?.offboardingsThisYear ?? 0) + 1,
-        "usageCount.activeOffboardings":
-          (company?.usageCount?.activeOffboardings ?? 0) + 1,
+      batch.update(doc(db, "companies", companyId), {
+        "usageCount.offboardingsThisYear": increment(1),
+        "usageCount.activeOffboardings": increment(1),
       });
 
+      await batch.commit();
       navigate(`/offboardings/${flowId}`);
     } catch (err) {
-      setErrors({ employeeName: "Failed to create offboarding. Please try again." });
+      const message =
+        err instanceof Error
+          ? `Failed to create offboarding: ${err.message}`
+          : "Failed to create offboarding. Please try again.";
+      console.error("NewOffboarding submit failed", err);
+      setErrors({ employeeName: message });
     } finally {
       setSubmitting(false);
     }

@@ -37,6 +37,19 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
   }
   const flow = flowDoc.data()!;
 
+  // Sanitize fields embedded in the Gemini prompt: strip control chars,
+  // collapse whitespace, cap length. Defends against prompt-injection via
+  // malicious employee metadata written elsewhere in the system.
+  const sanitize = (v: unknown, max = 200): string =>
+    String(v ?? "")
+      .replace(/[\x00-\x1F\x7F]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max);
+  const employeeName = sanitize(flow.employeeName);
+  const employeeRole = sanitize(flow.employeeRole);
+  const employeeDepartment = sanitize(flow.employeeDepartment);
+
   const callerDoc = await db.collection("users").doc(context.auth.uid).get();
   const caller = callerDoc.data();
   if (!caller || caller.companyId !== flow.companyId) {
@@ -76,9 +89,9 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
 
   const prompt = `You are an HR knowledge management AI. Analyze the knowledge transfer completeness for a departing employee.
 
-Employee: ${flow.employeeName}
-Role: ${flow.employeeRole}
-Department: ${flow.employeeDepartment}
+Employee: ${employeeName}
+Role: ${employeeRole}
+Department: ${employeeDepartment}
 
 Knowledge Items Submitted (${itemsList.length} items):
 ${itemsList.length === 0
@@ -91,7 +104,7 @@ ${itemsList.length === 0
 Offboarding Tasks (${tasksList.length} tasks):
 ${tasksList.map((t) => `- ${t.title} (${t.assigneeRole}) — ${t.status}`).join("\n")}
 
-Based on the employee's role (${flow.employeeRole}) and department (${flow.employeeDepartment}), analyze what knowledge transfer items would typically be expected and identify gaps.
+Based on the employee's role (${employeeRole}) and department (${employeeDepartment}), analyze what knowledge transfer items would typically be expected and identify gaps.
 
 Return a JSON object with exactly this structure:
 {
