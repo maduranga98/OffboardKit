@@ -75,7 +75,7 @@ function ctaButton(label: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px;">
     <tr>
       <td style="border-radius:6px;background-color:${BRAND.teal};">
-        <a href="${url}" target="_blank"
+        <a href="${url}"
            style="display:inline-block;padding:13px 28px;font-family:${FONT};font-size:15px;font-weight:600;color:${BRAND.white};text-decoration:none;border-radius:6px;line-height:1;">
           ${label}
         </a>
