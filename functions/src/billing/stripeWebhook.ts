@@ -12,15 +12,20 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // Reject outright if the signature header is missing — never pass an
+  // empty string to constructEvent, which would still verify against
+  // the configured secret and could let unsigned requests through.
+  if (typeof sig !== "string" || sig.length === 0) {
+    functions.logger.warn("Stripe webhook rejected: missing stripe-signature header");
+    res.status(400).send("Missing stripe-signature header");
+    return;
+  }
+
   const stripe = getStripe();
   let event: ReturnType<typeof stripe.webhooks.constructEvent>;
 
   try {
-    event = stripe.webhooks.constructEvent(
-      req.rawBody,
-      typeof sig === "string" ? sig : "",
-      endpointSecret
-    );
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
   } catch (err: any) {
     functions.logger.error("Webhook signature verification failed.", err.message);
     res.status(400).send(`Webhook Error: ${err.message}`);
@@ -28,6 +33,15 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
   }
 
   const db = admin.firestore();
+  const VALID_PLANS = new Set([
+    "free",
+    "starter",
+    "growth",
+    "business",
+    "enterprise",
+  ]);
+  const isValidPlan = (p: unknown): p is string =>
+    typeof p === "string" && VALID_PLANS.has(p);
 
   try {
     switch (event.type) {
@@ -35,7 +49,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         const session = event.data.object as any;
         const { companyId, plan } = session.metadata || {};
 
-        if (companyId && plan) {
+        if (companyId && isValidPlan(plan)) {
           await db.collection("companies").doc(companyId).update({
             plan,
             stripeSubscriptionId: session.subscription,
@@ -51,7 +65,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
         const subscription = event.data.object as any;
         const { companyId, plan } = subscription.metadata || {};
 
-        if (companyId && plan) {
+        if (companyId && isValidPlan(plan)) {
           const status = subscription.status;
           const newPlan = status === "active" || status === "trialing" ? plan : "free";
           await db.collection("companies").doc(companyId).update({

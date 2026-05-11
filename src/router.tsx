@@ -24,6 +24,7 @@ import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
 import IntegrationSettings from "./pages/settings/IntegrationSettings";
 import WebhookSettings from "./pages/settings/WebhookSettings";
+import Help from "./pages/help/Help";
 import PortalEntry from "./pages/portal/PortalEntry";
 
 function NotFound() {
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
       { path: "settings/billing", element: <BillingSettings /> },
       { path: "settings/integrations", element: <IntegrationSettings /> },
       { path: "settings/webhooks", element: <WebhookSettings /> },
+      { path: "help", element: <Help /> },
     ],
   },
   { path: "*", element: <NotFound /> },

@@ -33,6 +33,15 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("failed-precondition", "No company associated with this user.");
   }
 
+  // Billing changes are restricted to team admins so a regular HR or IT
+  // user can't start an unauthorized paid subscription on the company.
+  if (!["super_admin", "hr_admin"].includes(userData.role as string)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only team admins can change the subscription."
+    );
+  }
+
   const companyId = userData.companyId;
   const companyDoc = await db.collection("companies").doc(companyId).get();
   const companyData = companyDoc.data();

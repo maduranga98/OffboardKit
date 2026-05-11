@@ -34,7 +34,11 @@ export interface Company {
   country: string;
   timezone: string;
   plan: CompanyPlan;
-  stripeCustomerId: string;
+  // Stripe billing identifiers; populated by createCheckoutSession +
+  // stripeWebhook. Optional because companies start on the free plan.
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string | null;
+  stripeSubscriptionStatus?: string;
   settings: CompanySettings;
   features: CompanyFeatures;
   usageCount?: UsageCount;
