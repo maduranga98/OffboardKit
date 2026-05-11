@@ -2,7 +2,26 @@ import type { Timestamp } from "firebase/firestore";
 
 export type TaskType = "checkbox" | "upload" | "signature" | "form" | "link";
 export type TaskStatus = "pending" | "in_progress" | "completed" | "overdue" | "skipped";
-export type FlowStatus = "not_started" | "in_progress" | "completed" | "cancelled";
+export type FlowStatus =
+  | "pending_approval"
+  | "rejected"
+  | "not_started"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export type ApprovalStatus = "not_required" | "pending" | "approved" | "rejected";
+
+export type ApprovalStepStatus = "waiting" | "pending" | "approved" | "rejected";
+
+export interface ApprovalStep {
+  approverId: string;
+  approverName: string;
+  approverEmail: string;
+  status: ApprovalStepStatus;
+  decidedAt: Timestamp | null;
+  note: string;
+}
 
 export interface TemplateTask {
   id: string;
@@ -55,6 +74,9 @@ export interface OffboardFlow {
   portalToken: string;
   completionScores: CompletionScores;
   createdAt: Timestamp;
+  approvalStatus?: ApprovalStatus;
+  approvalSteps?: ApprovalStep[];
+  currentApproverIndex?: number;
   knowledgeGapAnalysis?: {
     completenessScore: number;
     gaps: {
@@ -82,7 +104,11 @@ export type AuditAction =
   | "asset_returned"
   | "asset_verified"
   | "asset_wiped"
-  | "asset_status_changed";
+  | "asset_status_changed"
+  | "approval_requested"
+  | "approval_approved"
+  | "approval_rejected"
+  | "approval_completed";
 
 export interface AuditLogEntry {
   id: string;

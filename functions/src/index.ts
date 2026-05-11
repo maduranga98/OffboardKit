@@ -4,6 +4,7 @@ admin.initializeApp();
 
 // Firestore triggers
 export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
+export { onFlowApprovalChanged } from "./triggers/onFlowApprovalChanged";
 
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";

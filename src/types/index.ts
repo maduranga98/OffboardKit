@@ -12,6 +12,9 @@ export type {
   FlowTask,
   AuditAction,
   AuditLogEntry,
+  ApprovalStatus,
+  ApprovalStepStatus,
+  ApprovalStep,
 } from "./offboarding.types";
 export type {
   QuestionType,

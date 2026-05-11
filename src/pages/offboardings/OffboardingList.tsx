@@ -35,7 +35,12 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
 }
 
 function statusBadge(status: FlowStatus) {
-  const map: Record<FlowStatus, { label: string; variant: "teal" | "mist" | "ember" }> = {
+  const map: Record<
+    FlowStatus,
+    { label: string; variant: "teal" | "mist" | "ember" | "amber" }
+  > = {
+    pending_approval: { label: "Pending Approval", variant: "amber" },
+    rejected: { label: "Rejected", variant: "ember" },
     not_started: { label: "Not Started", variant: "mist" },
     in_progress: { label: "In Progress", variant: "teal" },
     completed: { label: "Completed", variant: "teal" },

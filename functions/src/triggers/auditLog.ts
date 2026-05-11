@@ -84,7 +84,30 @@ export const auditFlowCreated = functions.firestore
         templateId: flow.templateId,
       },
     });
+
+    if (
+      flow.approvalStatus === "pending" &&
+      Array.isArray(flow.approvalSteps) &&
+      flow.approvalSteps.length > 0
+    ) {
+      await writeAudit({
+        flowId,
+        companyId: flow.companyId,
+        action: "approval_requested",
+        actorType: "system",
+        summary: `Approval requested (${flow.approvalSteps.length} approver${
+          flow.approvalSteps.length === 1 ? "" : "s"
+        })`,
+      });
+    }
   });
+
+interface ApprovalStepShape {
+  approverId: string;
+  approverName: string;
+  status: "waiting" | "pending" | "approved" | "rejected";
+  note?: string;
+}
 
 export const auditFlowUpdated = functions.firestore
   .document("offboardFlows/{flowId}")
@@ -92,6 +115,61 @@ export const auditFlowUpdated = functions.firestore
     const before = change.before.data();
     const after = change.after.data();
     const flowId = context.params.flowId;
+
+    // ---- Approval step transitions ---------------------------------------
+    const beforeSteps = (before.approvalSteps as ApprovalStepShape[]) || [];
+    const afterSteps = (after.approvalSteps as ApprovalStepShape[]) || [];
+    if (afterSteps.length > 0 && beforeSteps.length === afterSteps.length) {
+      for (let i = 0; i < afterSteps.length; i++) {
+        const b = beforeSteps[i];
+        const a = afterSteps[i];
+        if (!b || b.status === a.status) continue;
+        if (a.status === "approved" || a.status === "rejected") {
+          await writeAudit({
+            flowId,
+            companyId: after.companyId,
+            action:
+              a.status === "approved"
+                ? "approval_approved"
+                : "approval_rejected",
+            actorType: "user",
+            actorId: a.approverId,
+            actorName: a.approverName,
+            summary:
+              a.status === "approved"
+                ? `${a.approverName} approved step ${i + 1}`
+                : `${a.approverName} rejected step ${i + 1}`,
+            metadata: { stepIndex: i, note: a.note || "" },
+          });
+        }
+      }
+    }
+    if (
+      before.approvalStatus !== "approved" &&
+      after.approvalStatus === "approved"
+    ) {
+      await writeAudit({
+        flowId,
+        companyId: after.companyId,
+        action: "approval_completed",
+        actorType: "system",
+        summary: "Approval chain complete — portal email released",
+      });
+    }
+    if (
+      !before.approvalStatus &&
+      after.approvalStatus === "pending"
+    ) {
+      await writeAudit({
+        flowId,
+        companyId: after.companyId,
+        action: "approval_requested",
+        actorType: "system",
+        summary: `Approval requested (${afterSteps.length} approver${
+          afterSteps.length === 1 ? "" : "s"
+        })`,
+      });
+    }
 
     // Portal-only fields → log as portal access (rate-limited: only when
     // portalLastAccessed actually changes).

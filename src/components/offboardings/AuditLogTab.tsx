@@ -41,6 +41,10 @@ const ACTION_META: Record<
   asset_verified: { label: "Asset Verified", icon: <ShieldCheck size={14} />, tone: "teal" },
   asset_wiped: { label: "Asset Wiped", icon: <HardDrive size={14} />, tone: "teal" },
   asset_status_changed: { label: "Asset Update", icon: <Package size={14} />, tone: "mist" },
+  approval_requested: { label: "Approval Requested", icon: <Activity size={14} />, tone: "mist" },
+  approval_approved: { label: "Approved", icon: <CheckCircle size={14} />, tone: "teal" },
+  approval_rejected: { label: "Rejected", icon: <XCircle size={14} />, tone: "ember" },
+  approval_completed: { label: "Approval Complete", icon: <CheckCircle size={14} />, tone: "teal" },
 };
 
 function actorLabel(entry: AuditLogEntry): string {

@@ -20,6 +20,7 @@ import AccessRevocationTracker from "../../components/offboardings/AccessRevocat
 import KnowledgeTracker from "../../components/offboardings/KnowledgeTracker";
 import AssetReturnTracker from "../../components/offboardings/AssetReturnTracker";
 import AuditLogTab from "../../components/offboardings/AuditLogTab";
+import ApprovalPanel from "../../components/offboardings/ApprovalPanel";
 import { CompleteOffboardingModal } from "../../components/offboardings/CompleteOffboardingModal";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -49,7 +50,12 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
 }
 
 function statusBadge(status: FlowStatus) {
-  const map: Record<FlowStatus, { label: string; variant: "teal" | "mist" | "ember" }> = {
+  const map: Record<
+    FlowStatus,
+    { label: string; variant: "teal" | "mist" | "ember" | "amber" }
+  > = {
+    pending_approval: { label: "Pending Approval", variant: "amber" },
+    rejected: { label: "Rejected", variant: "ember" },
     not_started: { label: "Not Started", variant: "mist" },
     in_progress: { label: "In Progress", variant: "teal" },
     completed: { label: "Completed", variant: "teal" },
@@ -403,7 +409,9 @@ export default function OffboardingDetail() {
     !!appUser &&
     flow !== null &&
     flow.status !== "completed" &&
-    flow.status !== "cancelled";
+    flow.status !== "cancelled" &&
+    flow.status !== "pending_approval" &&
+    flow.status !== "rejected";
 
   // Group tasks by role
   const tasksByRole = ROLE_SECTIONS.map((section) => ({
@@ -488,6 +496,13 @@ export default function OffboardingDetail() {
           </div>
         </div>
       </div>
+
+      {/* Approval chain — shown only when approvals were configured. */}
+      <ApprovalPanel
+        flow={flow}
+        currentUserId={appUser?.id}
+        onUpdated={(patch) => setFlow((prev) => (prev ? { ...prev, ...patch } : prev))}
+      />
 
       {/* Section 2: Completion Scores */}
       <div className="flex gap-4 overflow-x-auto pb-1">
