@@ -161,6 +161,24 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
     }
 
+    // Outbound HRIS / identity-provider webhooks. Read/write limited to
+    // team admins because secrets live here.
+    match /integrations/{integrationId} {
+      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow create: if isTeamAdmin()
+        && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isTeamAdmin()
+        && resource.data.companyId == currentCompanyId();
+    }
+
+    // Compliance report archive. Only generated server-side; clients are
+    // read-only.
+    match /complianceReports/{reportId} {
+      allow read: if isTeamAdmin()
+        && resource.data.companyId == currentCompanyId();
+      allow write: if false;
+    }
+
     match /invites/{inviteId} {
       allow read: if isAuth() && (
         resource.data.email == request.auth.token.email ||

@@ -12,6 +12,16 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import clsx from "clsx";
 import { useNotificationStore, type AppNotification } from "../../store/notificationStore";
+import { useAuth } from "../../hooks/useAuth";
+
+// Notification types where ack means "someone is taking responsibility";
+// escalation only fires on these.
+const ACTIONABLE_TYPES = new Set([
+  "task_overdue",
+  "approval_requested",
+  "risk_flag",
+  "approval_rejected",
+]);
 
 function NotificationIcon({ type }: { type: string }) {
   const iconProps = { size: 14 };
@@ -37,8 +47,9 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { notifications, unreadCount, markRead, markAllRead } =
+  const { notifications, unreadCount, markRead, markAllRead, acknowledge } =
     useNotificationStore();
+  const { appUser } = useAuth();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -93,50 +104,90 @@ export function NotificationBell() {
                 <p className="text-sm text-mist">No notifications yet</p>
               </div>
             ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={clsx(
-                    "w-full text-left px-4 py-3 border-b border-navy/5 hover:bg-navy/[0.02] transition-colors",
-                    !notification.read && "bg-teal/[0.03]"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
+              notifications.map((notification) => {
+                const showAck =
+                  ACTIONABLE_TYPES.has(notification.type) &&
+                  !notification.acked;
+                return (
+                  <div
+                    key={notification.id}
+                    className={clsx(
+                      "px-4 py-3 border-b border-navy/5 hover:bg-navy/[0.02] transition-colors",
+                      !notification.read && "bg-teal/[0.03]"
+                    )}
+                  >
                     <div
-                      className={clsx(
-                        "mt-0.5 h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0",
-                        !notification.read ? "bg-teal/10" : "bg-navy/5"
-                      )}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNotificationClick(notification)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter")
+                          handleNotificationClick(notification);
+                      }}
+                      className="flex items-start gap-3 text-left w-full cursor-pointer"
                     >
-                      <NotificationIcon type={notification.type} />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p
+                      <div
                         className={clsx(
-                          "text-sm text-navy truncate",
-                          !notification.read && "font-medium"
+                          "mt-0.5 h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0",
+                          !notification.read ? "bg-teal/10" : "bg-navy/5"
                         )}
                       >
-                        {notification.title}
-                      </p>
-                      <p className="text-xs text-mist mt-0.5 line-clamp-2">
-                        {notification.body}
-                      </p>
-                      <p className="text-xs text-mist/70 mt-1">
-                        {formatDistanceToNow(notification.createdAt, {
-                          addSuffix: true,
-                        })}
-                      </p>
-                    </div>
+                        <NotificationIcon type={notification.type} />
+                      </div>
 
-                    {!notification.read && (
-                      <span className="mt-2 h-2 w-2 rounded-full bg-teal flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p
+                            className={clsx(
+                              "text-sm text-navy truncate",
+                              !notification.read && "font-medium"
+                            )}
+                          >
+                            {notification.title}
+                          </p>
+                          {notification.escalated && (
+                            <span className="text-[10px] uppercase tracking-wide font-semibold text-ember bg-ember/10 px-1.5 py-0.5 rounded">
+                              Escalated
+                            </span>
+                          )}
+                          {notification.acked && (
+                            <span className="text-[10px] uppercase tracking-wide font-semibold text-teal bg-teal/10 px-1.5 py-0.5 rounded">
+                              Acked
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-mist mt-0.5 line-clamp-2">
+                          {notification.body}
+                        </p>
+                        <p className="text-xs text-mist/70 mt-1">
+                          {formatDistanceToNow(notification.createdAt, {
+                            addSuffix: true,
+                          })}
+                        </p>
+                      </div>
+
+                      {!notification.read && !notification.acked && (
+                        <span className="mt-2 h-2 w-2 rounded-full bg-teal flex-shrink-0" />
+                      )}
+                    </div>
+                    {showAck && (
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (appUser?.id) {
+                              acknowledge(notification.id, appUser.id);
+                            }
+                          }}
+                          className="text-xs font-medium text-teal hover:text-teal-light transition-colors"
+                        >
+                          Acknowledge — I'll handle this
+                        </button>
+                      </div>
                     )}
                   </div>
-                </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>

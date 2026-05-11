@@ -26,6 +26,14 @@ export { checkOverdueTasks } from "./triggers/onTaskOverdue";
 export { expirePortals } from "./triggers/expirePortals";
 export { checkGapEscalation } from "./triggers/gapEscalation";
 export { sendKnowledgeReminders } from "./triggers/knowledgeReminder";
+export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifications";
+export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
+
+// Outbound HRIS / identity-provider webhooks
+export {
+  fireFlowWebhooks,
+  fireAssetWebhooks,
+} from "./triggers/fireIntegrationWebhooks";
 
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";

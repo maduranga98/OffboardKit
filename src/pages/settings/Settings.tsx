@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Building, Users, CreditCard, Plug, ExternalLink } from "lucide-react";
+import { Building, Users, CreditCard, Plug, Webhook, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -83,6 +83,7 @@ const navItems = [
   { label: "Team & Roles", href: "/settings/team", icon: Users },
   { label: "Billing", href: "/settings/billing", icon: CreditCard },
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
+  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook },
 ];
 
 function SettingsSidebar() {

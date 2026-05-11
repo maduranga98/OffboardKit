@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { doc, updateDoc, writeBatch } from "firebase/firestore";
+import { doc, updateDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 export interface AppNotification {
@@ -10,6 +10,10 @@ export interface AppNotification {
   link: string;
   icon: string;
   read: boolean;
+  // Acks are stronger than "read" — they signal "someone is taking
+  // responsibility for this." Escalation skips acked items.
+  acked: boolean;
+  escalated: boolean;
   createdAt: Date;
 }
 
@@ -19,6 +23,7 @@ interface NotificationState {
   setNotifications: (notifications: AppNotification[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  acknowledge: (id: string, userId: string) => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -69,6 +74,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       await batch.commit();
     } catch (error) {
       console.error("Failed to mark all notifications read:", error);
+    }
+  },
+
+  acknowledge: async (id, userId) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id === id ? { ...n, acked: true, read: true } : n
+      ),
+      unreadCount: state.notifications.find((n) => n.id === id && !n.read)
+        ? Math.max(0, state.unreadCount - 1)
+        : state.unreadCount,
+    }));
+    try {
+      await updateDoc(doc(db, "notifications", id), {
+        ackedAt: serverTimestamp(),
+        ackedBy: userId,
+        isRead: true,
+      });
+    } catch (error) {
+      console.error("Failed to acknowledge notification:", error);
     }
   },
 }));

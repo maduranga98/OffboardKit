@@ -21,12 +21,20 @@ export interface EmailRecipient {
   name?: string;
 }
 
+export interface EmailAttachment {
+  // Base64-encoded content.
+  content: string;
+  name: string;
+  contentType?: string;
+}
+
 export interface SendEmailParams {
   to: EmailRecipient[];
   subject: string;
   htmlContent: string;
   sender?: { email: string; name: string };
   replyTo?: { email: string; name: string };
+  attachments?: EmailAttachment[];
 }
 
 export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
@@ -48,6 +56,15 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
 
   if (params.replyTo) {
     mailOptions.replyTo = `"${params.replyTo.name}" <${params.replyTo.email}>`;
+  }
+
+  if (params.attachments && params.attachments.length > 0) {
+    mailOptions.attachments = params.attachments.map((a) => ({
+      filename: a.name,
+      content: a.content,
+      encoding: "base64",
+      contentType: a.contentType,
+    }));
   }
 
   try {
