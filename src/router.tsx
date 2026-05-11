@@ -16,6 +16,7 @@ import InterviewList from "./pages/interviews/InterviewList";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import KnowledgeGaps from "./pages/knowledge/KnowledgeGaps";
 import Analytics from "./pages/analytics/Analytics";
+import Trends from "./pages/analytics/Trends";
 import Alumni from "./pages/alumni/Alumni";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
 import Settings from "./pages/settings/Settings";
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
       { path: "knowledge", element: <KnowledgeBase /> },
       { path: "knowledge/gaps", element: <KnowledgeGaps /> },
       { path: "analytics", element: <Analytics /> },
+      { path: "analytics/trends", element: <Trends /> },
       { path: "alumni", element: <Alumni /> },
       { path: "settings", element: <Settings /> },
       { path: "settings/team", element: <TeamSettings /> },
