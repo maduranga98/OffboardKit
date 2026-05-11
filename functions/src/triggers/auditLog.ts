@@ -183,6 +183,70 @@ export const auditExitInterviewSubmitted = functions.firestore
     });
   });
 
+export const auditAssetCreated = functions.firestore
+  .document("assets/{assetId}")
+  .onCreate(async (snap) => {
+    const a = snap.data();
+    if (!a.flowId || !a.companyId) return;
+    const actor = await resolveActor(a.companyId, null);
+    await writeAudit({
+      flowId: a.flowId,
+      companyId: a.companyId,
+      action: "asset_assigned",
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      summary: `Asset assigned: ${a.name} (${a.type})`,
+      metadata: {
+        assetId: snap.id,
+        serialNumber: a.serialNumber || null,
+        estimatedValue: a.estimatedValue ?? null,
+      },
+    });
+  });
+
+export const auditAssetUpdated = functions.firestore
+  .document("assets/{assetId}")
+  .onUpdate(async (change) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!after.flowId || !after.companyId) return;
+    if (before.status === after.status) return;
+
+    const actorId =
+      after.status === "wiped"
+        ? after.wipeCompletedBy
+        : after.status === "verified"
+        ? after.verifiedBy
+        : after.returnedBy;
+    const actor = await resolveActor(after.companyId, actorId || null);
+
+    const actionMap: Record<string, string> = {
+      returned: "asset_returned",
+      verified: "asset_verified",
+      wiped: "asset_wiped",
+    };
+    const action = actionMap[after.status] || "asset_status_changed";
+    const verbMap: Record<string, string> = {
+      returned: "returned",
+      verified: "verified",
+      wiped: "wiped",
+    };
+    const verb = verbMap[after.status] || after.status;
+
+    await writeAudit({
+      flowId: after.flowId,
+      companyId: after.companyId,
+      action,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      actorName: actor.actorName,
+      summary: `Asset ${verb}: ${after.name}`,
+      changes: { status: { from: before.status, to: after.status } },
+      metadata: { assetId: after.id, type: after.type },
+    });
+  });
+
 export const auditKnowledgeItemAdded = functions.firestore
   .document("knowledgeItems/{itemId}")
   .onCreate(async (snap) => {

@@ -10,6 +10,9 @@ import {
   BookOpen,
   Eye,
   PlayCircle,
+  Package,
+  ShieldCheck,
+  HardDrive,
 } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
@@ -33,6 +36,11 @@ const ACTION_META: Record<
   task_status_changed: { label: "Task Update", icon: <ClipboardCheck size={14} />, tone: "mist" },
   exit_interview_submitted: { label: "Exit Interview", icon: <MessageSquare size={14} />, tone: "teal" },
   knowledge_item_added: { label: "Knowledge", icon: <BookOpen size={14} />, tone: "teal" },
+  asset_assigned: { label: "Asset Assigned", icon: <Package size={14} />, tone: "mist" },
+  asset_returned: { label: "Asset Returned", icon: <Package size={14} />, tone: "mist" },
+  asset_verified: { label: "Asset Verified", icon: <ShieldCheck size={14} />, tone: "teal" },
+  asset_wiped: { label: "Asset Wiped", icon: <HardDrive size={14} />, tone: "teal" },
+  asset_status_changed: { label: "Asset Update", icon: <Package size={14} />, tone: "mist" },
 };
 
 function actorLabel(entry: AuditLogEntry): string {

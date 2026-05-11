@@ -77,7 +77,12 @@ export type AuditAction =
   | "portal_accessed"
   | "task_status_changed"
   | "exit_interview_submitted"
-  | "knowledge_item_added";
+  | "knowledge_item_added"
+  | "asset_assigned"
+  | "asset_returned"
+  | "asset_verified"
+  | "asset_wiped"
+  | "asset_status_changed";
 
 export interface AuditLogEntry {
   id: string;

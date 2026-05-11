@@ -16,6 +16,8 @@ export {
   auditTaskUpdated,
   auditExitInterviewSubmitted,
   auditKnowledgeItemAdded,
+  auditAssetCreated,
+  auditAssetUpdated,
 } from "./triggers/auditLog";
 
 // Scheduled functions
