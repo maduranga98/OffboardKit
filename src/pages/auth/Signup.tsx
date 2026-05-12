@@ -5,7 +5,7 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-import { getDocument, updateDocument } from "../../lib/firestore";
+import { getDocument } from "../../lib/firestore";
 
 const features = [
   "Structured offboarding checklists",
@@ -94,14 +94,6 @@ export default function Signup() {
     setSubmitting(true);
     try {
       await signUpWithEmail(email, password, name);
-
-      if (inviteData && inviteId) {
-        try {
-          await updateDocument("invites", inviteId, { status: "accepted" });
-        } catch (inviteErr) {
-          console.error("Failed to mark invite as accepted:", inviteErr);
-        }
-      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign up failed.";
       setError(message);
