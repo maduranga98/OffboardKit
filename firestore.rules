@@ -188,7 +188,7 @@ service cloud.firestore {
     }
 
     match /invites/{inviteId} {
-      allow read: if isAuth() && (
+      allow read: if !isAuth() || (
         resource.data.email == request.auth.token.email ||
         resource.data.companyId == currentCompanyId()
       );
