@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
+import { getDocument, updateDocument } from "../../lib/firestore";
 
 const features = [
   "Structured offboarding checklists",
@@ -12,16 +13,57 @@ const features = [
   "Access revocation tracking",
 ];
 
+interface InviteData {
+  id: string;
+  email: string;
+  companyName: string;
+  role: string;
+  invitedByName: string;
+  status: string;
+  expiresAt: { toDate: () => Date };
+}
+
 export default function Signup() {
   const { user, loading, companyId, signUpWithEmail, signInWithGoogle } = useAuth();
   const [searchParams] = useSearchParams();
   const inviteId = searchParams.get("invite");
+  const [inviteData, setInviteData] = useState<InviteData | null>(null);
+  const [inviteError, setInviteError] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!inviteId) return;
+
+    const loadInvite = async () => {
+      try {
+        const invite = await getDocument<InviteData>("invites", inviteId);
+        if (!invite) {
+          setInviteError("Invite not found");
+          return;
+        }
+        if (invite.status !== "pending") {
+          setInviteError("This invite has already been used");
+          return;
+        }
+        if (invite.expiresAt.toDate() < new Date()) {
+          setInviteError("This invite has expired");
+          return;
+        }
+        setInviteData(invite);
+        setEmail(invite.email);
+      } catch (err) {
+        console.error("Failed to load invite:", err);
+        setInviteError("Failed to load invite details");
+      }
+    };
+
+    loadInvite();
+  }, [inviteId]);
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && companyId) return <Navigate to="/dashboard" replace />;
@@ -44,9 +86,22 @@ export default function Signup() {
       return;
     }
 
+    if (inviteData && email.toLowerCase() !== inviteData.email.toLowerCase()) {
+      setError(`Please sign up with ${inviteData.email}`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await signUpWithEmail(email, password, name);
+
+      if (inviteData && inviteId) {
+        try {
+          await updateDocument("invites", inviteId, { status: "accepted" });
+        } catch (inviteErr) {
+          console.error("Failed to mark invite as accepted:", inviteErr);
+        }
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign up failed.";
       setError(message);
@@ -104,14 +159,23 @@ export default function Signup() {
             {inviteId ? "Accept your invite" : "Start your free account"}
           </h2>
           <p className="text-sm text-mist mb-8">
-            {inviteId
-              ? "Create your account to join your team on OffboardKit."
+            {inviteData
+              ? `Join ${inviteData.companyName} as a ${inviteData.role.replace("_", " ")}`
+              : inviteId && inviteError
+              ? inviteError
               : "Set up in 5 minutes. No credit card required."}
           </p>
 
-          {error && (
+          {(error || inviteError) && (
             <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
-              {error}
+              {error || inviteError}
+            </div>
+          )}
+
+          {inviteData && (
+            <div className="mb-6 p-3 bg-teal/5 border border-teal/20 rounded-md text-sm">
+              <p className="text-teal font-medium">Invited by {inviteData.invitedByName}</p>
+              <p className="text-teal/70 text-xs mt-1">to join {inviteData.companyName}</p>
             </div>
           )}
 
@@ -152,6 +216,7 @@ export default function Signup() {
               placeholder="jane@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={!!inviteData}
               required
             />
             <Input
