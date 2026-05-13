@@ -127,7 +127,7 @@ export function useAuth() {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.toLowerCase(), password);
     } catch (error) {
       console.error("Email sign-in error:", error);
       throw error;
@@ -140,7 +140,7 @@ export function useAuth() {
     displayName: string
   ) => {
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const credential = await createUserWithEmailAndPassword(auth, email.toLowerCase(), password);
       await updateProfile(credential.user, { displayName });
     } catch (error) {
       console.error("Email sign-up error:", error);
