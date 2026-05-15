@@ -9,7 +9,9 @@ interface AnalyticsPdfRequest {
   customEndDate?: string;
 }
 
-export const generateAnalyticsPdf = functions.https.onCall(
+export const generateAnalyticsPdf = functions
+  .runWith({ memory: "2GB", timeoutSeconds: 300 })
+  .https.onCall(
   async (data: AnalyticsPdfRequest, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
@@ -58,10 +60,9 @@ export const generateAnalyticsPdf = functions.https.onCall(
       };
     } catch (error) {
       console.error("PDF generation error:", error);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Failed to generate PDF"
-      );
+      const message =
+        error instanceof Error ? error.message : "Failed to generate PDF";
+      throw new functions.https.HttpsError("internal", message);
     }
   }
 );

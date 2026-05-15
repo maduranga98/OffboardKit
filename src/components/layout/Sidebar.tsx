@@ -5,6 +5,7 @@ import {
   FileText,
   MessageSquare,
   BookOpen,
+  Package,
   BarChart2,
   TrendingUp,
   Network,
@@ -26,6 +27,7 @@ interface SidebarProps {
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/offboardings", label: "Offboardings", icon: Users },
+  { to: "/assets", label: "Assets", icon: Package },
   { to: "/templates", label: "Templates", icon: FileText },
   { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { to: "/analytics", label: "Analytics", icon: BarChart2 },
