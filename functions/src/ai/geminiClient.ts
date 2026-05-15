@@ -13,8 +13,8 @@ function getClient(): GoogleGenerativeAI {
   return genAI;
 }
 
-const JSON_MODEL = "gemini-2.0-flash";
-const TEXT_MODEL = "gemini-2.0-flash";
+const JSON_MODEL = "gemini-2.5-flash";
+const TEXT_MODEL = "gemini-2.5-flash";
 
 export async function generateJSON<T>(prompt: string): Promise<T> {
   const client = getClient();
