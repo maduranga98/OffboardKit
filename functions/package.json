@@ -1,5 +1,5 @@
 {
-  "name": "offboardkit-functions",
+  "name": "hrexitflow-functions",
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",

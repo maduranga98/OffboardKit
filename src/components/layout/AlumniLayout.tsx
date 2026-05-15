@@ -29,10 +29,10 @@ export default function AlumniLayout() {
             <div className="flex items-center gap-2 cursor-pointer">
               <img
                 src={logo}
-                alt="OffboardKit"
+                alt="HRExitFlow"
                 className="w-8 h-8 object-contain"
               />
-              <span className="font-display text-lg text-navy">OffboardKit</span>
+              <span className="font-display text-lg text-navy">HRExitFlow</span>
             </div>
 
             <div className="flex items-center gap-4">
@@ -60,7 +60,7 @@ export default function AlumniLayout() {
       {/* Footer */}
       <footer className="border-t border-navy/5 mt-16 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-mist">
-          <p>© {new Date().getFullYear()} OffboardKit. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} HRExitFlow. All rights reserved.</p>
         </div>
       </footer>
     </div>

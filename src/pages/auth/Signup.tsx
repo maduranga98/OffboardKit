@@ -6,6 +6,7 @@ import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
 import { getDocument } from "../../lib/firestore";
+import logo from "../../assets/logo.png";
 
 const features = [
   "Structured offboarding checklists",
@@ -122,7 +123,7 @@ export default function Signup() {
           Offboarding, done right.
         </h1>
         <p className="mt-4 text-mist text-lg max-w-md">
-          Join hundreds of HR teams using OffboardKit to create smooth,
+          Join hundreds of HR teams using HRExitFlow to create smooth,
           structured employee exits.
         </p>
         <ul className="mt-10 space-y-4">
@@ -138,13 +139,8 @@ export default function Signup() {
       <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
-            <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="6" fill="#0D9E8A" />
-              <path d="M7 8h8v12H7V8z" stroke="white" strokeWidth="2" fill="none" />
-              <path d="M15 12l4 2-4 2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-              <path d="M19 14h3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <span className="font-display text-xl text-navy">OffboardKit</span>
+            <img src={logo} alt="HRExitFlow Logo" className="w-8 h-8 object-contain" />
+            <span className="font-display text-xl text-navy">HRExitFlow</span>
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">

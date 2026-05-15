@@ -63,7 +63,7 @@ export default function Login() {
           Exit with intention.
         </h1>
         <p className="mt-4 text-mist text-lg max-w-md">
-          OffboardKit gives HR teams a structured, humane way to manage every
+          HRExitFlow gives HR teams a structured, humane way to manage every
           employee departure — from checklist to alumni.
         </p>
         <ul className="mt-10 space-y-4">
@@ -81,10 +81,10 @@ export default function Login() {
           <div className="flex items-center gap-2 mb-8">
             <img
               src={logo}
-              alt="OffboardKit Logo"
+              alt="HRExitFlow Logo"
               className="w-10 h-10 object-contain"
             />
-            <span className="font-display text-xl text-navy">OffboardKit</span>
+            <span className="font-display text-xl text-navy">HRExitFlow</span>
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">

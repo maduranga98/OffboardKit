@@ -4,7 +4,7 @@ import { sendEmailSafe } from "../email/sendEmail";
 import { taskOverdueEmail } from "../email/templates";
 import { formatShortDate } from "../utils/dates";
 
-const APP_URL = process.env.APP_URL || "https://offboardkit.com";
+const APP_URL = process.env.APP_URL || "https://hrexitflow.com";
 
 // Firestore 'in' query limit
 const FIRESTORE_IN_LIMIT = 30;

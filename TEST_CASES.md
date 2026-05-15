@@ -1,4 +1,4 @@
-# OffboardKit — QA Test Cases
+# HRExitFlow — QA Test Cases
 
 > **Instructions for Tester**
 > Work through each test case in order. For every case, fill in **Actual Result** and mark **Status** as `PASS` or `FAIL`.
@@ -1228,4 +1228,4 @@ Use this table to report failures quickly.
 
 ---
 
-*Document version: 1.0 — OffboardKit Pre-Launch QA*
+*Document version: 1.0 — HRExitFlow Pre-Launch QA*

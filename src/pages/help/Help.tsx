@@ -33,7 +33,7 @@ const SECTIONS: Section[] = [
     body: (
       <>
         <p>
-          OffboardKit walks a departing employee through every step of leaving
+          HRExitFlow walks a departing employee through every step of leaving
           your company — tasks, knowledge transfer, exit interview, asset
           return, and access revocation — and gives HR a real-time view of
           how each offboarding is progressing.
@@ -262,7 +262,7 @@ const SECTIONS: Section[] = [
           </li>
           <li>
             If you set a shared secret, the request body is signed and the
-            signature arrives in the <code>X-OffboardKit-Signature</code>{" "}
+            signature arrives in the <code>X-HRExitFlow-Signature</code>{" "}
             header (HMAC-SHA256).
           </li>
           <li>
@@ -432,7 +432,7 @@ export default function Help() {
         <div>
           <h1 className="text-2xl font-display text-navy">Help &amp; Instructions</h1>
           <p className="text-sm text-mist mt-1">
-            How OffboardKit works, end to end. Use the sidebar to jump to a
+            How HRExitFlow works, end to end. Use the sidebar to jump to a
             section.
           </p>
         </div>
@@ -467,10 +467,10 @@ export default function Help() {
               <p className="text-sm text-mist mt-1">
                 Email{" "}
                 <a
-                  href="mailto:support@offboardkit.com"
+                  href="mailto:support@hrexitflow.com"
                   className="text-teal hover:underline inline-flex items-center gap-1"
                 >
-                  support@offboardkit.com <ExternalLink size={12} />
+                  support@hrexitflow.com <ExternalLink size={12} />
                 </a>{" "}
                 with the flow ID and a brief description of what you expected
                 to happen.

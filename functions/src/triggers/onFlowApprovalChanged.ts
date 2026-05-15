@@ -8,7 +8,7 @@ import {
 } from "../email/templates";
 import { formatLongDate } from "../utils/dates";
 
-const APP_URL = process.env.APP_URL || "https://offboardkit.com";
+const APP_URL = process.env.APP_URL || "https://hrexitflow.com";
 
 interface ApprovalStepDoc {
   approverId: string;
