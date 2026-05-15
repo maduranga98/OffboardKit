@@ -16,6 +16,7 @@ import InterviewList from "./pages/interviews/InterviewList";
 import KnowledgeBase from "./pages/knowledge/KnowledgeBase";
 import KnowledgeGaps from "./pages/knowledge/KnowledgeGaps";
 import Analytics from "./pages/analytics/Analytics";
+import Assets from "./pages/assets/Assets";
 import Trends from "./pages/analytics/Trends";
 import Alumni from "./pages/alumni/Alumni";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
       { path: "offboardings", element: <OffboardingList /> },
       { path: "offboardings/new", element: <NewOffboarding /> },
       { path: "offboardings/:id", element: <OffboardingDetail /> },
+      { path: "assets", element: <Assets /> },
       { path: "templates", element: <TemplateList /> },
       { path: "templates/:id", element: <TemplateDetail /> },
       { path: "interviews", element: <InterviewList /> },

@@ -45,7 +45,9 @@ const SEVERITY_COLORS: Record<string, string> = {
   low: "#2563EB",
 };
 
-export const generateKnowledgePdf = functions.https.onCall(
+export const generateKnowledgePdf = functions
+  .runWith({ memory: "2GB", timeoutSeconds: 300 })
+  .https.onCall(
   async (data: KnowledgePdfRequest, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError("unauthenticated", "User is not authenticated");
@@ -81,7 +83,9 @@ export const generateKnowledgePdf = functions.https.onCall(
       return { success: true, pdf: Buffer.from(pdfBuffer).toString("base64") };
     } catch (error) {
       console.error("Knowledge PDF error:", error);
-      throw new functions.https.HttpsError("internal", "Failed to generate PDF");
+      const message =
+        error instanceof Error ? error.message : "Failed to generate PDF";
+      throw new functions.https.HttpsError("internal", message);
     }
   }
 );
