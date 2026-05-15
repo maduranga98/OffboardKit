@@ -301,7 +301,7 @@ export default function SetupWizard() {
           <path d="M15 12l4 2-4 2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           <path d="M19 14h3" stroke="white" strokeWidth="2" strokeLinecap="round" />
         </svg>
-        <span className="font-display text-xl text-navy">OffboardKit</span>
+        <span className="font-display text-xl text-navy">HRExitFlow</span>
       </div>
 
       {/* Progress */}

@@ -157,7 +157,7 @@ export default function WebhookSettings() {
         <p className="text-sm text-mist mt-1">
           Push offboarding events to your HRIS or identity provider. Each
           payload is POSTed as JSON; if you configure a secret, it's signed
-          with HMAC-SHA256 in the <code>X-OffboardKit-Signature</code> header.
+          with HMAC-SHA256 in the <code>X-HRExitFlow-Signature</code> header.
         </p>
       </div>
 

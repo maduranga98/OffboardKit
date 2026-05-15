@@ -9,7 +9,7 @@ import {
 } from "../email/templates";
 import { formatLongDate, formatShortDate } from "../utils/dates";
 
-const APP_URL = process.env.APP_URL || "https://offboardkit.com";
+const APP_URL = process.env.APP_URL || "https://hrexitflow.com";
 
 export const onOffboardingCreated = functions.firestore
   .document("offboardFlows/{flowId}")

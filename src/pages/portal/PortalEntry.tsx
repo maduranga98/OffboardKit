@@ -31,6 +31,7 @@ import type { OffboardFlow, FlowTask } from "../../types/offboarding.types";
 import ExitInterviewPortal from "./ExitInterviewPortal";
 import KnowledgePortal from "./KnowledgePortal";
 import SignatureCanvas from "../../components/ui/SignatureCanvas";
+import logo from "../../assets/logo.png";
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
   if (!ts) return null;
@@ -39,21 +40,13 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
   return null;
 }
 
-function OffboardKitLogo() {
+function HRExitFlowLogo() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="6" fill="#0D9E8A" />
-      <path d="M7 8h8v12H7V8z" stroke="white" strokeWidth="2" fill="none" />
-      <path
-        d="M15 12l4 2-4 2"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <path d="M19 14h3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <img
+      src={logo}
+      alt="HRExitFlow Logo"
+      className="w-7 h-7 object-contain"
+    />
   );
 }
 
@@ -846,8 +839,8 @@ export default function PortalEntry() {
       <div className="bg-white border-b border-navy/10 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <OffboardKitLogo />
-            <span className="font-display text-navy text-lg">OffboardKit</span>
+            <HRExitFlowLogo />
+            <span className="font-display text-navy text-lg">HRExitFlow</span>
           </div>
           <span className="text-sm text-mist">{flow.employeeName}</span>
         </div>

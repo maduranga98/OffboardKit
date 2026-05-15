@@ -67,10 +67,10 @@ export default function AlumniLogin() {
           <div className="flex items-center gap-2 mb-8">
             <img
               src={logo}
-              alt="OffboardKit Logo"
+              alt="HRExitFlow Logo"
               className="w-10 h-10 object-contain"
             />
-            <span className="font-display text-xl text-navy">OffboardKit</span>
+            <span className="font-display text-xl text-navy">HRExitFlow</span>
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">

@@ -163,7 +163,7 @@ async function buildKnowledgeHtml(
   <!-- Header -->
   <div style="background:${BRAND.navy};border-radius:8px;padding:24px 28px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;">
     <div>
-      <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.3px;">Offboard<span style="color:${BRAND.teal};">Kit</span></div>
+      <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.3px;">HR<span style="color:${BRAND.teal};">ExitFlow</span></div>
       <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:4px;">Knowledge Base Export</div>
     </div>
     <div style="text-align:right;color:rgba(255,255,255,0.5);font-size:12px;">
@@ -211,7 +211,7 @@ async function buildKnowledgeHtml(
 
   <!-- Footer -->
   <div style="text-align:center;margin-top:20px;font-size:11px;color:${BRAND.muted};">
-    Exported from OffboardKit · offboardkit.com
+    Exported from HRExitFlow · hrexitflow.com
   </div>
 </body>
 </html>`;

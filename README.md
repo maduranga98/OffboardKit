@@ -1,4 +1,4 @@
-# OffboardKit
+# HRExitFlow
 
 Employee offboarding platform built with React, TypeScript, and Firebase. Manages the full exit lifecycle — task tracking, knowledge transfer, exit interviews, asset management, alumni network, and analytics.
 
@@ -24,8 +24,8 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 1. **Clone and install dependencies**
 
    ```bash
-   git clone https://github.com/maduranga98/offboardkit.git
-   cd offboardkit
+   git clone https://github.com/maduranga98/hrexitflow.git
+   cd hrexitflow
    npm install
    cd functions && npm install && cd ..
    ```
@@ -62,7 +62,7 @@ SMTP_SECURE="true"
 SMTP_USER="hello@feedsolve.com"
 SMTP_PASSWORD="your_smtp_password"
 SMTP_FROM_EMAIL="hello@feedsolve.com"
-SMTP_FROM_NAME="OffboardKit"
+SMTP_FROM_NAME="HRExitFlow"
 GEMINI_API_KEY="your_gemini_api_key"
 APP_URL="https://your-project.web.app"
 ```
@@ -76,7 +76,7 @@ SMTP_SECURE="true"
 SMTP_USER="hello@feedsolve.com"
 SMTP_PASSWORD="your_smtp_password"
 SMTP_FROM_EMAIL="hello@feedsolve.com"
-SMTP_FROM_NAME="OffboardKit"
+SMTP_FROM_NAME="HRExitFlow"
 GEMINI_API_KEY="your_gemini_api_key"
 APP_URL="https://your-project.web.app"
 ```

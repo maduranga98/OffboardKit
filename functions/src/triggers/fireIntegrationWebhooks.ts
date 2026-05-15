@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 // Outbound webhooks deliver offboarding state-changes to whichever HRIS
 // or identity provider the company has registered. Each delivery is a
 // POST with a JSON envelope { event, occurredAt, data }; if the
-// integration has a configured secret, an X-OffboardKit-Signature
+// integration has a configured secret, an X-HRExitFlow-Signature
 // header carries an HMAC-SHA256 of the raw body.
 //
 // Failures don't block the Firestore write — they're stamped onto the
@@ -39,10 +39,10 @@ async function deliver(
   });
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "User-Agent": "OffboardKit-Webhook/1.0",
+    "User-Agent": "HRExitFlow-Webhook/1.0",
   };
   if (integration.secret) {
-    headers["X-OffboardKit-Signature"] = crypto
+    headers["X-HRExitFlow-Signature"] = crypto
       .createHmac("sha256", integration.secret)
       .update(body)
       .digest("hex");

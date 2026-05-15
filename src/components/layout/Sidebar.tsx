@@ -37,9 +37,9 @@ const navItems = [
   { to: "/help", label: "Help", icon: HelpCircle },
 ];
 
-function OffboardKitLogo() {
+function HRExitFlowLogo() {
   return (
-    <img src={logo} alt="OffboardKit Logo" className="w-7 h-7 object-contain" />
+    <img src={logo} alt="HRExitFlow Logo" className="w-7 h-7 object-contain" />
   );
 }
 
@@ -68,8 +68,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-2.5">
-            <OffboardKitLogo />
-            <span className="text-white font-display text-lg">OffboardKit</span>
+            <HRExitFlowLogo />
+            <span className="text-white font-display text-lg">HRExitFlow</span>
           </div>
           <button
             onClick={onClose}
