@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Power, AlertTriangle, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Power, AlertTriangle, CheckCircle, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Card } from "../../components/ui/Card";
+import { usePlanGate } from "../../hooks/usePlanGate";
+import { SettingsShell } from "./SettingsShell";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
@@ -40,6 +43,8 @@ const EVENT_OPTIONS: { value: IntegrationEvent; label: string }[] = [
 
 export default function WebhookSettings() {
   const { companyId } = useAuth();
+  const { requiresPlan, plan } = usePlanGate();
+  const unlocked = requiresPlan("business");
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -142,23 +147,54 @@ export default function WebhookSettings() {
     }
   };
 
+  const shellDescription = (
+    <>
+      Push offboarding events to your HRIS or identity provider. Each payload is
+      POSTed as JSON; if you configure a secret, it's signed with HMAC-SHA256 in
+      the <code>X-HRExitFlow-Signature</code> header.
+    </>
+  );
+
   if (loading) {
     return (
-      <div className="py-24 flex justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
+      <SettingsShell title="HRIS Webhooks">
+        <div className="py-24 flex justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      </SettingsShell>
+    );
+  }
+
+  if (!unlocked) {
+    return (
+      <SettingsShell title="HRIS Webhooks">
+        <Card>
+          <div className="text-center py-8 space-y-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-navy/5">
+              <Lock size={20} className="text-navy" />
+            </div>
+            <h2 className="text-base font-semibold text-navy">
+              HRIS webhooks require the Business plan
+            </h2>
+            <p className="text-sm text-mist max-w-md mx-auto">
+              {shellDescription}
+            </p>
+            <p className="text-sm text-mist">
+              You are currently on the <strong className="text-navy capitalize">{plan}</strong> plan.
+            </p>
+            <Link to="/settings/billing">
+              <Button size="sm">Upgrade plan</Button>
+            </Link>
+          </div>
+        </Card>
+      </SettingsShell>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <SettingsShell title="HRIS Webhooks">
       <div>
-        <h1 className="text-2xl font-display text-navy">HRIS Webhooks</h1>
-        <p className="text-sm text-mist mt-1">
-          Push offboarding events to your HRIS or identity provider. Each
-          payload is POSTed as JSON; if you configure a secret, it's signed
-          with HMAC-SHA256 in the <code>X-HRExitFlow-Signature</code> header.
-        </p>
+        <p className="text-sm text-mist">{shellDescription}</p>
       </div>
 
       {integrations.length === 0 && !showForm ? (
@@ -336,6 +372,6 @@ export default function WebhookSettings() {
           </div>
         </Card>
       )}
-    </div>
+    </SettingsShell>
   );
 }

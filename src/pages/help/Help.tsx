@@ -398,8 +398,8 @@ export default function Help() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[220px_1fr] gap-6">
-      <aside className="lg:sticky lg:top-6 lg:self-start">
+    <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-6 max-w-full">
+      <aside className="lg:sticky lg:top-6 lg:self-start min-w-0 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
         <Card padding="sm">
           <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
             <BookOpen size={16} className="text-teal" />
@@ -440,16 +440,16 @@ export default function Help() {
         {SECTIONS.map((s) => {
           const Icon = s.icon;
           return (
-            <section key={s.id} id={`help-${s.id}`} className="scroll-mt-6">
-              <Card>
+            <section key={s.id} id={`help-${s.id}`} className="scroll-mt-6 min-w-0">
+              <Card className="overflow-hidden">
                 <div className="flex items-center gap-2 mb-3">
-                  <Icon size={18} className="text-teal" />
+                  <Icon size={18} className="text-teal flex-shrink-0" />
                   <h2
-                    className="text-lg font-semibold text-navy"
+                    className="text-lg font-semibold text-navy break-words min-w-0"
                     dangerouslySetInnerHTML={{ __html: s.title }}
                   />
                 </div>
-                <div className="text-sm text-navy/80 space-y-2 leading-relaxed">
+                <div className="text-sm text-navy/80 space-y-2 leading-relaxed break-words [&_code]:break-all">
                   {s.body}
                 </div>
               </Card>

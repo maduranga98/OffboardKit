@@ -6,13 +6,17 @@ import {
   Circle,
   CheckCircle,
   Search,
+  Lock,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
+import { usePlanGate } from "../../hooks/usePlanGate";
+import { SettingsShell } from "./SettingsShell";
 import { getDocument, updateDocument, serverTimestamp } from "../../lib/firestore";
 import { db } from "../../lib/firebase";
 import {
@@ -81,6 +85,8 @@ const COMING_SOON_INTEGRATIONS = [
 
 export default function IntegrationSettings() {
   const { companyId } = useAuth();
+  const { requiresPlan, plan } = usePlanGate();
+  const slackUnlocked = requiresPlan("growth");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
   const [systems, setSystems] = useState<System[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,57 +280,82 @@ export default function IntegrationSettings() {
 
   if (loading) {
     return (
-      <Card>
-        <LoadingSpinner />
-      </Card>
+      <SettingsShell title="Integrations" description="Connect Slack and manage the system catalog used in access revocation.">
+        <Card>
+          <LoadingSpinner />
+        </Card>
+      </SettingsShell>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <SettingsShell title="Integrations" description="Connect Slack and manage the system catalog used in access revocation.">
       {/* Slack Integration */}
       <Card>
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Hash size={20} className="text-navy" />
             <h3 className="text-base font-semibold text-navy">Slack Integration</h3>
+            {!slackUnlocked && (
+              <Badge variant="mist">
+                <Lock size={10} className="inline mr-1" />
+                Growth plan
+              </Badge>
+            )}
           </div>
 
           <p className="text-sm text-mist">
             Send task reminders and offboarding alerts to a Slack channel.
           </p>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-navy">
-              Webhook URL
-            </label>
-            <input
-              type="text"
-              placeholder="https://hooks.slack.com/services/..."
-              value={slackWebhookUrl}
-              onChange={(e) => setSlackWebhookUrl(e.target.value)}
-              className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder-mist/50 focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
-            />
-          </div>
+          {!slackUnlocked ? (
+            <div className="rounded-lg border border-navy/10 bg-navy/5 p-4 text-sm text-mist">
+              <p>
+                Slack notifications are available on the Growth plan and above.
+                You are currently on the <strong className="text-navy capitalize">{plan}</strong> plan.
+              </p>
+              <Link
+                to="/settings/billing"
+                className="inline-flex items-center gap-1 mt-2 text-teal font-medium hover:underline"
+              >
+                Upgrade plan →
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-navy">
+                  Webhook URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://hooks.slack.com/services/..."
+                  value={slackWebhookUrl}
+                  onChange={(e) => setSlackWebhookUrl(e.target.value)}
+                  className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder-mist/50 focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                />
+              </div>
 
-          <p className="text-xs text-mist">
-            Create a webhook in your Slack app settings. Paste the URL here to receive
-            notifications.
-          </p>
+              <p className="text-xs text-mist">
+                Create a webhook in your Slack app settings. Paste the URL here to receive
+                notifications.
+              </p>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleTestSlackWebhook}
-              loading={testingSlack}
-            >
-              Test Connection
-            </Button>
-            <Button size="sm" onClick={handleSaveSlackWebhook} loading={savingSlack}>
-              Save
-            </Button>
-          </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestSlackWebhook}
+                  loading={testingSlack}
+                >
+                  Test Connection
+                </Button>
+                <Button size="sm" onClick={handleSaveSlackWebhook} loading={savingSlack}>
+                  Save
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Card>
 
@@ -465,6 +496,6 @@ export default function IntegrationSettings() {
           </div>
         </div>
       </Card>
-    </div>
+    </SettingsShell>
   );
 }
