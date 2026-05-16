@@ -399,7 +399,7 @@ export default function Help() {
 
   return (
     <div className="grid lg:grid-cols-[220px_minmax(0,1fr)] gap-6 max-w-full">
-      <aside className="lg:sticky lg:top-6 lg:self-start min-w-0">
+      <aside className="lg:sticky lg:top-6 lg:self-start min-w-0 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
         <Card padding="sm">
           <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
             <BookOpen size={16} className="text-teal" />
