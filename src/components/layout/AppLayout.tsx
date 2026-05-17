@@ -44,7 +44,7 @@ export default function AppLayout() {
     Object.entries(pageTitles).find(([path]) =>
       location.pathname.startsWith(path)
     )?.[1] ||
-    "HRExitFlow";
+    "OffboardSet";
 
   return (
     <div className="flex h-screen overflow-hidden bg-warm/30">

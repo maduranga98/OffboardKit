@@ -178,7 +178,7 @@ export default function IntegrationSettings() {
       const response = await fetch(slackWebhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: "✅ HRExitFlow connected successfully!" }),
+        body: JSON.stringify({ text: "✅ OffboardSet connected successfully!" }),
       });
 
       if (!response.ok) {

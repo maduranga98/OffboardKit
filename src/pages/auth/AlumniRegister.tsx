@@ -91,8 +91,8 @@ export default function AlumniRegister() {
       <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
-            <img src={logo} alt="HRExitFlow Logo" className="w-10 h-10 object-contain" />
-            <span className="font-display text-xl text-navy">HRExitFlow</span>
+            <img src={logo} alt="OffboardSet Logo" className="w-10 h-10 object-contain" />
+            <span className="font-display text-xl text-navy">OffboardSet</span>
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">Create Your Account</h2>

@@ -523,7 +523,7 @@ export default function BillingSettings() {
                       Current Plan
                     </Button>
                   ) : plan === "enterprise" ? (
-                    <a href="mailto:hello@hrexitflow.com">
+                    <a href="mailto:hello@offboardset.com">
                       <Button fullWidth variant="outline">
                         Contact Sales
                       </Button>
@@ -603,8 +603,8 @@ export default function BillingSettings() {
               Annual plans available — save 2 months.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-3">
-              <a href="mailto:hello@hrexitflow.com" className="text-sm font-medium text-teal hover:underline">
-                hello@hrexitflow.com
+              <a href="mailto:hello@offboardset.com" className="text-sm font-medium text-teal hover:underline">
+                hello@offboardset.com
               </a>
               <span className="text-xs text-mist">
                 Usually responds within 1 business day

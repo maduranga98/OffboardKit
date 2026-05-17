@@ -42,11 +42,11 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
   return null;
 }
 
-function HRExitFlowLogo() {
+function OffboardSetLogo() {
   return (
     <img
       src={logo}
-      alt="HRExitFlow Logo"
+      alt="OffboardSet Logo"
       className="w-7 h-7 object-contain"
     />
   );
@@ -924,8 +924,8 @@ export default function PortalEntry() {
       <div className="bg-white border-b border-navy/10 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <HRExitFlowLogo />
-            <span className="font-display text-navy text-lg">HRExitFlow</span>
+            <OffboardSetLogo />
+            <span className="font-display text-navy text-lg">OffboardSet</span>
           </div>
           <span className="text-sm text-mist">{flow.employeeName}</span>
         </div>
