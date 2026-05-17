@@ -2,19 +2,27 @@ import { NavLink } from "react-router-dom";
 import { Building, Users, CreditCard, Plug, Webhook } from "lucide-react";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
+import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
-  { label: "Company Profile", href: "/settings", icon: Building },
-  { label: "Team & Roles", href: "/settings/team", icon: Users },
-  { label: "Billing", href: "/settings/billing", icon: CreditCard },
-  { label: "Integrations", href: "/settings/integrations", icon: Plug },
-  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook },
+  { label: "Company Profile", href: "/settings", icon: Building, roles: null },
+  { label: "Team & Roles", href: "/settings/team", icon: Users, roles: ["super_admin", "hr_admin"] },
+  { label: "Billing", href: "/settings/billing", icon: CreditCard, roles: ["super_admin"] },
+  { label: "Integrations", href: "/settings/integrations", icon: Plug, roles: ["super_admin", "hr_admin"] },
+  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook, roles: ["super_admin"] },
 ];
 
 function SettingsSidebar() {
+  const { appUser } = useAuth();
+  const role = appUser?.role ?? "";
+
+  const visibleItems = navItems.filter(
+    (item) => item.roles === null || item.roles.includes(role)
+  );
+
   return (
     <nav className="space-y-1">
-      {navItems.map(({ label, href, icon: Icon }) => (
+      {visibleItems.map(({ label, href, icon: Icon }) => (
         <NavLink
           key={href}
           to={href}

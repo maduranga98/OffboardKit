@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Building, Users, CreditCard, Plug, Webhook, ExternalLink } from "lucide-react";
+import { Building, Users, CreditCard, Plug, Webhook, ExternalLink, Lock } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -10,6 +11,7 @@ import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
+import { auth } from "../../lib/firebase";
 import {
   getDocument,
   updateDocument,
@@ -79,17 +81,20 @@ const PLAN_BADGE_VARIANTS: Record<
 };
 
 const navItems = [
-  { label: "Company Profile", href: "/settings", icon: Building },
-  { label: "Team & Roles", href: "/settings/team", icon: Users },
-  { label: "Billing", href: "/settings/billing", icon: CreditCard },
-  { label: "Integrations", href: "/settings/integrations", icon: Plug },
-  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook },
+  { label: "Company Profile", href: "/settings", icon: Building, roles: null as string[] | null },
+  { label: "Team & Roles", href: "/settings/team", icon: Users, roles: ["super_admin", "hr_admin"] },
+  { label: "Billing", href: "/settings/billing", icon: CreditCard, roles: ["super_admin"] },
+  { label: "Integrations", href: "/settings/integrations", icon: Plug, roles: ["super_admin", "hr_admin"] },
+  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook, roles: ["super_admin"] },
 ];
 
-function SettingsSidebar() {
+function SettingsSidebar({ role }: { role: string }) {
+  const visibleItems = navItems.filter(
+    (item) => item.roles === null || item.roles.includes(role)
+  );
   return (
     <nav className="space-y-1">
-      {navItems.map(({ label, href, icon: Icon }) => (
+      {visibleItems.map(({ label, href, icon: Icon }) => (
         <NavLink
           key={href}
           to={href}
@@ -112,11 +117,14 @@ function SettingsSidebar() {
 }
 
 export default function Settings() {
-  const { companyId } = useAuth();
+  const { companyId, appUser } = useAuth();
   const navigate = useNavigate();
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+
+  const isAdminRole = appUser?.role === "super_admin" || appUser?.role === "hr_admin";
 
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
@@ -152,6 +160,20 @@ export default function Settings() {
     };
     load();
   }, [companyId]);
+
+  const handlePasswordReset = async () => {
+    const email = auth.currentUser?.email;
+    if (!email) return;
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showToast("success", `Password reset email sent to ${email}`);
+    } catch {
+      showToast("error", "Failed to send reset email. Try again.");
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!companyId) return;
@@ -192,7 +214,7 @@ export default function Settings() {
         {/* Sidebar */}
         <div className="lg:w-52 flex-shrink-0">
           <Card padding="sm">
-            <SettingsSidebar />
+            <SettingsSidebar role={appUser?.role ?? ""} />
           </Card>
         </div>
 
@@ -207,9 +229,16 @@ export default function Settings() {
               {/* Company Profile */}
               <Card>
                 <div className="space-y-4">
-                  <h2 className="text-base font-semibold text-navy">
-                    Company Profile
-                  </h2>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold text-navy">
+                      Company Profile
+                    </h2>
+                    {!isAdminRole && (
+                      <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                        View only
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <Input
@@ -373,11 +402,44 @@ export default function Settings() {
                 </Card>
               )}
 
-              <div className="flex justify-end pb-6">
-                <Button onClick={handleSave} loading={saving}>
-                  Save Changes
-                </Button>
-              </div>
+              {/* Security */}
+              <Card>
+                <div className="space-y-4">
+                  <h2 className="text-base font-semibold text-navy">Security</h2>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-navy">Password</p>
+                      <p className="text-xs text-mist mt-0.5">
+                        Send a password reset link to your email address.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePasswordReset}
+                      loading={sendingReset}
+                    >
+                      <Lock size={14} className="mr-1.5" />
+                      Reset Password
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+
+              {isAdminRole && (
+                <div className="flex justify-end pb-6">
+                  <Button onClick={handleSave} loading={saving}>
+                    Save Changes
+                  </Button>
+                </div>
+              )}
+              {!isAdminRole && (
+                <div className="pb-6">
+                  <p className="text-xs text-mist text-right">
+                    Only HR Admins and Super Admins can edit company settings.
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>

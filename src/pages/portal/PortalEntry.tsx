@@ -9,6 +9,7 @@ import {
   Upload,
   FileText,
   PartyPopper,
+  Package,
 } from "lucide-react";
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
@@ -28,6 +29,7 @@ import {
 } from "../../lib/firestore";
 import { storage } from "../../lib/firebase";
 import type { OffboardFlow, FlowTask } from "../../types/offboarding.types";
+import type { Asset } from "../../types/asset.types";
 import ExitInterviewPortal from "./ExitInterviewPortal";
 import KnowledgePortal from "./KnowledgePortal";
 import SignatureCanvas from "../../components/ui/SignatureCanvas";
@@ -50,12 +52,13 @@ function HRExitFlowLogo() {
   );
 }
 
-type PortalTab = "tasks" | "knowledge" | "interview";
+type PortalTab = "tasks" | "knowledge" | "interview" | "assets";
 
 const TABS: { value: PortalTab; label: string; icon: React.ReactNode }[] = [
   { value: "tasks", label: "Tasks", icon: <ClipboardList size={16} /> },
   { value: "knowledge", label: "Knowledge", icon: <BookOpen size={16} /> },
   { value: "interview", label: "Interview", icon: <MessageSquare size={16} /> },
+  { value: "assets", label: "Assets", icon: <Package size={16} /> },
 ];
 
 function WelcomeHeader({
@@ -704,6 +707,88 @@ function TasksList({
   );
 }
 
+function AssetsList({ flow }: { flow: OffboardFlow }) {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
+      .then((data) => setAssets(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [flow.id]);
+
+  if (loading) {
+    return (
+      <div className="py-12 flex justify-center">
+        <LoadingSpinner size="md" />
+      </div>
+    );
+  }
+
+  if (assets.length === 0) {
+    return (
+      <Card>
+        <EmptyState
+          title="No assets to return"
+          description="Your HR team hasn't assigned any assets for return. Check back later or contact HR."
+        />
+      </Card>
+    );
+  }
+
+  const statusLabel: Record<string, string> = {
+    assigned: "Awaiting return",
+    returned: "Return received — pending verification",
+    verified: "Verified",
+    wiped: "Complete",
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-mist">
+        The following company assets are assigned to you. Please return them before your last day.
+      </p>
+      {assets.map((asset) => (
+        <div key={asset.id} className="bg-white border border-navy/5 rounded-lg px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div
+              className={clsx(
+                "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0",
+                asset.status === "verified" || asset.status === "wiped"
+                  ? "bg-teal border-teal text-white"
+                  : "border-navy/20"
+              )}
+            >
+              {(asset.status === "verified" || asset.status === "wiped") && (
+                <CheckCircle size={12} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-navy">{asset.name}</p>
+              <p className="text-xs text-mist mt-0.5">{asset.type}{asset.serialNumber ? ` · SN: ${asset.serialNumber}` : ""}</p>
+            </div>
+            <Badge
+              variant={
+                asset.status === "verified" || asset.status === "wiped"
+                  ? "teal"
+                  : asset.status === "returned"
+                    ? "amber"
+                    : "mist"
+              }
+            >
+              {statusLabel[asset.status] ?? asset.status}
+            </Badge>
+          </div>
+        </div>
+      ))}
+      <p className="text-xs text-mist pt-2">
+        Once you hand over an asset, your HR or IT team will verify and update its status here.
+      </p>
+    </div>
+  );
+}
+
 export default function PortalEntry() {
   const { token } = useParams<{ token: string }>();
   const [flow, setFlow] = useState<OffboardFlow | null>(null);
@@ -885,6 +970,15 @@ export default function PortalEntry() {
               Exit Interview
             </h2>
             <ExitInterviewPortal flow={flow} />
+          </>
+        )}
+
+        {portalTab === "assets" && (
+          <>
+            <h2 className="text-base font-semibold text-navy mb-3">
+              Assets to Return
+            </h2>
+            <AssetsList flow={flow} />
           </>
         )}
       </div>

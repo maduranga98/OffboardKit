@@ -188,8 +188,11 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
     }
   }
 
-  const rejectedItems = items.filter((i) => i.managerVerificationStatus === "rejected");
-  const otherItems = items.filter((i) => i.managerVerificationStatus !== "rejected");
+  // Items submitted by the employee have submittedBy === "employee".
+  // Items added by HR/admin have a user UID as submittedBy.
+  const hrItems = items.filter((i) => i.submittedBy !== "employee" && i.managerVerificationStatus !== "rejected");
+  const rejectedItems = items.filter((i) => i.submittedBy === "employee" && i.managerVerificationStatus === "rejected");
+  const otherItems = items.filter((i) => i.submittedBy === "employee" && i.managerVerificationStatus !== "rejected");
 
   if (loading) {
     return (
@@ -220,6 +223,37 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           </span>
         )}
       </div>
+
+      {/* Items assigned by HR/admin — read-only guidance */}
+      {hrItems.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-navy uppercase tracking-wide">
+            Assigned by HR — for your reference
+          </p>
+          {hrItems.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 px-4 py-3 bg-teal/5 border border-teal/20 rounded-lg"
+            >
+              <span
+                className={clsx(
+                  "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium flex-shrink-0",
+                  TYPE_COLORS[item.type]
+                )}
+              >
+                {TYPE_ICONS[item.type]}
+                {TYPE_LABELS[item.type]}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-navy truncate">{item.title}</p>
+                {item.description && (
+                  <p className="text-xs text-mist truncate">{item.description}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Rejected items — needs action */}
       {rejectedItems.length > 0 && (

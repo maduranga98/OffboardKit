@@ -67,22 +67,70 @@ export const generateAnalyticsPdf = functions
   }
 );
 
+function getDateBounds(
+  dateRange: string,
+  customStartDate?: string,
+  customEndDate?: string
+): { start: Date | null; end: Date | null } {
+  const now = new Date();
+  if (dateRange === "all") return { start: null, end: null };
+  if (dateRange === "custom") {
+    return {
+      start: customStartDate ? new Date(customStartDate) : null,
+      end: customEndDate ? new Date(customEndDate + "T23:59:59") : null,
+    };
+  }
+  const msMap: Record<string, number> = {
+    "30d": 30,
+    "90d": 90,
+    "6m": 183,
+    "1y": 365,
+  };
+  const days = msMap[dateRange];
+  if (!days) return { start: null, end: null };
+  const start = new Date(now);
+  start.setDate(start.getDate() - days);
+  return { start, end: now };
+}
+
 async function generateAnalyticsHtml(params: {
   companyId: string;
   dateRange: string;
   customStartDate?: string;
   customEndDate?: string;
 }): Promise<string> {
-  const { companyId, dateRange } = params;
+  const { companyId, dateRange, customStartDate, customEndDate } = params;
   const db = getFirestore();
 
   const flowsSnapshot = await db
     .collection("offboardFlows")
     .where("companyId", "==", companyId)
     .get();
-  const flows = flowsSnapshot.docs.map((doc) => doc.data());
+  const allFlows = flowsSnapshot.docs.map((doc) => doc.data());
+
+  // Apply date range filter
+  const { start, end } = getDateBounds(dateRange, customStartDate, customEndDate);
+  const flows = allFlows.filter((f) => {
+    if (!start && !end) return true;
+    const createdAt = f.createdAt?.toDate ? f.createdAt.toDate() : null;
+    if (!createdAt) return false;
+    if (start && createdAt < start) return false;
+    if (end && createdAt > end) return false;
+    return true;
+  });
 
   const completedFlows = flows.filter((f) => f.status === "completed");
+
+  const dateRangeLabel =
+    dateRange === "custom"
+      ? `${customStartDate || "—"} to ${customEndDate || "—"}`
+      : dateRange === "all"
+        ? "All time"
+        : dateRange === "30d" ? "Last 30 days"
+        : dateRange === "90d" ? "Last 90 days"
+        : dateRange === "6m" ? "Last 6 months"
+        : dateRange === "1y" ? "Last 1 year"
+        : dateRange;
 
   const html = `
     <!DOCTYPE html>
@@ -110,7 +158,7 @@ async function generateAnalyticsHtml(params: {
     <body>
       <div class="header">
         <h1>HRExitFlow Analytics Report</h1>
-        <p>Generated on ${new Date().toLocaleDateString()}</p>
+        <p>Generated on ${new Date().toLocaleDateString()} · Period: ${dateRangeLabel}</p>
       </div>
 
       <div class="stats">
@@ -127,8 +175,8 @@ async function generateAnalyticsHtml(params: {
           <div class="value">${flows.length > 0 ? Math.round((completedFlows.length / flows.length) * 100) : 0}%</div>
         </div>
         <div class="stat-card">
-          <h3>Date Range</h3>
-          <div class="value">${dateRange}</div>
+          <h3>Period</h3>
+          <div class="value" style="font-size:14px">${dateRangeLabel}</div>
         </div>
       </div>
 
