@@ -162,7 +162,8 @@ function FeatureCell({ value }: { value: boolean | string }) {
 }
 
 export default function BillingSettings() {
-  const { companyId } = useAuth();
+  const { companyId, appUser } = useAuth();
+  const isSuperAdmin = appUser?.role === "super_admin";
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
@@ -226,6 +227,17 @@ export default function BillingSettings() {
       <Card>
         <div className="flex justify-center py-12">
           <LoadingSpinner />
+        </div>
+      </Card>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <Card>
+        <div className="text-center py-12">
+          <p className="text-navy font-medium mb-2">Access Restricted</p>
+          <p className="text-sm text-mist">Only Super Admins can view and manage billing.</p>
         </div>
       </Card>
     );

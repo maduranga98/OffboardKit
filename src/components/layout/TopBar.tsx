@@ -25,7 +25,10 @@ export function TopBar({ title, onMenuClick }: TopBarProps) {
 
         <div className="flex items-center gap-3">
           <NotificationBell />
-          <div className="h-8 w-8 rounded-full bg-teal/10 flex items-center justify-center text-teal text-sm font-medium">
+          <div
+            className="h-8 w-8 rounded-full bg-teal/10 flex items-center justify-center text-teal text-sm font-medium cursor-default"
+            title={appUser?.email || appUser?.displayName || ""}
+          >
             {appUser?.photoURL ? (
               <img
                 src={appUser.photoURL}

@@ -101,12 +101,17 @@ export default function AssetReturnTracker({
   });
 
   const recomputeScore = (list: Asset[]) => {
-    if (list.length === 0) {
-      onScoreUpdate?.(0);
-      return;
-    }
-    const total = list.reduce((sum, a) => sum + assetCompletionFraction(a), 0);
-    onScoreUpdate?.(Math.round((total / list.length) * 100));
+    const score =
+      list.length === 0
+        ? 0
+        : Math.round(
+            list.reduce((sum, a) => sum + assetCompletionFraction(a), 0) / list.length * 100
+          );
+    onScoreUpdate?.(score);
+    // Persist the score to Firestore so analytics picks it up
+    updateDocument("offboardFlows", flowId, {
+      "completionScores.assets": score,
+    }).catch(() => {});
   };
 
   useEffect(() => {

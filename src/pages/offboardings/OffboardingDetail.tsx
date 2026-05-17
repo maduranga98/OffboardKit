@@ -415,6 +415,20 @@ export default function OffboardingDetail() {
     flow.status !== "pending_approval" &&
     flow.status !== "rejected";
 
+  // Map app roles to the task assigneeRole values they can complete
+  const ROLE_TASK_PERMISSION: Record<string, string | null> = {
+    super_admin: null, // null means can complete any task
+    hr_admin: "hr_admin",
+    it_admin: "it_admin",
+    manager: "manager",
+  };
+  const userTaskRole = appUser ? ROLE_TASK_PERMISSION[appUser.role] : undefined;
+  function canToggleTask(task: FlowTask): boolean {
+    if (!canAct) return false;
+    if (userTaskRole === null) return true; // super_admin
+    return task.assigneeRole === userTaskRole;
+  }
+
   // Group tasks by role
   const tasksByRole = ROLE_SECTIONS.map((section) => ({
     ...section,
@@ -655,14 +669,15 @@ export default function OffboardingDetail() {
                         >
                           {/* Checkbox */}
                           <button
-                            onClick={() => handleToggleTask(task)}
-                            disabled={!canAct}
+                            onClick={() => canToggleTask(task) && handleToggleTask(task)}
+                            disabled={!canToggleTask(task)}
+                            title={!canToggleTask(task) && canAct ? "You can only complete tasks assigned to your role" : undefined}
                             className={clsx(
                               "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                               task.status === "completed"
                                 ? "bg-teal border-teal text-white"
                                 : "border-navy/20 hover:border-teal",
-                              !canAct && "opacity-50 cursor-not-allowed"
+                              !canToggleTask(task) && "opacity-50 cursor-not-allowed"
                             )}
                           >
                             {task.status === "completed" && (
