@@ -123,7 +123,7 @@ export default function Signup() {
           Offboarding, done right.
         </h1>
         <p className="mt-4 text-mist text-lg max-w-md">
-          Join hundreds of HR teams using HRExitFlow to create smooth,
+          Join hundreds of HR teams using OffboardSet to create smooth,
           structured employee exits.
         </p>
         <ul className="mt-10 space-y-4">
@@ -139,8 +139,8 @@ export default function Signup() {
       <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
-            <img src={logo} alt="HRExitFlow Logo" className="w-8 h-8 object-contain" />
-            <span className="font-display text-xl text-navy">HRExitFlow</span>
+            <img src={logo} alt="OffboardSet Logo" className="w-8 h-8 object-contain" />
+            <span className="font-display text-xl text-navy">OffboardSet</span>
           </div>
 
           <h2 className="text-2xl font-semibold text-navy mb-1">

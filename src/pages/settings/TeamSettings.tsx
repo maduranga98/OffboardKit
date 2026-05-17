@@ -470,7 +470,7 @@ export default function TeamSettings() {
               <span className="font-medium">
                 {removeTarget.displayName || removeTarget.email}
               </span>{" "}
-              from the team? They will lose access to HRExitFlow.
+              from the team? They will lose access to OffboardSet.
             </p>
             <div className="flex justify-end gap-2">
               <Button
