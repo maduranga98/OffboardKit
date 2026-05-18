@@ -66,6 +66,7 @@ export interface OffboardFlow {
   employeeDepartment: string;
   managerId: string;
   templateId: string;
+  interviewTemplateId?: string | null;
   status: FlowStatus;
   startDate: Timestamp;
   lastWorkingDay: Timestamp;

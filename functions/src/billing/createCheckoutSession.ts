@@ -77,7 +77,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
         price_data: {
           currency: "usd",
           product_data: {
-            name: `HRExitFlow ${priceConfig.label}`,
+            name: `OffboardSet ${priceConfig.label}`,
             description: `${priceConfig.label} plan — billed ${billingCycle}`,
           },
           recurring: { interval },

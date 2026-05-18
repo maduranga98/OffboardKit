@@ -44,7 +44,7 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
 
   const sender = params.sender ?? {
     email: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "hello@feedsolve.com",
-    name: process.env.SMTP_FROM_NAME || "HRExitFlow",
+    name: process.env.SMTP_FROM_NAME || "OffboardSet",
   };
 
   const mailOptions: nodemailer.SendMailOptions = {

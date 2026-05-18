@@ -24,6 +24,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { getDocument } from "../../lib/firestore";
 import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
+import { SettingsShell } from "./SettingsShell";
 
 type PlanKey = "free" | "starter" | "growth" | "business" | "enterprise";
 type BillingCycle = "monthly" | "annual";
@@ -282,6 +283,7 @@ export default function BillingSettings() {
   };
 
   return (
+    <SettingsShell title="Billing" description="Plans, usage, and billing history">
     <div className="space-y-8">
       {/* ── Current Plan Summary ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -614,5 +616,6 @@ export default function BillingSettings() {
         </div>
       </Card>
     </div>
+    </SettingsShell>
   );
 }

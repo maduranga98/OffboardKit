@@ -211,7 +211,7 @@ async function buildKnowledgeHtml(
 
   <!-- Footer -->
   <div style="text-align:center;margin-top:20px;font-size:11px;color:${BRAND.muted};">
-    Exported from HRExitFlow · hrexitflow.com
+    Exported from OffboardSet · offboardset.com
   </div>
 </body>
 </html>`;

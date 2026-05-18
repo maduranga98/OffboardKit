@@ -8,6 +8,7 @@ export { onFlowApprovalChanged } from "./triggers/onFlowApprovalChanged";
 
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
+export { onAlumniOptedIn } from "./triggers/onAlumniOptedIn";
 
 // Audit log triggers — record every state change in
 // offboardFlows/{flowId}/auditLog for compliance reporting.

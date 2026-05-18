@@ -4,7 +4,7 @@ import { sendEmailSafe } from "../email/sendEmail";
 import { knowledgeReminderEmail } from "../email/templates";
 import { formatShortDate } from "../utils/dates";
 
-const APP_URL = process.env.APP_URL || "https://hrexitflow.com";
+const APP_URL = process.env.APP_URL || "https://offboardset.com";
 // Send reminder when <= this many days remain and 0 items submitted
 const REMINDER_DAYS_THRESHOLD = 5;
 
