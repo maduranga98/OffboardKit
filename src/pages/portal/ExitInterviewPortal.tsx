@@ -13,6 +13,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/shared/EmptyState";
 import {
+  getDocument,
   queryDocuments,
   setDocument,
   updateDocument,
@@ -80,6 +81,19 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
           setSubmitted(true);
           setLoading(false);
           return;
+        }
+
+        // Prefer the template chosen on this offboarding, if any.
+        if (flow.interviewTemplateId) {
+          const chosen = await getDocument<ExitInterviewTemplate>(
+            "exitInterviewTemplates",
+            flow.interviewTemplateId,
+          );
+          if (chosen) {
+            setTemplate(chosen);
+            setLoading(false);
+            return;
+          }
         }
 
         // Get default template for this company

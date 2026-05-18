@@ -28,6 +28,7 @@ import type {
   ApprovalStatus,
   FlowStatus,
 } from "../../types/offboarding.types";
+import type { ExitInterviewTemplate } from "../../types/interview.types";
 import type { AppUser } from "../../types/user.types";
 
 const DEPARTMENTS = [
@@ -69,6 +70,9 @@ export default function NewOffboarding() {
   const company = useCompanyStore((s) => s.company);
 
   const [templates, setTemplates] = useState<OffboardTemplate[]>([]);
+  const [interviewTemplates, setInterviewTemplates] = useState<
+    ExitInterviewTemplate[]
+  >([]);
   const [companyUsers, setCompanyUsers] = useState<AppUser[]>([]);
   const [approverIds, setApproverIds] = useState<string[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -84,6 +88,8 @@ export default function NewOffboarding() {
   const [managerName, setManagerName] = useState("");
   const [lastWorkingDay, setLastWorkingDay] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedInterviewTemplateId, setSelectedInterviewTemplateId] =
+    useState("");
   const [exitType, setExitType] = useState("");
 
   useEffect(() => {
@@ -102,6 +108,21 @@ export default function NewOffboarding() {
       }
     };
     loadTemplates();
+
+    const loadInterviewTemplates = async () => {
+      try {
+        const results = await queryDocuments<ExitInterviewTemplate>(
+          "exitInterviewTemplates",
+          [where("companyId", "==", companyId)],
+        );
+        setInterviewTemplates(results);
+        const def = results.find((t) => t.isDefault) ?? results[0];
+        if (def) setSelectedInterviewTemplateId(def.id);
+      } catch {
+        // ignore
+      }
+    };
+    loadInterviewTemplates();
 
     // Company members are pickable as approvers. Filter out the current
     // user so HR can't approve their own request and inactive accounts.
@@ -202,6 +223,7 @@ export default function NewOffboarding() {
         employeeDepartment: department,
         managerId: appUser.id,
         templateId: selectedTemplateId,
+        interviewTemplateId: selectedInterviewTemplateId || null,
         status: initialStatus,
         approvalStatus: initialApprovalStatus,
         approvalSteps,
@@ -463,6 +485,39 @@ export default function NewOffboarding() {
                     </button>
                   ))}
                 </div>
+              )}
+            </Card>
+
+            {/* Exit interview template */}
+            <Card>
+              <h2 className="text-base font-semibold text-navy mb-1">
+                Exit Interview Template
+              </h2>
+              <p className="text-xs text-mist mb-4">
+                Choose the interview the employee will fill out in their portal.
+                Different offboardings can use different interviews.
+              </p>
+              {interviewTemplates.length === 0 ? (
+                <p className="text-sm text-mist">
+                  No interview templates yet — the portal will fall back to your
+                  default once you create one in the Interviews page.
+                </p>
+              ) : (
+                <select
+                  value={selectedInterviewTemplateId}
+                  onChange={(e) =>
+                    setSelectedInterviewTemplateId(e.target.value)
+                  }
+                  className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                >
+                  <option value="">Use company default</option>
+                  {interviewTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                      {t.isDefault ? " (default)" : ""}
+                    </option>
+                  ))}
+                </select>
               )}
             </Card>
 

@@ -712,6 +712,7 @@ function TasksList({
 function AssetsList({ flow }: { flow: OffboardFlow }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
@@ -719,6 +720,25 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [flow.id]);
+
+  async function handleConfirmReturned(asset: Asset) {
+    setUpdatingId(asset.id);
+    try {
+      await updateDocument("assets", asset.id, {
+        status: "returned",
+        returnedAt: serverTimestamp(),
+      });
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === asset.id ? { ...a, status: "returned" as Asset["status"] } : a,
+        ),
+      );
+    } catch {
+      // ignore
+    } finally {
+      setUpdatingId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -751,24 +771,37 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
       <p className="text-sm text-mist">
         The following company assets are assigned to you. Please return them before your last day.
       </p>
-      {assets.map((asset) => (
+      {assets.map((asset) => {
+        const confirmed =
+          asset.status === "returned" ||
+          asset.status === "verified" ||
+          asset.status === "wiped";
+        return (
         <div key={asset.id} className="bg-white border border-navy/5 rounded-lg px-4 py-3">
           <div className="flex items-start gap-3">
-            <div
+            <button
+              type="button"
+              disabled={confirmed || updatingId === asset.id}
+              onClick={() => handleConfirmReturned(asset)}
+              aria-label={confirmed ? "Confirmed received" : "Confirm received"}
               className={clsx(
-                "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0",
-                asset.status === "verified" || asset.status === "wiped"
-                  ? "bg-teal border-teal text-white"
-                  : "border-navy/20"
+                "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                confirmed
+                  ? "bg-teal border-teal text-white cursor-default"
+                  : "border-navy/20 hover:border-teal cursor-pointer",
+                updatingId === asset.id && "opacity-50",
               )}
             >
-              {(asset.status === "verified" || asset.status === "wiped") && (
-                <CheckCircle size={12} />
-              )}
-            </div>
+              {confirmed && <CheckCircle size={12} />}
+            </button>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-navy">{asset.name}</p>
               <p className="text-xs text-mist mt-0.5">{asset.type}{asset.serialNumber ? ` · SN: ${asset.serialNumber}` : ""}</p>
+              {!confirmed && (
+                <p className="text-xs text-mist mt-1">
+                  Tick the box once you have received / are ready to return this asset.
+                </p>
+              )}
             </div>
             <Badge
               variant={
@@ -783,7 +816,8 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
             </Badge>
           </div>
         </div>
-      ))}
+        );
+      })}
       <p className="text-xs text-mist pt-2">
         Once you hand over an asset, your HR or IT team will verify and update its status here.
       </p>
