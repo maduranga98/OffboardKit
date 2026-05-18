@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { NavLink } from "react-router-dom";
 import {
-  Building,
-  Users,
-  CreditCard,
-  Plug,
   Mail,
   UserMinus,
+  Users,
   X,
 } from "lucide-react";
+import { SettingsShell } from "./SettingsShell";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
@@ -59,37 +55,6 @@ const ROLE_BADGE_VARIANTS: Record<UserRole, "teal" | "navy" | "mist" | "amber"> 
   it_admin: "mist",
 };
 
-const navItems = [
-  { label: "Company Profile", href: "/settings", icon: Building },
-  { label: "Team & Roles", href: "/settings/team", icon: Users },
-  { label: "Billing", href: "/settings/billing", icon: CreditCard },
-  { label: "Integrations", href: "/settings/integrations", icon: Plug },
-];
-
-function SettingsSidebar() {
-  return (
-    <nav className="space-y-1">
-      {navItems.map(({ label, href, icon: Icon }) => (
-        <NavLink
-          key={href}
-          to={href}
-          end={href === "/settings"}
-          className={({ isActive }) =>
-            clsx(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              isActive
-                ? "bg-teal/10 text-teal"
-                : "text-mist hover:text-navy hover:bg-navy/5"
-            )
-          }
-        >
-          <Icon size={16} />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  );
-}
 
 function getInitials(name: string) {
   return name
@@ -252,24 +217,11 @@ export default function TeamSettings() {
     "rounded-md border border-navy/20 px-2 py-1 text-xs text-navy focus:outline-none focus:ring-1 focus:ring-teal/50 focus:border-teal";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display text-navy">Settings</h1>
-        <p className="text-sm text-mist mt-1">
-          Manage your company settings and preferences
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
-        <div className="lg:w-52 flex-shrink-0">
-          <Card padding="sm">
-            <SettingsSidebar />
-          </Card>
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1 space-y-6 min-w-0">
+    <SettingsShell
+      title="Team & Roles"
+      description="Manage your team members and their roles"
+    >
+      <>
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card>
@@ -453,8 +405,6 @@ export default function TeamSettings() {
               </div>
             )}
           </Card>
-        </div>
-      </div>
 
       {/* Remove confirm modal */}
       {removeTarget && (
@@ -491,6 +441,7 @@ export default function TeamSettings() {
           </div>
         </Modal>
       )}
-    </div>
+      </>
+    </SettingsShell>
   );
 }

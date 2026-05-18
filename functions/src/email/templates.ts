@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// HRExitFlow Email Templates
+// OffboardSet Email Templates
 // Table-based layout with inline CSS for Gmail/Outlook/Apple Mail compatibility.
 // Brand: teal #0D9E8A | navy #0F1C2E | muted #6B7280 | warm bg #F5F0E8
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ function emailWrapper(bodyContent: string): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>HRExitFlow</title>
+  <title>OffboardSet</title>
 </head>
 <body style="margin:0;padding:0;background-color:${BRAND.warmBg};font-family:${FONT};">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${BRAND.warmBg};">
@@ -39,7 +39,7 @@ function emailWrapper(bodyContent: string): string {
                 <tr>
                   <td>
                     <span style="font-family:${FONT};font-size:20px;font-weight:700;color:${BRAND.white};letter-spacing:-0.3px;">
-                      Offboard<span style="color:${BRAND.teal};">Kit</span>
+                      Offboard<span style="color:${BRAND.teal};">Set</span>
                     </span>
                   </td>
                   <td align="right">
@@ -59,7 +59,7 @@ function emailWrapper(bodyContent: string): string {
           <tr>
             <td style="padding:20px 32px 28px;border-top:1px solid #F3F4F6;">
               <p style="margin:0;font-family:${FONT};font-size:12px;color:${BRAND.muted};text-align:center;">
-                Sent by <a href="https://hrexitflow.com" style="color:${BRAND.teal};text-decoration:none;">HRExitFlow</a> · You are receiving this because you are part of an offboarding process.
+                Sent by <a href="https://offboardset.com" style="color:${BRAND.teal};text-decoration:none;">OffboardSet</a> · You are receiving this because you are part of an offboarding process.
               </p>
             </td>
           </tr>

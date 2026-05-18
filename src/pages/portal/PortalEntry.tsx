@@ -10,6 +10,7 @@ import {
   FileText,
   PartyPopper,
   Package,
+  PenLine,
 } from "lucide-react";
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
@@ -589,8 +590,9 @@ function TasksList({
                   <Button
                     size="sm"
                     onClick={() => setSigningTaskId(task.id)}
-                    className="w-full"
+                    className="w-full inline-flex items-center justify-center gap-1.5"
                   >
+                    <PenLine size={14} />
                     Draw Signature
                   </Button>
                 )}

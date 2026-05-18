@@ -392,9 +392,19 @@ export default function Help() {
   const onJump = (id: string) => {
     setActive(id);
     const el = document.getElementById(`help-${id}`);
-    if (el) {
+    if (!el) return;
+    const scroller = el.closest("main");
+    if (!scroller) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     }
+    const top =
+      el.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop -
+      24;
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    scroller.scrollTo({ top: Math.min(Math.max(top, 0), max), behavior: "smooth" });
   };
 
   return (

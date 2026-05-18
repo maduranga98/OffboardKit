@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { Building, Users, CreditCard, Plug, Webhook, ExternalLink, Lock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ExternalLink, Lock } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { format } from "date-fns";
-import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
+import { SettingsShell } from "./SettingsShell";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
@@ -79,42 +79,6 @@ const PLAN_BADGE_VARIANTS: Record<
   pro: "navy",
   enterprise: "amber",
 };
-
-const navItems = [
-  { label: "Company Profile", href: "/settings", icon: Building, roles: null as string[] | null },
-  { label: "Team & Roles", href: "/settings/team", icon: Users, roles: ["super_admin", "hr_admin"] },
-  { label: "Billing", href: "/settings/billing", icon: CreditCard, roles: ["super_admin"] },
-  { label: "Integrations", href: "/settings/integrations", icon: Plug, roles: ["super_admin", "hr_admin"] },
-  { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook, roles: ["super_admin"] },
-];
-
-function SettingsSidebar({ role }: { role: string }) {
-  const visibleItems = navItems.filter(
-    (item) => item.roles === null || item.roles.includes(role)
-  );
-  return (
-    <nav className="space-y-1">
-      {visibleItems.map(({ label, href, icon: Icon }) => (
-        <NavLink
-          key={href}
-          to={href}
-          end={href === "/settings"}
-          className={({ isActive }) =>
-            clsx(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              isActive
-                ? "bg-teal/10 text-teal"
-                : "text-mist hover:text-navy hover:bg-navy/5"
-            )
-          }
-        >
-          <Icon size={16} />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
-  );
-}
 
 export default function Settings() {
   const { companyId, appUser } = useAuth();
@@ -202,25 +166,11 @@ export default function Settings() {
     "block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display text-navy">Settings</h1>
-        <p className="text-sm text-mist mt-1">
-          Manage your company settings and preferences
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
-        <div className="lg:w-52 flex-shrink-0">
-          <Card padding="sm">
-            <SettingsSidebar role={appUser?.role ?? ""} />
-          </Card>
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1 space-y-6 min-w-0">
-          {loading ? (
+    <SettingsShell
+      title="Settings"
+      description="Manage your company settings and preferences"
+    >
+      {loading ? (
             <Card>
               <LoadingSpinner />
             </Card>
@@ -442,8 +392,6 @@ export default function Settings() {
               )}
             </>
           )}
-        </div>
-      </div>
-    </div>
+    </SettingsShell>
   );
 }

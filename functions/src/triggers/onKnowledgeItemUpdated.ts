@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 import { sendEmailSafe } from "../email/sendEmail";
 import { knowledgeRejectedEmail } from "../email/templates";
 
-const APP_URL = process.env.APP_URL || "https://hrexitflow.com";
+const APP_URL = process.env.APP_URL || "https://offboardset.com";
 
 export const onKnowledgeItemUpdated = functions.firestore
   .document("knowledgeItems/{itemId}")

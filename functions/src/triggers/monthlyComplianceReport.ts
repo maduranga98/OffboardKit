@@ -99,7 +99,7 @@ export const monthlyComplianceReport = functions.pubsub
       }
 
       const csv = buildCsv(rows);
-      const filename = `hrexitflow-${periodStart
+      const filename = `offboardset-${periodStart
         .toISOString()
         .slice(0, 7)}.csv`;
       const csvBase64 = Buffer.from(csv, "utf8").toString("base64");

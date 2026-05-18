@@ -69,7 +69,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex items-center justify-between px-5 py-5">
           <div className="flex items-center gap-2.5">
             <OffboardSetLogo />
-            <span className="text-white font-display text-lg">OffboardSet</span>
+            <span className="text-white font-display text-lg">
+              Offboard<span className="text-teal">Set</span>
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -80,12 +82,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 px-3 py-2 space-y-0.5">
-          {navItems.map((item) => {
+          {(() => {
+            const activeTo = [...navItems]
+              .sort((a, b) => b.to.length - a.to.length)
+              .find(
+                (i) =>
+                  location.pathname === i.to ||
+                  (i.to !== "/dashboard" &&
+                    location.pathname.startsWith(i.to + "/")),
+              )?.to;
+            return navItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              location.pathname === item.to ||
-              (item.to !== "/dashboard" &&
-                location.pathname.startsWith(item.to));
+            const isActive = activeTo === item.to;
 
             return (
               <NavLink
@@ -103,7 +111,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span>{item.label}</span>
               </NavLink>
             );
-          })}
+          });
+          })()}
         </nav>
 
         <div className="px-3 py-2 mb-2">
