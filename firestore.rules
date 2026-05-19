@@ -112,6 +112,11 @@ service cloud.firestore {
     match /systemCatalog/{catalogId} {
       allow read: if isAuth();
       allow write: if isAuth();
+
+      match /systems/{systemId} {
+        allow read: if isAuth();
+        allow write: if isAuth();
+      }
     }
 
     match /accessRevocations/{revocationId} {
