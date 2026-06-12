@@ -23,10 +23,3 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_OFFBOARDKIT }}
           channelId: live
           projectId: offboardkit
-      - name: Deploy Firestore rules and indexes
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT_OFFBOARDKIT" > "$RUNNER_TEMP/sa.json"
-          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx --yes firebase-tools@13 deploy --only firestore --project offboardkit --non-interactive
-        env:
-          FIREBASE_SERVICE_ACCOUNT_OFFBOARDKIT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_OFFBOARDKIT }}
