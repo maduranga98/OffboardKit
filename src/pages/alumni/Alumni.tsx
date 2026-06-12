@@ -28,6 +28,7 @@ import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
   queryDocuments,
@@ -204,24 +205,25 @@ export default function Alumni() {
     if (!form.name.trim() || !form.email.trim() || !companyId) return;
 
     setSaving(true);
+    const email = form.email.trim();
     let authUid: string | null = null;
+    let createdSecondaryUser: import("firebase/auth").User | null = null;
 
     try {
       const id = crypto.randomUUID();
 
       if (form.optedIn) {
-        // Create account via secondary app (keeps admin signed in) with a random
-        // temporary password, then immediately send a password-reset email so
-        // the alumni sets their own password.
+        // Create account via secondary app so the admin stays signed in.
+        // Use a random unguessable temporary password — the alumni will set
+        // their own via the invitation email.
         const tempPassword = crypto.randomUUID() + crypto.randomUUID();
         const userCred = await createUserWithEmailAndPassword(
           secondaryAuth,
-          form.email.trim(),
+          email,
           tempPassword
         );
         authUid = userCred.user.uid;
-        await secondaryAuth.signOut();
-        await sendPasswordResetEmail(auth, form.email.trim());
+        createdSecondaryUser = userCred.user;
       }
 
       const doc = {
@@ -229,7 +231,7 @@ export default function Alumni() {
         companyId,
         flowId: "",
         name: form.name.trim(),
-        email: form.email.trim(),
+        email,
         role: form.role.trim(),
         department: form.department,
         exitDate: form.exitDate
@@ -251,18 +253,37 @@ export default function Alumni() {
 
       await setDocument("alumniProfiles", id, doc);
       setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
+
+      // Sign out of secondary app after Firestore save succeeds
+      if (form.optedIn) {
+        await secondaryAuth.signOut();
+
+        // Send invitation email — separate try/catch so a mail failure
+        // doesn't undo the already-saved profile.
+        try {
+          await sendPasswordResetEmail(auth, email);
+          showToast("success", "Alumni added", `Invitation email sent to ${email}`);
+        } catch {
+          showToast(
+            "info",
+            "Alumni added",
+            `Profile saved, but the invitation email could not be sent to ${email}. You can resend it later.`
+          );
+        }
+      } else {
+        showToast("success", "Alumni added", `${form.name.trim()} has been added.`);
+      }
+
       closeModals();
     } catch (err) {
-      // Clean up auth user if Firestore save fails
-      if (authUid) {
+      // Firestore save failed — clean up the auth account we created
+      if (createdSecondaryUser) {
         try {
-          const user = secondaryAuth.currentUser;
-          if (user && user.uid === authUid) {
-            await deleteUser(user);
-          }
+          await deleteUser(createdSecondaryUser);
         } catch {
           // Ignore cleanup errors
         }
+        await secondaryAuth.signOut().catch(() => {});
       }
       alert("Error creating alumni: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
