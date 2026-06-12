@@ -62,6 +62,7 @@ const countries = [
   "France",
   "India",
   "Singapore",
+  "Sri Lanka",
   "Other",
 ];
 
@@ -72,6 +73,7 @@ const timezones = [
   "America/Los_Angeles",
   "Europe/London",
   "Europe/Berlin",
+  "Asia/Colombo",
   "Asia/Kolkata",
   "Asia/Singapore",
   "Australia/Sydney",

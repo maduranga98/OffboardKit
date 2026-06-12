@@ -37,7 +37,6 @@ export default function AlumniProfile() {
   const [saving, setSaving] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
@@ -81,7 +80,7 @@ export default function AlumniProfile() {
     setPasswordError("");
     setPasswordSuccess(false);
 
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
       setPasswordError("Please fill in all password fields.");
       return;
     }
@@ -105,7 +104,6 @@ export default function AlumniProfile() {
       await updatePassword(user, passwordForm.newPassword);
       setPasswordSuccess(true);
       setPasswordForm({
-        currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
@@ -308,7 +306,7 @@ export default function AlumniProfile() {
                     </div>
                     {form.linkedIn ? (
                       <a
-                        href={form.linkedIn}
+                        href={form.linkedIn.startsWith("http") ? form.linkedIn : `https://${form.linkedIn}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-teal hover:text-teal-light"

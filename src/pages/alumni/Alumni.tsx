@@ -861,7 +861,7 @@ export default function Alumni() {
                   {/* LinkedIn */}
                   {profile.linkedIn && (
                     <a
-                      href={profile.linkedIn}
+                      href={profile.linkedIn.startsWith("http") ? profile.linkedIn : `https://${profile.linkedIn}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
