@@ -124,12 +124,16 @@ export default function KnowledgeTracker({
         orderBy("createdAt", "desc"),
       ]);
       setItems(data);
+      if (flow.knowledgeGapAnalysis) {
+        const { analyzedAt: _a, ...analysis } = flow.knowledgeGapAnalysis;
+        setGapAnalysis(analysis as KnowledgeGapAnalysis);
+      }
     } catch {
       // Error loading
     } finally {
       setLoading(false);
     }
-  }, [flow.id]);
+  }, [flow.id, flow.knowledgeGapAnalysis]);
 
   useEffect(() => {
     loadItems();
@@ -291,7 +295,7 @@ export default function KnowledgeTracker({
     setItems(updatedItems);
 
     try {
-      const verificationHistory = item.verificationHistory || [];
+      const verificationHistory = [...(item.verificationHistory || [])];
       verificationHistory.push({
         status,
         verifiedBy: appUser.id,
@@ -306,8 +310,10 @@ export default function KnowledgeTracker({
         verificationHistory,
         updatedAt: serverTimestamp(),
       });
+      showToast("success", status === "approved" ? "Item approved" : "Item rejected");
     } catch {
       setItems(items);
+      showToast("error", "Verification update failed. Please try again.");
     } finally {
       setVerifyingIds((prev) => {
         const next = new Set(prev);
@@ -322,7 +328,14 @@ export default function KnowledgeTracker({
     try {
       const detectGaps = httpsCallable(functions, "detectKnowledgeGaps");
       const result = await detectGaps({ flowId: flow.id });
-      setGapAnalysis(result.data as KnowledgeGapAnalysis);
+      const analysis = result.data as KnowledgeGapAnalysis;
+      setGapAnalysis(analysis);
+      await updateDocument("offboardFlows", flow.id, {
+        knowledgeGapAnalysis: {
+          ...analysis,
+          analyzedAt: serverTimestamp(),
+        },
+      });
     } catch (error) {
       console.error("Gap analysis failed:", error);
       showToast("error", "Analysis failed. Please try again.");

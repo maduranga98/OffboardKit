@@ -43,6 +43,7 @@ const COUNTRIES = [
   "France",
   "India",
   "Singapore",
+  "Sri Lanka",
   "Other",
 ];
 
@@ -56,6 +57,7 @@ const TIMEZONES = [
   "Europe/London",
   "Europe/Paris",
   "Europe/Berlin",
+  "Asia/Colombo",
   "Asia/Kolkata",
   "Asia/Singapore",
   "Asia/Tokyo",
@@ -127,7 +129,10 @@ export default function Settings() {
 
   const handlePasswordReset = async () => {
     const email = auth.currentUser?.email;
-    if (!email) return;
+    if (!email) {
+      showToast("error", "No email address found for your account.");
+      return;
+    }
     setSendingReset(true);
     try {
       await sendPasswordResetEmail(auth, email);

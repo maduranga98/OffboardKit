@@ -17,8 +17,9 @@ import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import { usePlanGate } from "../../hooks/usePlanGate";
 import { SettingsShell } from "./SettingsShell";
+import { httpsCallable } from "firebase/functions";
 import { getDocument, updateDocument, serverTimestamp } from "../../lib/firestore";
-import { db } from "../../lib/firebase";
+import { db, functions } from "../../lib/firebase";
 import {
   collection,
   getDocs,
@@ -175,17 +176,9 @@ export default function IntegrationSettings() {
 
     setTestingSlack(true);
     try {
-      const response = await fetch(slackWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: "✅ OffboardSet connected successfully!" }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Webhook request failed");
-      }
-
-      showToast("success", "Test message sent to Slack!");
+      const testWebhook = httpsCallable(functions, "testSlackWebhook");
+      await testWebhook({ webhookUrl: slackWebhookUrl.trim() });
+      showToast("success", "Test message sent successfully!");
     } catch {
       showToast("error", "Could not reach webhook. Check the URL.");
     } finally {

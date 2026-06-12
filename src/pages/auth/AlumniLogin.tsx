@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Heart } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { showToast } from "../../components/ui/Toast";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
+import { auth } from "../../lib/firebase";
 import logo from "../../assets/logo.png";
 
 export default function AlumniLogin() {
@@ -13,9 +16,28 @@ export default function AlumniLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && alumniProfile) return <Navigate to="/alumni-portal/profile" replace />;
+
+  const handleForgotPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail);
+      showToast("success", `Password reset email sent to ${forgotEmail}`);
+      setShowForgot(false);
+      setForgotEmail("");
+    } catch {
+      showToast("error", "Failed to send reset email. Check the address and try again.");
+    } finally {
+      setSendingReset(false);
+    }
+  };
 
   const handleEmailSignIn = async (e: FormEvent) => {
     e.preventDefault();
@@ -86,27 +108,62 @@ export default function AlumniLogin() {
             </div>
           )}
 
-          <form onSubmit={handleEmailSignIn} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <Button type="submit" fullWidth size="lg" loading={submitting}>
-              Sign in
-            </Button>
-          </form>
+          {showForgot ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <p className="text-sm text-mist">
+                Enter your email address and we'll send you a reset link.
+              </p>
+              <Input
+                label="Email"
+                type="email"
+                placeholder="you@example.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+              />
+              <Button type="submit" fullWidth size="lg" loading={sendingReset}>
+                Send Reset Link
+              </Button>
+              <button
+                type="button"
+                onClick={() => setShowForgot(false)}
+                className="w-full text-sm text-mist hover:text-navy text-center"
+              >
+                Back to sign in
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailSignIn} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowForgot(true)}
+                  className="text-sm text-teal hover:text-teal-light font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <Button type="submit" fullWidth size="lg" loading={submitting}>
+                Sign in
+              </Button>
+            </form>
+          )}
 
           <p className="mt-6 text-sm text-center text-mist">
             First time here?{" "}

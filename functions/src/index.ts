@@ -40,6 +40,7 @@ export {
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";
+export { testSlackWebhook } from "./triggers/testSlackWebhook";
 
 // AI Functions
 export { analyzeSentiment } from "./ai/analyzeSentiment";
