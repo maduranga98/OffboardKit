@@ -16,9 +16,8 @@ import { Timestamp } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
-  sendPasswordResetEmail,
 } from "firebase/auth";
-import { secondaryAuth, auth } from "../../lib/firebase";
+import { secondaryAuth } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -252,28 +251,18 @@ export default function Alumni() {
       };
 
       await setDocument("alumniProfiles", id, doc);
-      setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
 
-      // Sign out of secondary app after Firestore save succeeds
+      // Sign out of secondary app after Firestore save succeeds.
+      // The onAlumniOptedIn Cloud Function fires on the write above and
+      // sends the branded invitation email with a password-setup link.
       if (form.optedIn) {
         await secondaryAuth.signOut();
-
-        // Send invitation email — separate try/catch so a mail failure
-        // doesn't undo the already-saved profile.
-        try {
-          await sendPasswordResetEmail(auth, email);
-          showToast("success", "Alumni added", `Invitation email sent to ${email}`);
-        } catch {
-          showToast(
-            "info",
-            "Alumni added",
-            `Profile saved, but the invitation email could not be sent to ${email}. You can resend it later.`
-          );
-        }
+        showToast("success", "Alumni added", `Invitation email will be sent to ${email}`);
       } else {
         showToast("success", "Alumni added", `${form.name.trim()} has been added.`);
       }
 
+      setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
       closeModals();
     } catch (err) {
       // Firestore save failed — clean up the auth account we created
