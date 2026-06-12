@@ -16,8 +16,9 @@ import { Timestamp } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
+  sendPasswordResetEmail,
 } from "firebase/auth";
-import { secondaryAuth } from "../../lib/firebase";
+import { secondaryAuth, auth } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -99,8 +100,6 @@ const EMPTY_FORM = {
   notes: "",
   optedIn: false,
   tags: [] as string[],
-  password: "",
-  confirmPassword: "",
 };
 
 export default function Alumni() {
@@ -174,8 +173,6 @@ export default function Alumni() {
       notes: profile.notes,
       optedIn: profile.optedIn,
       tags: [...profile.tags],
-      password: "",
-      confirmPassword: "",
     });
     setTagInput("");
     setEditingProfile(profile);
@@ -206,32 +203,25 @@ export default function Alumni() {
   async function handleSaveNew() {
     if (!form.name.trim() || !form.email.trim() || !companyId) return;
 
-    if (form.optedIn && (!form.password || !form.confirmPassword)) {
-      // Password required if opting in
-      alert("Password is required when opting in alumni.");
-      return;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      alert("Passwords don't match.");
-      return;
-    }
-
     setSaving(true);
     let authUid: string | null = null;
 
     try {
       const id = crypto.randomUUID();
 
-      // Create Firebase auth account via secondary app so the admin stays signed in
-      if (form.optedIn && form.password) {
+      if (form.optedIn) {
+        // Create account via secondary app (keeps admin signed in) with a random
+        // temporary password, then immediately send a password-reset email so
+        // the alumni sets their own password.
+        const tempPassword = crypto.randomUUID() + crypto.randomUUID();
         const userCred = await createUserWithEmailAndPassword(
           secondaryAuth,
           form.email.trim(),
-          form.password
+          tempPassword
         );
         authUid = userCred.user.uid;
         await secondaryAuth.signOut();
+        await sendPasswordResetEmail(auth, form.email.trim());
       }
 
       const doc = {
@@ -263,7 +253,7 @@ export default function Alumni() {
       setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
       closeModals();
     } catch (err) {
-      // Clean up auth user if profile save fails
+      // Clean up auth user if Firestore save fails
       if (authUid) {
         try {
           const user = secondaryAuth.currentUser;
@@ -571,26 +561,17 @@ export default function Alumni() {
         <span className="text-sm text-navy">Opted into alumni network</span>
       </label>
 
-      {/* Password fields (add modal only when opting in) */}
+      {/* Invitation note (add modal only when opting in) */}
       {!editingProfile && form.optedIn && (
-        <div className="space-y-4 pt-4 border-t border-navy/5">
-          <p className="text-sm font-medium text-navy">Set Initial Password</p>
-          <Input
-            label="Password"
-            type="password"
-            placeholder="Create a strong password"
-            value={form.password}
-            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-          />
-          <Input
-            label="Confirm Password"
-            type="password"
-            placeholder="Confirm password"
-            value={form.confirmPassword}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, confirmPassword: e.target.value }))
-            }
-          />
+        <div className="flex items-start gap-2 px-3 py-2.5 bg-teal/5 border border-teal/20 rounded-lg text-sm text-teal">
+          <svg className="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>
+            An invitation email will be sent to <strong>{form.email.trim() || "this address"}</strong> with a link to set their password and access the alumni portal.
+          </span>
         </div>
       )}
 
