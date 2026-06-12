@@ -14,8 +14,10 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const secondaryApp = initializeApp(firebaseConfig, "secondary");
 
 export const auth = getAuth(app);
+export const secondaryAuth = getAuth(secondaryApp);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
@@ -24,6 +26,7 @@ export const googleProvider = new GoogleAuthProvider();
 if (import.meta.env.DEV) {
   try {
     connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+    connectAuthEmulator(secondaryAuth, "http://localhost:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "localhost", 8080);
     connectStorageEmulator(storage, "localhost", 9199);
     connectFunctionsEmulator(functions, "localhost", 5001);

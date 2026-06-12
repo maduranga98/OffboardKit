@@ -16,8 +16,8 @@ import { Timestamp } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
-  getAuth,
 } from "firebase/auth";
+import { secondaryAuth } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -218,20 +218,20 @@ export default function Alumni() {
     }
 
     setSaving(true);
-    let authUid: string | undefined;
+    let authUid: string | null = null;
 
     try {
       const id = crypto.randomUUID();
 
-      // Create Firebase auth account if opting in
+      // Create Firebase auth account via secondary app so the admin stays signed in
       if (form.optedIn && form.password) {
-        const auth = getAuth();
         const userCred = await createUserWithEmailAndPassword(
-          auth,
+          secondaryAuth,
           form.email.trim(),
           form.password
         );
         authUid = userCred.user.uid;
+        await secondaryAuth.signOut();
       }
 
       const doc = {
@@ -266,8 +266,7 @@ export default function Alumni() {
       // Clean up auth user if profile save fails
       if (authUid) {
         try {
-          const auth = getAuth();
-          const user = auth.currentUser;
+          const user = secondaryAuth.currentUser;
           if (user && user.uid === authUid) {
             await deleteUser(user);
           }
