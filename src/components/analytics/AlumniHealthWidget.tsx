@@ -467,7 +467,7 @@ function EngagementDonut({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number, name: string) => [value, name]}
+            formatter={(value, name) => [value, name]}
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #E5E7EB" }}
           />
         </PieChart>
