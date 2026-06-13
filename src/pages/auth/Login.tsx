@@ -13,7 +13,7 @@ const features = [
 ];
 
 export default function Login() {
-  const { user, loading, companyId, signInWithGoogle, signInWithEmail } =
+  const { user, loading, companyId, alumniLoginRequired, signInWithGoogle, signInWithEmail } =
     useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +23,7 @@ export default function Login() {
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && companyId) return <Navigate to="/dashboard" replace />;
   if (user && !companyId) return <Navigate to="/setup" replace />;
+  if (alumniLoginRequired) return <Navigate to="/alumni-login?notice=alumni" replace />;
 
   const handleEmailSignIn = async (e: FormEvent) => {
     e.preventDefault();

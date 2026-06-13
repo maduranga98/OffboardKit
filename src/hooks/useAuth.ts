@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import {
+import { useEffect } from "react";import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -16,7 +15,7 @@ import type { AppUser } from "../types/user.types";
 import type { Company } from "../types/company.types";
 
 export function useAuth() {
-  const { user, appUser, companyId, loading, setUser, setAppUser, setCompanyId, setLoading, logout } =
+  const { user, appUser, companyId, loading, alumniLoginRequired, setUser, setAppUser, setCompanyId, setLoading, setAlumniLoginRequired, logout } =
     useAuthStore();
   const { setCompany } = useCompanyStore();
   const company = useCompanyStore((s) => s.company);
@@ -91,6 +90,26 @@ export function useAuth() {
           }
 
           if (!existingUser) {
+            // Before creating a company user doc, verify this isn't an alumni
+            // account. Alumni share the same Firebase Auth project but have
+            // profiles in alumniProfiles, not users. If we find one, sign them
+            // out and surface a redirect rather than creating a phantom company doc.
+            if (firebaseUser.email) {
+              try {
+                const alumniMatches = await queryDocuments<{ id: string }>(
+                  "alumniProfiles",
+                  [where("email", "==", firebaseUser.email)]
+                );
+                if (alumniMatches.length > 0) {
+                  await firebaseSignOut(auth);
+                  setAlumniLoginRequired(true);
+                  setLoading(false);
+                  return;
+                }
+              } catch {
+                // Non-blocking: proceed with normal company user creation
+              }
+            }
             await setDocument("users", firebaseUser.uid, newUser);
             existingUser = newUser;
           }
@@ -169,6 +188,7 @@ export function useAuth() {
     company,
     companyId,
     loading,
+    alumniLoginRequired,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
