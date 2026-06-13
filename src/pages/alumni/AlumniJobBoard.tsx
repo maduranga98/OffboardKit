@@ -64,7 +64,7 @@ function ApplicationsPanel({ job, onClose }: ApplicationsPanelProps) {
         apps.forEach((a) => { notes[a.id] = a.hrNotes || ""; });
         setHrNotes(notes);
       })
-      .catch(() => showToast("Failed to load applications", "error"))
+      .catch(() => showToast("error", "Failed to load applications"))
       .finally(() => setLoading(false));
   }, [job.id]);
 
@@ -81,9 +81,9 @@ function ApplicationsPanel({ job, onClose }: ApplicationsPanelProps) {
       setApplications((prev) =>
         prev.map((a) => (a.id === appId ? { ...a, status } : a))
       );
-      showToast("Status updated", "success");
+      showToast("success", "Status updated");
     } catch {
-      showToast("Failed to update status", "error");
+      showToast("error", "Failed to update status");
     }
   };
 
@@ -93,9 +93,9 @@ function ApplicationsPanel({ job, onClose }: ApplicationsPanelProps) {
         hrNotes: hrNotes[appId] || "",
         updatedAt: serverTimestamp(),
       });
-      showToast("Notes saved", "success");
+      showToast("success", "Notes saved");
     } catch {
-      showToast("Failed to save notes", "error");
+      showToast("error", "Failed to save notes");
     }
   };
 
@@ -233,7 +233,7 @@ export default function AlumniJobBoard() {
       ]);
       setJobs(data);
     } catch {
-      showToast("Failed to load jobs", "error");
+      showToast("error", "Failed to load jobs");
     } finally {
       setLoading(false);
     }
@@ -246,9 +246,9 @@ export default function AlumniJobBoard() {
     try {
       await updateDocument("alumniJobs", job.id, { status: newStatus, updatedAt: serverTimestamp() });
       setJobs((prev) => prev.map((j) => j.id === job.id ? { ...j, status: newStatus } : j));
-      showToast(newStatus === "open" ? "Job reopened" : "Job closed", "success");
+      showToast("success", newStatus === "open" ? "Job reopened" : "Job closed");
     } catch {
-      showToast("Failed to update job", "error");
+      showToast("error", "Failed to update job");
     }
   };
 

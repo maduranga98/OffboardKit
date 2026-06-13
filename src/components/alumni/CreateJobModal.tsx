@@ -38,10 +38,10 @@ export function CreateJobModal({ isOpen, onClose, companyId, createdBy, onCreate
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (status: "open" | "draft") => {
-    if (!form.title.trim()) { showToast("Job title is required", "error"); return; }
-    if (!form.department.trim()) { showToast("Department is required", "error"); return; }
-    if (!form.location.trim()) { showToast("Location is required", "error"); return; }
-    if (!form.description.trim()) { showToast("Job description is required", "error"); return; }
+    if (!form.title.trim()) { showToast("error", "Job title is required"); return; }
+    if (!form.department.trim()) { showToast("error", "Department is required"); return; }
+    if (!form.location.trim()) { showToast("error", "Location is required"); return; }
+    if (!form.description.trim()) { showToast("error", "Job description is required"); return; }
 
     setSaving(true);
     try {
@@ -81,12 +81,12 @@ export function CreateJobModal({ isOpen, onClose, companyId, createdBy, onCreate
         updatedAt: serverTimestamp(),
       });
 
-      showToast(status === "open" ? "Job posted!" : "Draft saved", "success");
+      showToast("success", status === "open" ? "Job posted!" : "Draft saved");
       onCreated(job);
       setForm(EMPTY_FORM);
       onClose();
     } catch {
-      showToast("Failed to save job", "error");
+      showToast("error", "Failed to save job");
     } finally {
       setSaving(false);
     }
