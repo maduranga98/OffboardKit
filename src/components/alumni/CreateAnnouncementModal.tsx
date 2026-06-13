@@ -90,9 +90,7 @@ export function CreateAnnouncementModal({
       const id = editingAnnouncement?.id ?? crypto.randomUUID();
       const now = serverTimestamp();
 
-      const data: Omit<AlumniAnnouncement, "id" | "createdAt"> & { createdAt: ReturnType<typeof serverTimestamp>; id: string } = {
-        id,
-        companyId,
+      const shared = {
         type: form.type,
         title: form.title.trim(),
         content: form.content.trim(),
@@ -100,39 +98,52 @@ export function CreateAnnouncementModal({
         ctaUrl: form.ctaUrl.trim() || null,
         eventDate:
           form.type === "event" && form.eventDate
-            ? (new Date(form.eventDate) as unknown as AlumniAnnouncement["eventDate"])
+            ? new Date(form.eventDate)
             : null,
         eventLocation:
           form.type === "event" ? form.eventLocation.trim() || null : null,
         audience: form.audience,
         status,
-        readCount: editingAnnouncement?.readCount ?? 0,
-        publishedAt: status === "published" ? now as unknown as AlumniAnnouncement["publishedAt"] : null,
-        createdBy,
-        createdByName,
-        createdAt: editingAnnouncement ? (editingAnnouncement.createdAt as unknown as ReturnType<typeof serverTimestamp>) : now,
+        publishedAt: status === "published" ? now : null,
         updatedAt: now,
       };
 
       if (editingAnnouncement) {
-        await updateDocument("alumniAnnouncements", id, {
-          type: data.type,
-          title: data.title,
-          content: data.content,
-          ctaLabel: data.ctaLabel,
-          ctaUrl: data.ctaUrl,
-          eventDate: data.eventDate,
-          eventLocation: data.eventLocation,
-          audience: data.audience,
-          status: data.status,
-          publishedAt: data.publishedAt,
-          updatedAt: now,
-        });
+        await updateDocument("alumniAnnouncements", id, shared);
       } else {
-        await setDocument("alumniAnnouncements", id, data as unknown as Record<string, unknown>);
+        await setDocument("alumniAnnouncements", id, {
+          id,
+          companyId,
+          ...shared,
+          readCount: 0,
+          createdBy,
+          createdByName,
+          createdAt: now,
+        });
       }
 
-      onSaved({ ...data, id } as unknown as AlumniAnnouncement);
+      // Pass a synthetic object back — parent will re-fetch or merge
+      const optimistic: AlumniAnnouncement = {
+        id,
+        companyId,
+        type: form.type,
+        title: form.title.trim(),
+        content: form.content.trim(),
+        ctaLabel: form.ctaLabel.trim() || null,
+        ctaUrl: form.ctaUrl.trim() || null,
+        eventDate: null,
+        eventLocation: form.type === "event" ? form.eventLocation.trim() || null : null,
+        audience: form.audience,
+        status,
+        readCount: editingAnnouncement?.readCount ?? 0,
+        publishedAt: null,
+        createdBy,
+        createdByName,
+        createdAt: editingAnnouncement?.createdAt ?? (null as unknown as AlumniAnnouncement["createdAt"]),
+        updatedAt: null as unknown as AlumniAnnouncement["updatedAt"],
+      };
+
+      onSaved(optimistic);
       onClose();
     } catch {
       showToast("error", "Failed to save announcement.");

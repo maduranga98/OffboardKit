@@ -4,7 +4,6 @@ import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
-import { Badge } from "../../components/ui/Badge";
 import { showToast } from "../../components/ui/Toast";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { CreateAnnouncementModal } from "../../components/alumni/CreateAnnouncementModal";
@@ -313,7 +312,7 @@ export default function AlumniAnnouncements() {
         onClose={() => { setShowCreateModal(false); setEditingAnnouncement(null); }}
         companyId={companyId ?? ""}
         createdBy={appUser?.id ?? ""}
-        createdByName={appUser?.name ?? ""}
+        createdByName={appUser?.displayName ?? ""}
         editingAnnouncement={editingAnnouncement}
         onSaved={handleSaved}
       />
