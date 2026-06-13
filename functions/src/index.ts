@@ -41,6 +41,7 @@ export {
 } from "./triggers/fireIntegrationWebhooks";
 
 // Callable functions
+export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
 export { sendAlumniInvite } from "./triggers/sendAlumniInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";
