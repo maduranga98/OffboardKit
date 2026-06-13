@@ -176,6 +176,20 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
     }
 
+    match /alumniJobs/{jobId} {
+      // HR can manage jobs for their company
+      allow read, write: if isAuth() && (
+        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
+        resource.data.companyId == currentCompanyId()
+      );
+      // Alumni can read open jobs for their company (filtered client-side by audience)
+      allow read: if isAuth() && resource.data.status == 'open';
+    }
+
+    match /alumniApplications/{applicationId} {
+      allow read, write: if isAuth();
+    }
+
     // Alumni announcements — HR creates/manages, alumni read published ones
     match /alumniAnnouncements/{announcementId} {
       // HR (company members) can read and write all announcements for their company
