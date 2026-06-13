@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import {
   queryDocuments,
   updateDocument,
@@ -103,6 +105,16 @@ export default function SurveyPage() {
         totalResponded: (survey.totalResponded || 0) + 1,
         updatedAt: serverTimestamp(),
       });
+
+      const engLogId = crypto.randomUUID();
+      setDoc(doc(collection(db, 'alumniEngagementLog'), engLogId), {
+        id: engLogId,
+        companyId: response.companyId,
+        alumniId: response.alumniId,
+        eventType: 'survey_responded',
+        metadata: { surveyId: response.surveyId },
+        createdAt: fbServerTimestamp(),
+      }).catch(console.error);
 
       setPageState("thankyou");
     } catch {

@@ -46,6 +46,21 @@ export interface AlumniProfile {
   hiddenJobIds?: string[];
   openToConsulting?: boolean;
   consultingSkills?: string[];
+  engagementScore: number | null;
+  engagementLevel: 'high' | 'medium' | 'low' | null;
+  lastEngagementEventType: string | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+export type EngagementLevel = 'high' | 'medium' | 'low';
+
+export const ENGAGEMENT_LEVEL_CONFIG: Record<EngagementLevel, {
+  label: string;
+  color: string;
+  dot: string;
+}> = {
+  high:   { label: 'High',   color: 'bg-green-50 text-green-700',   dot: 'bg-green-500'  },
+  medium: { label: 'Medium', color: 'bg-yellow-50 text-yellow-700', dot: 'bg-yellow-400' },
+  low:    { label: 'Low',    color: 'bg-ember/10 text-ember',        dot: 'bg-ember'      },
+};

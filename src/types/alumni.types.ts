@@ -4,5 +4,6 @@ export type {
   RehirePriority,
   BoomerangStage,
   AlumniProfile,
+  EngagementLevel,
 } from "./alumni";
-export { BOOMERANG_STAGE_ORDER, BOOMERANG_STAGE_LABELS } from "./alumni";
+export { BOOMERANG_STAGE_ORDER, BOOMERANG_STAGE_LABELS, ENGAGEMENT_LEVEL_CONFIG } from "./alumni";

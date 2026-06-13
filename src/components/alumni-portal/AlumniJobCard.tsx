@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { MapPin, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
+import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { ApplyModal } from "./ApplyModal";
@@ -34,6 +36,18 @@ export function AlumniJobCard({ job, alumniProfile, onHide }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showApply, setShowApply] = useState(false);
   const [showRefer, setShowRefer] = useState(false);
+
+  function logJobView(jobId: string) {
+    const logId = crypto.randomUUID();
+    setDoc(doc(collection(db, 'alumniEngagementLog'), logId), {
+      id: logId,
+      companyId: alumniProfile.companyId,
+      alumniId: alumniProfile.id,
+      eventType: 'job_viewed',
+      metadata: { jobId },
+      createdAt: fbServerTimestamp(),
+    }).catch(console.error);
+  }
 
   const deadline = toDate(job.applicationDeadline);
 
@@ -74,7 +88,7 @@ export function AlumniJobCard({ job, alumniProfile, onHide }: Props) {
           </p>
           {job.description.length > 200 && (
             <button
-              onClick={() => setExpanded((e) => !e)}
+              onClick={() => { setExpanded((e) => { if (!e) logJobView(job.id); return !e; }); }}
               className="mt-1 text-xs text-teal hover:underline flex items-center gap-0.5"
             >
               {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}

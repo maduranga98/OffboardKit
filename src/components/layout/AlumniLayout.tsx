@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
 import { LogOut, Briefcase, User, Megaphone, MessageCircle, FileText } from "lucide-react";
+import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { queryDocuments, where, orderBy } from "../../lib/firestore";
@@ -79,6 +81,22 @@ export default function AlumniLayout() {
     fetchUnreadThreads();
     return () => { cancelled = true; };
   }, [alumniProfile]);
+
+  useEffect(() => {
+    if (!alumniProfile?.id || !alumniProfile?.companyId) return;
+    const sessionKey = `alumni_login_logged_${alumniProfile.id}_${new Date().toDateString()}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+    const logId = crypto.randomUUID();
+    setDoc(doc(collection(db, 'alumniEngagementLog'), logId), {
+      id: logId,
+      companyId: alumniProfile.companyId,
+      alumniId: alumniProfile.id,
+      eventType: 'login',
+      metadata: {},
+      createdAt: fbServerTimestamp(),
+    }).catch(console.error);
+  }, [alumniProfile?.id]);
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (!user || !alumniProfile) return <Navigate to="/alumni-login" replace />;
