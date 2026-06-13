@@ -23,6 +23,7 @@ import AlumniProfile from "./pages/alumni/AlumniProfile";
 import AlumniJobs from "./pages/alumni-portal/AlumniJobs";
 import AlumniUpdates from "./pages/alumni-portal/AlumniUpdates";
 import AlumniThreads from "./pages/alumni-portal/AlumniThreads";
+import AlumniGigs from "./pages/alumni-portal/AlumniGigs";
 import Settings from "./pages/settings/Settings";
 import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
       { path: "jobs", element: <AlumniJobs /> },
       { path: "updates", element: <AlumniUpdates /> },
       { path: "threads", element: <AlumniThreads /> },
+      { path: "gigs", element: <AlumniGigs /> },
     ],
   },
   {

@@ -44,6 +44,8 @@ export interface AlumniProfile {
   openToReturn?: boolean | null;
   lastActiveAlumniDate?: Timestamp | null;
   hiddenJobIds?: string[];
+  openToConsulting?: boolean;
+  consultingSkills?: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Timestamp } from "firebase/firestore";
 import { updatePassword } from "firebase/auth";
 import { format } from "date-fns";
+import clsx from "clsx";
 import {
   Mail,
   Briefcase,
@@ -41,6 +42,10 @@ export default function AlumniProfile() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [form, setForm] = useState({ currentCompany: "", currentRole: "", linkedIn: "" });
+  const [openToConsulting, setOpenToConsulting] = useState(false);
+  const [consultingSkills, setConsultingSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState("");
+  const [savingSkills, setSavingSkills] = useState(false);
 
   useEffect(() => {
     if (!alumniProfile) return;
@@ -49,6 +54,8 @@ export default function AlumniProfile() {
       currentRole: alumniProfile.currentRole,
       linkedIn: alumniProfile.linkedIn,
     });
+    setOpenToConsulting(alumniProfile.openToConsulting ?? false);
+    setConsultingSkills(alumniProfile.consultingSkills ?? []);
     if (alumniProfile.companyId) {
       getDocument<{ name: string }>("companies", alumniProfile.companyId)
         .then((c) => { if (c?.name) setCompanyName(c.name); })
@@ -99,6 +106,47 @@ export default function AlumniProfile() {
       setPasswordError(error instanceof Error ? error.message : "Failed to change password.");
     }
   };
+
+  async function handleConsultingToggle() {
+    if (!alumniProfile) return;
+    const newValue = !openToConsulting;
+    setOpenToConsulting(newValue);
+    try {
+      await updateDocument("alumniProfiles", alumniProfile.id, {
+        openToConsulting: newValue,
+        updatedAt: serverTimestamp(),
+      });
+    } catch {
+      setOpenToConsulting(!newValue);
+    }
+  }
+
+  function handleAddSkill() {
+    const skill = skillInput.trim();
+    if (skill && !consultingSkills.includes(skill)) {
+      const next = [...consultingSkills, skill];
+      setConsultingSkills(next);
+      setSkillInput("");
+    } else {
+      setSkillInput("");
+    }
+  }
+
+  function handleRemoveSkill(skill: string) {
+    setConsultingSkills((prev) => prev.filter((s) => s !== skill));
+  }
+
+  async function handleSaveSkills() {
+    if (!alumniProfile) return;
+    setSavingSkills(true);
+    try {
+      await updateDocument("alumniProfiles", alumniProfile.id, {
+        consultingSkills,
+        updatedAt: serverTimestamp(),
+      });
+    } catch { /* ignore */ }
+    finally { setSavingSkills(false); }
+  }
 
   if (loading) return <div className="py-24 flex justify-center"><LoadingSpinner size="lg" /></div>;
   if (!alumniProfile) return null;
@@ -238,6 +286,75 @@ export default function AlumniProfile() {
             </div>
           </div>
         )}
+      </Card>
+
+      {/* Consulting Availability */}
+      <Card>
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-navy">Consulting Availability</h3>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-navy font-medium">Available for consulting</p>
+              <p className="text-xs text-mist">
+                Let {companyName || "your former company"} know you're open to freelance or advisory work
+              </p>
+            </div>
+            <button
+              onClick={handleConsultingToggle}
+              className={clsx(
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0",
+                openToConsulting ? "bg-teal" : "bg-navy/20"
+              )}
+            >
+              <span
+                className={clsx(
+                  "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                  openToConsulting ? "translate-x-6" : "translate-x-1"
+                )}
+              />
+            </button>
+          </div>
+
+          {openToConsulting && (
+            <div>
+              <label className="block text-xs font-medium text-mist mb-1.5">
+                Skills you can offer (optional)
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {consultingSkills.map((skill) => (
+                  <span
+                    key={skill}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-navy/5 text-navy text-xs rounded-full"
+                  >
+                    {skill}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSkill(skill)}
+                      className="hover:text-ember transition-colors"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={skillInput}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleAddSkill(); }
+                  }}
+                  placeholder="Add a skill..."
+                  className="flex-1 px-3 py-1.5 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                />
+                <Button size="sm" variant="outline" onClick={handleAddSkill}>Add</Button>
+                <Button size="sm" onClick={handleSaveSkills} loading={savingSkills}>Save</Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Account */}

@@ -16,8 +16,10 @@ import {
   Megaphone,
   MessageCircle,
   BarChart3,
+  Users,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
+import ConsultingPool from "./ConsultingPool";
 import AlumniJobBoard from "./AlumniJobBoard";
 import AlumniAnnouncements from "./AlumniAnnouncements";
 import ExpertThreads from "./ExpertThreads";
@@ -116,7 +118,7 @@ const EMPTY_FORM = {
 
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys">("directory");
+  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting">("directory");
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -746,8 +748,21 @@ export default function Alumni() {
           <BarChart3 size={14} />
           Pulse Surveys
         </button>
+        <button
+          onClick={() => setActiveTab("consulting")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "consulting"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <Users size={14} />
+          Consulting
+        </button>
       </div>
 
+      {activeTab === "consulting" && companyId && <ConsultingPool companyId={companyId} />}
       {activeTab === "pipeline" && <BoomerangPipeline />}
       {activeTab === "jobboard" && <AlumniJobBoard />}
       {activeTab === "announcements" && <AlumniAnnouncements />}
