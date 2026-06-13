@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
 import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
-import { LogOut, Briefcase, User, Megaphone } from "lucide-react";
+import { LogOut, Briefcase, User, Megaphone, MessageCircle } from "lucide-react";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
-import { queryDocuments, where } from "../../lib/firestore";
+import { queryDocuments, where, orderBy } from "../../lib/firestore";
 import type { AlumniAnnouncement } from "../../types/alumniAnnouncements";
 import type { AlumniAnnouncementRead } from "../../types/alumniAnnouncements";
+import type { KnowledgeThread } from "../../types/knowledgeThreads.types";
 import logo from "../../assets/logo.png";
 
 const NAV_ITEMS = [
-  { to: "/alumni-portal/profile", icon: User,      label: "Profile"  },
-  { to: "/alumni-portal/jobs",    icon: Briefcase,  label: "Jobs"     },
-  { to: "/alumni-portal/updates", icon: Megaphone,  label: "Updates"  },
+  { to: "/alumni-portal/profile", icon: User,          label: "Profile"  },
+  { to: "/alumni-portal/jobs",    icon: Briefcase,      label: "Jobs"     },
+  { to: "/alumni-portal/updates", icon: Megaphone,      label: "Updates"  },
+  { to: "/alumni-portal/threads", icon: MessageCircle,  label: "Threads"  },
 ] as const;
 
 export default function AlumniLayout() {
   const { user, alumniProfile, loading, signOut } = useAlumniAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadThreadCount, setUnreadThreadCount] = useState(0);
 
   useEffect(() => {
     if (!alumniProfile) return;
@@ -42,6 +45,36 @@ export default function AlumniLayout() {
       } catch { /* ignore */ }
     }
     fetchUnread();
+    return () => { cancelled = true; };
+  }, [alumniProfile]);
+
+  useEffect(() => {
+    if (!alumniProfile) return;
+    let cancelled = false;
+    async function fetchUnreadThreads() {
+      try {
+        const threads = await queryDocuments<KnowledgeThread>("knowledgeThreads", [
+          where("alumniId", "==", alumniProfile!.id),
+          where("companyId", "==", alumniProfile!.companyId),
+          orderBy("lastMessageAt", "desc"),
+        ]);
+        if (cancelled) return;
+        const count = threads.filter((t) => {
+          if (t.lastMessageBy !== "hr") return false;
+          const key = `alumni_thread_read_${alumniProfile!.id}_${t.id}`;
+          const stored = localStorage.getItem(key);
+          if (!stored) return true;
+          const readAt = new Date(stored);
+          const updatedAt = t.updatedAt && typeof (t.updatedAt as { toDate?: () => Date }).toDate === "function"
+            ? (t.updatedAt as unknown as { toDate: () => Date }).toDate()
+            : null;
+          if (!updatedAt) return false;
+          return updatedAt > readAt;
+        }).length;
+        setUnreadThreadCount(count);
+      } catch { /* ignore */ }
+    }
+    fetchUnreadThreads();
     return () => { cancelled = true; };
   }, [alumniProfile]);
 
@@ -89,6 +122,11 @@ export default function AlumniLayout() {
                   {label === "Updates" && unreadCount > 0 && (
                     <span className="ml-0.5 text-xs bg-teal text-white rounded-full px-1.5 py-px leading-none">
                       {unreadCount}
+                    </span>
+                  )}
+                  {label === "Threads" && unreadThreadCount > 0 && (
+                    <span className="ml-0.5 text-xs bg-blue-500 text-white rounded-full px-1.5 py-px leading-none">
+                      {unreadThreadCount}
                     </span>
                   )}
                 </NavLink>
@@ -140,6 +178,11 @@ export default function AlumniLayout() {
                     {label === "Updates" && unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 bg-teal text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
                         {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                    {label === "Threads" && unreadThreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 bg-blue-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                        {unreadThreadCount > 9 ? "9+" : unreadThreadCount}
                       </span>
                     )}
                   </span>
