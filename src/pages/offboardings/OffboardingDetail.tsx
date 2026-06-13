@@ -829,7 +829,7 @@ export default function OffboardingDetail() {
                       );
                     }}
                     hrUserId={appUser?.id ?? ""}
-                    hrUserName={appUser?.name ?? "HR Team"}
+                    hrUserName={appUser?.displayName ?? "HR Team"}
                   />
                 ))}
               </div>
@@ -853,7 +853,7 @@ export default function OffboardingDetail() {
               alumniName={linkedAlumni.name}
               alumniEmail={linkedAlumni.email}
               hrUserId={appUser?.id ?? ""}
-              hrUserName={appUser?.name ?? "HR Team"}
+              hrUserName={appUser?.displayName ?? "HR Team"}
               knowledgeItems={knowledgeItems}
               onCreated={(thread) => {
                 setThreads((prev) => [thread, ...prev]);

@@ -4,7 +4,6 @@ import clsx from "clsx";
 import { queryDocuments, where, orderBy } from "../../lib/firestore";
 import { ThreadCard } from "../../components/alumni/ThreadCard";
 import { useAuth } from "../../hooks/useAuth";
-import { Card } from "../../components/ui/Card";
 import type { KnowledgeThread, ThreadStatus } from "../../types/knowledgeThreads.types";
 
 interface Props {
@@ -71,7 +70,7 @@ export default function ExpertThreads({ companyId }: Props) {
   });
 
   const hrUserId = appUser?.id ?? "";
-  const hrUserName = appUser?.name ?? "HR Team";
+  const hrUserName = appUser?.displayName ?? "HR Team";
 
   return (
     <div className="space-y-6">
