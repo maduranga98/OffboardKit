@@ -21,6 +21,7 @@ import Trends from "./pages/analytics/Trends";
 import Alumni from "./pages/alumni/Alumni";
 import AlumniProfile from "./pages/alumni/AlumniProfile";
 import AlumniJobs from "./pages/alumni-portal/AlumniJobs";
+import AlumniUpdates from "./pages/alumni-portal/AlumniUpdates";
 import Settings from "./pages/settings/Settings";
 import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/alumni-portal/profile" replace /> },
       { path: "profile", element: <AlumniProfile /> },
       { path: "jobs", element: <AlumniJobs /> },
+      { path: "updates", element: <AlumniUpdates /> },
     ],
   },
   {

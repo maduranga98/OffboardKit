@@ -1,12 +1,44 @@
+import { useState, useEffect } from "react";
 import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
-import { LogOut, Briefcase, User } from "lucide-react";
+import { LogOut, Briefcase, User, Megaphone } from "lucide-react";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
+import { queryDocuments, where } from "../../lib/firestore";
+import type { AlumniAnnouncement } from "../../types/alumniAnnouncements";
+import type { AlumniAnnouncementRead } from "../../types/alumniAnnouncements";
 import logo from "../../assets/logo.png";
 
 export default function AlumniLayout() {
   const { user, alumniProfile, loading, signOut } = useAlumniAuth();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!alumniProfile) return;
+    let cancelled = false;
+    async function fetchUnread() {
+      try {
+        const [published, reads] = await Promise.all([
+          queryDocuments<AlumniAnnouncement>("alumniAnnouncements", [
+            where("companyId", "==", alumniProfile!.companyId),
+            where("status", "==", "published"),
+          ]),
+          queryDocuments<AlumniAnnouncementRead>("alumniAnnouncementReads", [
+            where("alumniId", "==", alumniProfile!.id),
+          ]),
+        ]);
+        if (cancelled) return;
+        const readSet = new Set(reads.map((r) => r.announcementId));
+        const visible = published.filter((a) => {
+          if (a.audience === "all") return true;
+          return alumniProfile!.optedIn === true;
+        });
+        setUnreadCount(visible.filter((a) => !readSet.has(a.id)).length);
+      } catch { /* ignore */ }
+    }
+    fetchUnread();
+    return () => { cancelled = true; };
+  }, [alumniProfile]);
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (!user || !alumniProfile) return <Navigate to="/alumni-login" replace />;
@@ -53,6 +85,25 @@ export default function AlumniLayout() {
                 >
                   <Briefcase size={14} />
                   Jobs
+                </NavLink>
+                <NavLink
+                  to="/alumni-portal/updates"
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isActive ? "bg-navy/5 text-navy" : "text-mist hover:text-navy"}`
+                  }
+                >
+                  <span className="relative">
+                    <Megaphone size={14} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-teal rounded-full" />
+                    )}
+                  </span>
+                  Updates
+                  {unreadCount > 0 && (
+                    <span className="ml-0.5 text-xs bg-teal text-white rounded-full px-1.5 py-0.5 leading-none">
+                      {unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               </nav>
             </div>
