@@ -19,8 +19,9 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { ReturnBanner } from "../../components/alumni-portal/ReturnBanner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
-import { updateDocument, serverTimestamp } from "../../lib/firestore";
+import { updateDocument, getDocument, serverTimestamp } from "../../lib/firestore";
 import type { AlumniProfile } from "../../types/alumni.types";
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
@@ -33,6 +34,7 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
 
 export default function AlumniProfile() {
   const { user, alumniProfile, loading } = useAlumniAuth();
+  const [companyName, setCompanyName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -55,6 +57,13 @@ export default function AlumniProfile() {
         currentRole: alumniProfile.currentRole,
         linkedIn: alumniProfile.linkedIn,
       });
+      if (alumniProfile.companyId) {
+        getDocument<{ name: string }>("companies", alumniProfile.companyId)
+          .then((company) => {
+            if (company?.name) setCompanyName(company.name);
+          })
+          .catch(console.error);
+      }
     }
   }, [alumniProfile]);
 
@@ -161,6 +170,13 @@ export default function AlumniProfile() {
           </div>
         )}
       </div>
+
+      {/* Return interest banner */}
+      <ReturnBanner
+        alumniProfile={alumniProfile}
+        companyName={companyName}
+        onUpdate={() => {}}
+      />
 
       {/* Profile Card */}
       <Card>

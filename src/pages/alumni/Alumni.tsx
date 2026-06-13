@@ -11,7 +11,9 @@ import {
   Building,
   TrendingUp,
   Edit2,
+  GitBranch,
 } from "lucide-react";
+import BoomerangPipeline from "./BoomerangPipeline";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import {
@@ -105,6 +107,7 @@ const EMPTY_FORM = {
 
 export default function Alumni() {
   const { companyId } = useAuth();
+  const [activeTab, setActiveTab] = useState<"directory" | "pipeline">("directory");
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -651,12 +654,45 @@ export default function Alumni() {
             Track former employees and manage your rehire pipeline
           </p>
         </div>
-        <Button onClick={openAddModal}>
-          <Plus size={14} className="mr-1.5" />
-          Add Alumni
-        </Button>
+        {activeTab === "directory" && (
+          <Button onClick={openAddModal}>
+            <Plus size={14} className="mr-1.5" />
+            Add Alumni
+          </Button>
+        )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-navy/5 rounded-md p-1 w-fit">
+        <button
+          onClick={() => setActiveTab("directory")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "directory"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <Network size={14} />
+          Directory
+        </button>
+        <button
+          onClick={() => setActiveTab("pipeline")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "pipeline"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <GitBranch size={14} />
+          Boomerang Pipeline
+        </button>
+      </div>
+
+      {activeTab === "pipeline" && <BoomerangPipeline />}
+
+      {activeTab === "directory" && <>
       {/* Suggestion banner */}
       {unregisteredFlows.length > 0 && !dismissedBanner && (
         <div className="bg-teal/5 border border-teal/20 rounded-lg p-4 flex items-center justify-between gap-4">
@@ -887,6 +923,8 @@ export default function Alumni() {
           </div>
         </Card>
       )}
+
+      </>}
 
       {/* Add Alumni Modal */}
       <Modal

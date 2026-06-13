@@ -17,7 +17,7 @@ const BRAND = {
 
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
 
-function emailWrapper(bodyContent: string): string {
+export function emailWrapper(bodyContent: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,7 +71,7 @@ function emailWrapper(bodyContent: string): string {
 </html>`;
 }
 
-function ctaButton(label: string, url: string): string {
+export function ctaButton(label: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:28px;">
     <tr>
       <td style="border-radius:6px;background-color:${BRAND.teal};">
@@ -84,7 +84,7 @@ function ctaButton(label: string, url: string): string {
   </table>`;
 }
 
-function divider(): string {
+export function divider(): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
     <tr><td style="border-top:1px solid #F3F4F6;"></td></tr>
   </table>`;
