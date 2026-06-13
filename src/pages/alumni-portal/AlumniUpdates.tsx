@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Megaphone } from "lucide-react";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { AnnouncementFeed } from "../../components/alumni-portal/AnnouncementFeed";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
@@ -22,11 +21,7 @@ export default function AlumniUpdates() {
   if (!alumniProfile) return null;
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-2">
-        <Megaphone size={20} className="text-teal" />
-        <h1 className="text-2xl font-display text-navy">Updates</h1>
-      </div>
+    <div className="max-w-xl mx-auto w-full px-0 sm:px-4">
       <AnnouncementFeed
         alumniProfile={alumniProfile}
         companyName={companyName || "Your Company"}
