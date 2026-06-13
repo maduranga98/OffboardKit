@@ -39,3 +39,10 @@ export type {
   IntegrationEvent,
   Integration,
 } from "./integration.types";
+export type {
+  DocRequest,
+  DocRequestType,
+  RequestPurpose,
+  RequestUrgency,
+  RequestStatus,
+} from "./docRequests.types";
