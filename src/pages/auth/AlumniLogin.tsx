@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Heart } from "lucide-react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { Button } from "../../components/ui/Button";
@@ -12,6 +12,7 @@ import logo from "../../assets/logo.png";
 
 export default function AlumniLogin() {
   const { user, alumniProfile, loading, authError, signInWithEmail } = useAlumniAuth();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,6 +20,8 @@ export default function AlumniLogin() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+
+  const redirectedFromCompanyLogin = searchParams.get("notice") === "alumni";
 
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && alumniProfile) return <Navigate to="/alumni-portal/profile" replace />;
@@ -101,6 +104,12 @@ export default function AlumniLogin() {
           <p className="text-sm text-mist mb-8">
             Sign in to access your profile and alumni community.
           </p>
+
+          {redirectedFromCompanyLogin && (
+            <div className="mb-4 p-3 bg-teal/10 border border-teal/20 rounded-md text-sm text-navy">
+              This is an alumni account. Please sign in here to access the alumni portal.
+            </div>
+          )}
 
           {(error || authError) && (
             <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
