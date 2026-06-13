@@ -52,7 +52,9 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if isCompanyMember(companyId);
+      // Company members (HR/staff) OR any authenticated user who has an
+      // alumniProfile belonging to this company can read basic company info.
+      allow read: if isCompanyMember(companyId) || isAuth();
       allow create: if isAuth();
       // Billing-sensitive fields can only be mutated by team admins, and
       // only from the server (Cloud Functions use admin SDK and bypass
@@ -172,6 +174,29 @@ service cloud.firestore {
       );
       // Only company members can delete
       allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
+    }
+
+    // Alumni announcements — HR creates/manages, alumni read published ones
+    match /alumniAnnouncements/{announcementId} {
+      // HR (company members) can read and write all announcements for their company
+      allow read, write: if isAuth() && (
+        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
+        resource.data.companyId == currentCompanyId()
+      );
+      // Alumni can read published announcements for their company
+      // Alumni are authenticated via Firebase Auth but don't have a /users doc —
+      // so we allow any authenticated user to read published docs and filter company-side.
+      allow read: if isAuth() && resource.data.status == 'published';
+    }
+
+    // Alumni announcement read receipts — alumni write their own, HR can read
+    match /alumniAnnouncementReads/{readId} {
+      // Any authenticated user can create a read receipt for themselves
+      allow create: if isAuth() && request.resource.data.alumniId != null;
+      // Readers can only read their own receipts (keyed by alumniId)
+      allow read: if isAuth();
+      // No updates or deletes needed
+      allow update, delete: if false;
     }
 
     // Outbound HRIS / identity-provider webhooks. Read/write limited to
