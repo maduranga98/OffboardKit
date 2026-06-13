@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, X } from "lucide-react";
+import { Clock } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";

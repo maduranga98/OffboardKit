@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Briefcase, X } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { Briefcase } from "lucide-react";
+import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";

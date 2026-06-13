@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { X, Lock } from "lucide-react";
-import clsx from "clsx";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
