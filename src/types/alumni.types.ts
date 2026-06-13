@@ -1,28 +1,8 @@
-import type { Timestamp } from "firebase/firestore";
-
-export type AlumniStatus = "active" | "do_not_contact" | "rehire_candidate";
-
-export type RehirePriority = "high" | "medium" | "low" | "none";
-
-export interface AlumniProfile {
-  id: string;
-  companyId: string;
-  flowId: string;
-  name: string;
-  email: string;
-  role: string;
-  department: string;
-  exitDate: Timestamp;
-  exitType: string;
-  linkedIn: string;
-  currentCompany: string;
-  currentRole: string;
-  status: AlumniStatus;
-  rehirePriority: RehirePriority;
-  notes: string;
-  tags: string[];
-  optedIn: boolean;
-  authUid?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
+// Re-export from canonical alumni type file
+export type {
+  AlumniStatus,
+  RehirePriority,
+  BoomerangStage,
+  AlumniProfile,
+} from "./alumni";
+export { BOOMERANG_STAGE_ORDER, BOOMERANG_STAGE_LABELS } from "./alumni";
