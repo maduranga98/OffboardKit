@@ -7,6 +7,7 @@ export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
 export { onFlowApprovalChanged } from "./triggers/onFlowApprovalChanged";
 export { onAlumniRehirePriorityChange } from "./alumni/onRehirePriorityChange";
 export { onAnnouncementPublished } from "./alumni/onAnnouncementPublished";
+export { onGigRequestCreated, onGigRequestResponded } from "./alumni/gigNotifications";
 export { onExpertThreadCreated, onExpertThreadUpdated } from "./alumni/expertThreadNotifications";
 
 // Firestore triggers

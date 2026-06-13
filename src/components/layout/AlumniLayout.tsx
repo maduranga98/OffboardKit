@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: "/alumni-portal/jobs",    icon: Briefcase,      label: "Jobs"     },
   { to: "/alumni-portal/updates", icon: Megaphone,      label: "Updates"  },
   { to: "/alumni-portal/threads", icon: MessageCircle,  label: "Threads"  },
+  { to: "/alumni-portal/gigs",    icon: Briefcase,      label: "Gigs"     },
 ] as const;
 
 export default function AlumniLayout() {
