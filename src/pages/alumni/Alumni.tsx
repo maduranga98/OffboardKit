@@ -12,8 +12,10 @@ import {
   TrendingUp,
   Edit2,
   GitBranch,
+  Briefcase,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
+import AlumniJobBoard from "./AlumniJobBoard";
 import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -108,7 +110,7 @@ const EMPTY_FORM = {
 
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [activeTab, setActiveTab] = useState<"directory" | "pipeline">("directory");
+  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard">("directory");
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -661,6 +663,7 @@ export default function Alumni() {
             Add Alumni
           </Button>
         )}
+        {activeTab === "jobboard" && null}
       </div>
 
       {/* Tabs */}
@@ -689,9 +692,22 @@ export default function Alumni() {
           <GitBranch size={14} />
           Boomerang Pipeline
         </button>
+        <button
+          onClick={() => setActiveTab("jobboard")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "jobboard"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <Briefcase size={14} />
+          Job Board
+        </button>
       </div>
 
       {activeTab === "pipeline" && <BoomerangPipeline />}
+      {activeTab === "jobboard" && <AlumniJobBoard />}
 
       {activeTab === "directory" && <>
       {/* Suggestion banner */}

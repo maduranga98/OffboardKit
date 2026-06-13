@@ -1,5 +1,5 @@
-import { Outlet, Navigate, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
+import { LogOut, Briefcase, User } from "lucide-react";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import logo from "../../assets/logo.png";
@@ -26,13 +26,35 @@ export default function AlumniLayout() {
       <header className="bg-white border-b border-navy/5 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <img
-                src={logo}
-                alt="OffboardSet"
-                className="w-8 h-8 object-contain"
-              />
-              <span className="font-display text-lg text-navy">OffboardSet</span>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <img
+                  src={logo}
+                  alt="OffboardSet"
+                  className="w-8 h-8 object-contain"
+                />
+                <span className="font-display text-lg text-navy">OffboardSet</span>
+              </div>
+              <nav className="hidden sm:flex items-center gap-1">
+                <NavLink
+                  to="/alumni-portal/profile"
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isActive ? "bg-navy/5 text-navy" : "text-mist hover:text-navy"}`
+                  }
+                >
+                  <User size={14} />
+                  Profile
+                </NavLink>
+                <NavLink
+                  to="/alumni-portal/jobs"
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isActive ? "bg-navy/5 text-navy" : "text-mist hover:text-navy"}`
+                  }
+                >
+                  <Briefcase size={14} />
+                  Jobs
+                </NavLink>
+              </nav>
             </div>
 
             <div className="flex items-center gap-4">
