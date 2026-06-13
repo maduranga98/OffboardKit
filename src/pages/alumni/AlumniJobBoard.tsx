@@ -81,7 +81,11 @@ function ApplicationsPanel({ job, onClose }: ApplicationsPanelProps) {
       setApplications((prev) =>
         prev.map((a) => (a.id === appId ? { ...a, status } : a))
       );
-      showToast("success", "Status updated");
+      if (status === "hired") {
+        showToast("success", "Referral marked as hired. This updates your conversion metrics in Analytics.");
+      } else {
+        showToast("success", "Status updated");
+      }
     } catch {
       showToast("error", "Failed to update status");
     }

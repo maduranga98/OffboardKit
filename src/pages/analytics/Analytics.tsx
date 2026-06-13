@@ -39,6 +39,7 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { useAuth } from "../../hooks/useAuth";
 import { queryDocuments } from "../../lib/firestore";
 import { generateAnalyticsPdf } from "../../lib/pdfExport";
+import AlumniHealthWidget from "../../components/analytics/AlumniHealthWidget";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1432,6 +1433,11 @@ export default function Analytics() {
           />
         )}
       </Card>
+
+      {/* Section 6: Alumni Network Health */}
+      <div>
+        <AlumniHealthWidget companyId={companyId ?? ''} />
+      </div>
     </div>
   );
 }
