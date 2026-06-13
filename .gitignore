@@ -28,4 +28,4 @@ dist-ssr
 
 # Firebase Functions build output and secrets
 functions/lib/
-functions/.env
+functions/.envfunctions/.cache/
