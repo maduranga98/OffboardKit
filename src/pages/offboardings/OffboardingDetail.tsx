@@ -11,6 +11,7 @@ import {
   Package,
   BookOpen,
   ClipboardList,
+  MessageCircle,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
@@ -43,6 +44,11 @@ import type {
   FlowStatus,
   TaskStatus,
 } from "../../types/offboarding.types";
+import type { AlumniProfile } from "../../types/alumni.types";
+import type { KnowledgeThread } from "../../types/knowledgeThreads.types";
+import type { KnowledgeItem } from "../../types/knowledge.types";
+import { AskExpertModal } from "../../components/alumni/AskExpertModal";
+import { ThreadCard } from "../../components/alumni/ThreadCard";
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
   if (!ts) return null;
@@ -120,6 +126,11 @@ export default function OffboardingDetail() {
     "tasks" | "access" | "knowledge" | "assets" | "graph" | "activity"
   >("tasks");
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [linkedAlumni, setLinkedAlumni] = useState<AlumniProfile | null>(null);
+  const [threads, setThreads] = useState<KnowledgeThread[]>([]);
+  const [showAskModal, setShowAskModal] = useState(false);
+  const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
+  const [knowledgeItems, setKnowledgeItems] = useState<Array<{ id: string; title: string; type: string }>>([]);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -147,6 +158,35 @@ export default function OffboardingDetail() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!id || !companyId) return;
+    queryDocuments<AlumniProfile>("alumniProfiles", [
+      where("flowId", "==", id),
+      where("companyId", "==", companyId),
+    ]).then((results) => {
+      if (results.length > 0 && results[0].optedIn) setLinkedAlumni(results[0]);
+    }).catch(() => {});
+  }, [id, companyId]);
+
+  useEffect(() => {
+    if (!id || !companyId) return;
+    queryDocuments<KnowledgeThread>("knowledgeThreads", [
+      where("flowId", "==", id),
+      where("companyId", "==", companyId),
+      orderBy("lastMessageAt", "desc"),
+    ]).then(setThreads).catch(() => {});
+  }, [id, companyId]);
+
+  useEffect(() => {
+    if (!id || !companyId) return;
+    queryDocuments<KnowledgeItem>("knowledgeItems", [
+      where("flowId", "==", id),
+      where("companyId", "==", companyId),
+    ]).then((items) => {
+      setKnowledgeItems(items.map((i) => ({ id: i.id, title: i.title, type: i.type })));
+    }).catch(() => {});
+  }, [id, companyId]);
 
   async function handleCopyPortalLink() {
     if (!flow) return;
@@ -742,10 +782,86 @@ export default function OffboardingDetail() {
       )}
 
       {activeTab === "knowledge" && (
-        <KnowledgeTracker
-          flow={flow}
-          onScoreUpdate={handleKnowledgeScoreUpdate}
-        />
+        <div className="space-y-6">
+          <KnowledgeTracker
+            flow={flow}
+            onScoreUpdate={handleKnowledgeScoreUpdate}
+          />
+
+          {/* Expert Threads */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-navy">Expert Threads</h3>
+                <p className="text-xs text-mist mt-0.5">
+                  Ask {flow.employeeName} follow-up questions about their work
+                </p>
+              </div>
+              {linkedAlumni ? (
+                <Button size="sm" onClick={() => setShowAskModal(true)}>
+                  <MessageCircle size={14} className="mr-1.5" />
+                  Ask {flow.employeeName}
+                </Button>
+              ) : (
+                <span className="text-xs text-mist">
+                  {flow.status === "completed"
+                    ? "Alumni not in network yet"
+                    : "Available after offboarding completes"}
+                </span>
+              )}
+            </div>
+
+            {threads.length > 0 ? (
+              <div className="space-y-3">
+                {threads.map((t) => (
+                  <ThreadCard
+                    key={t.id}
+                    thread={t}
+                    isExpanded={expandedThreadId === t.id}
+                    onToggle={() =>
+                      setExpandedThreadId((prev) => (prev === t.id ? null : t.id))
+                    }
+                    onClose={(threadId) => {
+                      setThreads((prev) =>
+                        prev.map((th) =>
+                          th.id === threadId ? { ...th, status: "closed" as const } : th
+                        )
+                      );
+                    }}
+                    hrUserId={appUser?.id ?? ""}
+                    hrUserName={appUser?.name ?? "HR Team"}
+                  />
+                ))}
+              </div>
+            ) : linkedAlumni ? (
+              <div className="border-2 border-dashed border-navy/10 rounded-xl p-6 text-center">
+                <p className="text-sm text-mist">No questions asked yet.</p>
+                <p className="text-xs text-mist mt-1">
+                  Ask {linkedAlumni.name} about their work processes, clients, or tools.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          {showAskModal && linkedAlumni && (
+            <AskExpertModal
+              isOpen={showAskModal}
+              onClose={() => setShowAskModal(false)}
+              companyId={companyId ?? ""}
+              flowId={flow.id}
+              alumniId={linkedAlumni.id}
+              alumniName={linkedAlumni.name}
+              alumniEmail={linkedAlumni.email}
+              hrUserId={appUser?.id ?? ""}
+              hrUserName={appUser?.name ?? "HR Team"}
+              knowledgeItems={knowledgeItems}
+              onCreated={(thread) => {
+                setThreads((prev) => [thread, ...prev]);
+                setShowAskModal(false);
+              }}
+            />
+          )}
+        </div>
       )}
 
       {activeTab === "assets" && (

@@ -14,10 +14,12 @@ import {
   GitBranch,
   Briefcase,
   Megaphone,
+  MessageCircle,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
 import AlumniJobBoard from "./AlumniJobBoard";
 import AlumniAnnouncements from "./AlumniAnnouncements";
+import ExpertThreads from "./ExpertThreads";
 import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -112,7 +114,7 @@ const EMPTY_FORM = {
 
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements">("directory");
+  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads">("directory");
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -718,11 +720,24 @@ export default function Alumni() {
           <Megaphone size={14} />
           Announcements
         </button>
+        <button
+          onClick={() => setActiveTab("expertthreads")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "expertthreads"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <MessageCircle size={14} />
+          Expert Threads
+        </button>
       </div>
 
       {activeTab === "pipeline" && <BoomerangPipeline />}
       {activeTab === "jobboard" && <AlumniJobBoard />}
       {activeTab === "announcements" && <AlumniAnnouncements />}
+      {activeTab === "expertthreads" && companyId && <ExpertThreads companyId={companyId} />}
 
       {activeTab === "directory" && <>
       {/* Suggestion banner */}
