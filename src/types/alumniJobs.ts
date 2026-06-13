@@ -3,7 +3,7 @@ import type { Timestamp } from "firebase/firestore";
 export type JobType = "full_time" | "part_time" | "contract" | "internship";
 export type JobStatus = "open" | "closed" | "draft";
 export type JobAudience = "all" | "department" | "rehire_only";
-export type ApplicationStatus = "new" | "reviewed" | "shortlisted" | "rejected";
+export type ApplicationStatus = "new" | "reviewed" | "shortlisted" | "rejected" | "hired";
 export type ApplicationType = "self" | "referral";
 
 export interface AlumniJob {
@@ -67,5 +67,6 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   new: "New",
   reviewed: "Reviewed",
   shortlisted: "Shortlisted",
+  hired: "Hired ✓",
   rejected: "Rejected",
 };
