@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
-import { LogOut, Briefcase, User, Megaphone, MessageCircle } from "lucide-react";
+import { LogOut, Briefcase, User, Megaphone, MessageCircle, FileText } from "lucide-react";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { queryDocuments, where, orderBy } from "../../lib/firestore";
@@ -10,11 +10,12 @@ import type { KnowledgeThread } from "../../types/knowledgeThreads.types";
 import logo from "../../assets/logo.png";
 
 const NAV_ITEMS = [
-  { to: "/alumni-portal/profile", icon: User,          label: "Profile"  },
-  { to: "/alumni-portal/jobs",    icon: Briefcase,      label: "Jobs"     },
-  { to: "/alumni-portal/updates", icon: Megaphone,      label: "Updates"  },
-  { to: "/alumni-portal/threads", icon: MessageCircle,  label: "Threads"  },
-  { to: "/alumni-portal/gigs",    icon: Briefcase,      label: "Gigs"     },
+  { to: "/alumni-portal/profile",   icon: User,          label: "Profile"   },
+  { to: "/alumni-portal/jobs",      icon: Briefcase,     label: "Jobs"      },
+  { to: "/alumni-portal/updates",   icon: Megaphone,     label: "Updates"   },
+  { to: "/alumni-portal/threads",   icon: MessageCircle, label: "Threads"   },
+  { to: "/alumni-portal/gigs",      icon: Briefcase,     label: "Gigs"      },
+  { to: "/alumni-portal/documents", icon: FileText,      label: "Documents" },
 ] as const;
 
 export default function AlumniLayout() {
