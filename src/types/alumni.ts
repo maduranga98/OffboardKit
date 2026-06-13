@@ -43,6 +43,7 @@ export interface AlumniProfile {
   boomerangStage?: BoomerangStage;
   openToReturn?: boolean | null;
   lastActiveAlumniDate?: Timestamp | null;
+  hiddenJobIds?: string[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
