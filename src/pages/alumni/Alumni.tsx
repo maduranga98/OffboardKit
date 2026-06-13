@@ -14,6 +14,7 @@ import {
   GitBranch,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
+import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import {
@@ -982,6 +983,15 @@ export default function Alumni() {
         }
       >
         {formContent}
+        {editingProfile && companyId && (
+          <div className="mt-4">
+            <ExitContextCard
+              flowId={editingProfile.flowId}
+              companyId={companyId}
+              alumniName={editingProfile.name}
+            />
+          </div>
+        )}
       </Modal>
     </div>
   );
