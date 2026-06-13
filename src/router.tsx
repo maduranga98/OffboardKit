@@ -30,6 +30,7 @@ import IntegrationSettings from "./pages/settings/IntegrationSettings";
 import WebhookSettings from "./pages/settings/WebhookSettings";
 import Help from "./pages/help/Help";
 import PortalEntry from "./pages/portal/PortalEntry";
+import SurveyPage from "./pages/survey/SurveyPage";
 
 function NotFound() {
   const error = useRouteError() as { status?: number } | undefined;
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
   { path: "/portal/:token", element: <PortalEntry /> },
   { path: "/alumni-login", element: <AlumniLogin /> },
   { path: "/alumni-register", element: <AlumniRegister /> },
+  { path: "/survey/:token", element: <SurveyPage /> },
 
   // Setup route
   { path: "/setup", element: <SetupWizard /> },
