@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { CheckCircle } from "lucide-react";
+import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -70,6 +72,16 @@ export function ReferModal({ isOpen, onClose, job, alumniProfile }: Props) {
         referralCount: (job.referralCount || 0) + 1,
         updatedAt: serverTimestamp(),
       });
+
+      const engLogId = crypto.randomUUID();
+      setDoc(doc(collection(db, 'alumniEngagementLog'), engLogId), {
+        id: engLogId,
+        companyId: alumniProfile.companyId,
+        alumniId: alumniProfile.id,
+        eventType: 'referral_submitted',
+        metadata: { jobId: job.id },
+        createdAt: fbServerTimestamp(),
+      }).catch(console.error);
 
       setSavedName(refereeName.trim());
       setSuccess(true);

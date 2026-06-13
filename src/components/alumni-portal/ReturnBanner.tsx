@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Building2 } from "lucide-react";
+import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { Button } from "../ui/Button";
 import { updateDocument, serverTimestamp } from "../../lib/firestore";
 import type { AlumniProfile } from "../../types/alumni.types";
@@ -30,6 +32,15 @@ export function ReturnBanner({ alumniProfile, companyName, onUpdate }: Props) {
         openToReturn: value,
         updatedAt: serverTimestamp(),
       });
+      const logId = crypto.randomUUID();
+      setDoc(doc(collection(db, 'alumniEngagementLog'), logId), {
+        id: logId,
+        companyId: alumniProfile.companyId,
+        alumniId: alumniProfile.id,
+        eventType: 'return_toggle',
+        metadata: { openToReturn: value },
+        createdAt: fbServerTimestamp(),
+      }).catch(console.error);
       setOpenToReturn(value);
       onUpdate(value);
     } catch (err) {

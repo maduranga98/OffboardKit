@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Network,
   UserCheck,
@@ -54,10 +54,12 @@ import {
   where,
   orderBy,
 } from "../../lib/firestore";
+import EngagementBadge from "../../components/alumni/EngagementBadge";
 import type {
   AlumniProfile,
   AlumniStatus,
   RehirePriority,
+  EngagementLevel,
 } from "../../types/alumni.types";
 import type { OffboardFlow } from "../../types/offboarding.types";
 
@@ -127,6 +129,8 @@ export default function Alumni() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<AlumniStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<RehirePriority | "all">("all");
+  const [engagementFilter, setEngagementFilter] = useState<EngagementLevel | "all">("all");
+  const [sortBy, setSortBy] = useState<'name' | 'score' | 'exit_date'>('name');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProfile, setEditingProfile] = useState<AlumniProfile | null>(null);
   const [saving, setSaving] = useState(false);
@@ -405,6 +409,7 @@ export default function Alumni() {
   const filtered = profiles.filter((p) => {
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     if (priorityFilter !== "all" && p.rehirePriority !== priorityFilter) return false;
+    if (engagementFilter !== "all" && p.engagementLevel !== engagementFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -416,6 +421,22 @@ export default function Alumni() {
     }
     return true;
   });
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    if (sortBy === 'score') {
+      arr.sort((a, b) => (b.engagementScore ?? -1) - (a.engagementScore ?? -1));
+    } else if (sortBy === 'exit_date') {
+      arr.sort((a, b) => {
+        const aDate = a.exitDate?.toDate?.()?.getTime() ?? 0;
+        const bDate = b.exitDate?.toDate?.()?.getTime() ?? 0;
+        return bDate - aDate;
+      });
+    } else {
+      arr.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return arr;
+  }, [filtered, sortBy]);
 
   const totalAlumni = profiles.length;
   const rehireCandidates = profiles.filter((p) => p.rehirePriority !== "none").length;
@@ -899,6 +920,25 @@ export default function Alumni() {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
+        <select
+          value={engagementFilter}
+          onChange={(e) => setEngagementFilter(e.target.value as EngagementLevel | "all")}
+          className="px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
+        >
+          <option value="all">All Engagement</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="px-3 py-1.5 text-sm border border-navy/10 rounded-lg bg-white text-navy focus:outline-none focus:ring-2 focus:ring-teal/50"
+        >
+          <option value="name">Sort: Name</option>
+          <option value="score">Sort: Engagement (High → Low)</option>
+          <option value="exit_date">Sort: Exit Date (Recent first)</option>
+        </select>
       </div>
 
       {/* Alumni list */}
@@ -909,7 +949,7 @@ export default function Alumni() {
             description="Alumni profiles are created from completed offboardings."
           />
         </Card>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <Card>
           <div className="py-8 text-center">
             <p className="text-sm text-mist">
@@ -920,7 +960,7 @@ export default function Alumni() {
       ) : (
         <Card padding="none">
           <div className="divide-y divide-navy/5">
-            {filtered.map((profile) => {
+            {sorted.map((profile) => {
               const exitDate = toDate(profile.exitDate);
               return (
                 <div
@@ -973,6 +1013,12 @@ export default function Alumni() {
                       {PRIORITY_LABELS[profile.rehirePriority]}
                     </span>
                   )}
+
+                  {/* Engagement badge */}
+                  <EngagementBadge
+                    score={profile.engagementScore ?? null}
+                    level={profile.engagementLevel ?? null}
+                  />
 
                   {/* Status badge */}
                   <Badge
