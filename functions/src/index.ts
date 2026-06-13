@@ -39,6 +39,7 @@ export {
 
 // Callable functions
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
+export { sendAlumniInvite } from "./triggers/sendAlumniInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";
 export { testSlackWebhook } from "./triggers/testSlackWebhook";
 

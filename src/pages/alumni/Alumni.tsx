@@ -13,11 +13,12 @@ import {
   Edit2,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
 } from "firebase/auth";
-import { secondaryAuth } from "../../lib/firebase";
+import { secondaryAuth, functions } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -251,18 +252,27 @@ export default function Alumni() {
       };
 
       await setDocument("alumniProfiles", id, doc);
+      setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
 
-      // Sign out of secondary app after Firestore save succeeds.
-      // The onAlumniOptedIn Cloud Function fires on the write above and
-      // sends the branded invitation email with a password-setup link.
       if (form.optedIn) {
         await secondaryAuth.signOut();
-        showToast("success", "Alumni added", `Invitation email will be sent to ${email}`);
+        // Call the Cloud Function directly so the invitation email is sent
+        // immediately rather than waiting for a Firestore trigger to fire.
+        try {
+          const sendInvite = httpsCallable(functions, "sendAlumniInvite");
+          await sendInvite({ profileId: id });
+          showToast("success", "Alumni added", `Invitation email sent to ${email}`);
+        } catch {
+          showToast(
+            "info",
+            "Alumni added",
+            `Profile saved. Invitation email could not be sent to ${email} — check your email configuration.`
+          );
+        }
       } else {
         showToast("success", "Alumni added", `${form.name.trim()} has been added.`);
       }
 
-      setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
       closeModals();
     } catch (err) {
       // Firestore save failed — clean up the auth account we created
