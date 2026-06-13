@@ -177,12 +177,11 @@ service cloud.firestore {
     }
 
     match /alumniJobs/{jobId} {
-      // HR can manage jobs for their company
-      allow read, write: if isAuth() && (
-        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
-        resource.data.companyId == currentCompanyId()
-      );
-      // Alumni can read open jobs for their company (filtered client-side by audience)
+      // HR (company staff with a /users doc) can fully manage their company's jobs
+      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
+      allow read, update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
+      // Alumni (authenticated via Firebase Auth, no /users doc) can read any open job.
+      // Client-side filters by companyId and audience keep the visible set correct.
       allow read: if isAuth() && resource.data.status == 'open';
     }
 
