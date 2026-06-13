@@ -13,9 +13,11 @@ import {
   Edit2,
   GitBranch,
   Briefcase,
+  Megaphone,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
 import AlumniJobBoard from "./AlumniJobBoard";
+import AlumniAnnouncements from "./AlumniAnnouncements";
 import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -110,7 +112,7 @@ const EMPTY_FORM = {
 
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard">("directory");
+  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements">("directory");
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -704,10 +706,23 @@ export default function Alumni() {
           <Briefcase size={14} />
           Job Board
         </button>
+        <button
+          onClick={() => setActiveTab("announcements")}
+          className={clsx(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            activeTab === "announcements"
+              ? "bg-white text-navy shadow-sm"
+              : "text-mist hover:text-navy"
+          )}
+        >
+          <Megaphone size={14} />
+          Announcements
+        </button>
       </div>
 
       {activeTab === "pipeline" && <BoomerangPipeline />}
       {activeTab === "jobboard" && <AlumniJobBoard />}
+      {activeTab === "announcements" && <AlumniAnnouncements />}
 
       {activeTab === "directory" && <>
       {/* Suggestion banner */}

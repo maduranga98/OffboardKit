@@ -6,6 +6,7 @@ admin.initializeApp();
 export { onOffboardingCreated } from "./triggers/onOffboardingCreated";
 export { onFlowApprovalChanged } from "./triggers/onFlowApprovalChanged";
 export { onAlumniRehirePriorityChange } from "./alumni/onRehirePriorityChange";
+export { onAnnouncementPublished } from "./alumni/onAnnouncementPublished";
 
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
