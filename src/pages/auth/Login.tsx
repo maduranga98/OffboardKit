@@ -167,7 +167,19 @@ export default function Login() {
             </Link>
           </p>
 
-          <p className="mt-8 text-xs text-center text-mist/70">
+          <div className="mt-6 p-3 bg-navy/5 rounded-lg text-center">
+            <p className="text-xs text-mist">
+              Are you an alumni member?{" "}
+              <Link
+                to="/alumni-login"
+                className="text-teal hover:text-teal-light font-medium"
+              >
+                Sign in to the alumni portal →
+              </Link>
+            </p>
+          </div>
+
+          <p className="mt-6 text-xs text-center text-mist/70">
             Trusted by HR teams worldwide
           </p>
         </div>
