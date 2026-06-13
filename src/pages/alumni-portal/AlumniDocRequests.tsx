@@ -139,7 +139,7 @@ export default function AlumniDocRequests() {
       setSelectedType(null);
       await loadRequests();
     } catch {
-      showToast("Failed to submit request. Please try again.", "error");
+      showToast("error", "Failed to submit request. Please try again.");
     } finally {
       setSubmitting(false);
     }

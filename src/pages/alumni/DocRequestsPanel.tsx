@@ -9,7 +9,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { showToast } from "../../components/ui/Toast";
@@ -90,7 +90,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
         setRequests((prev) =>
           prev.map((r) => (r.id === requestId ? updated[0] : r))
         );
-        showToast("✓ Document generated and sent to alumni", "success");
+        showToast("success", "✓ Document generated and sent to alumni");
       }
     }, 3000);
     pollIntervals.current.set(requestId, interval);
@@ -103,20 +103,20 @@ export default function DocRequestsPanel({ companyId }: Props) {
       await updateDocument("docRequests", req.id, {
         status: "approved",
         approvedBy: appUser.id,
-        approvedByName: appUser.name,
+        approvedByName: appUser.displayName,
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       setRequests((prev) =>
         prev.map((r) =>
           r.id === req.id
-            ? { ...r, status: "approved", approvedBy: appUser.id, approvedByName: appUser.name }
+            ? { ...r, status: "approved", approvedBy: appUser.id, approvedByName: appUser.displayName }
             : r
         )
       );
       startPolling(req.id);
     } catch {
-      showToast("Failed to approve request", "error");
+      showToast("error", "Failed to approve request");
     } finally {
       setApprovingId(null);
     }
@@ -125,7 +125,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
   async function handleReject(req: DocRequest) {
     const reason = rejectionText[req.id] ?? "";
     if (!reason.trim()) {
-      showToast("Please provide a rejection reason", "error");
+      showToast("error", "Please provide a rejection reason");
       return;
     }
     try {
@@ -141,7 +141,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
       );
       setRejectingId(null);
     } catch {
-      showToast("Failed to reject request", "error");
+      showToast("error", "Failed to reject request");
     }
   }
 
@@ -158,7 +158,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
         )
       );
     } catch {
-      showToast("Failed to reconsider", "error");
+      showToast("error", "Failed to reconsider");
     }
   }
 
@@ -172,9 +172,9 @@ export default function DocRequestsPanel({ companyId }: Props) {
       setRequests((prev) =>
         prev.map((r) => (r.id === req.id ? { ...r, hrNotes: notes } : r))
       );
-      showToast("Notes saved", "success");
+      showToast("success", "Notes saved");
     } catch {
-      showToast("Failed to save notes", "error");
+      showToast("error", "Failed to save notes");
     }
   }
 
