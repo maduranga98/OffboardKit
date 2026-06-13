@@ -78,7 +78,7 @@ export function ApplyModal({ isOpen, onClose, job, alumniProfile }: Props) {
         onClose();
       }, 2500);
     } catch {
-      showToast("Failed to submit application", "error");
+      showToast("error", "Failed to submit application");
     } finally {
       setSubmitting(false);
     }

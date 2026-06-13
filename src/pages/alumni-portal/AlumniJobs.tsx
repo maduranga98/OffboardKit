@@ -52,7 +52,7 @@ export default function AlumniJobs() {
 
       setJobs(visible);
     } catch {
-      showToast("Failed to load jobs", "error");
+      showToast("error", "Failed to load jobs");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export default function AlumniJobs() {
         updatedAt: serverTimestamp(),
       });
     } catch {
-      showToast("Failed to hide job", "error");
+      showToast("error", "Failed to hide job");
       setHiddenIds((prev) => prev.filter((id) => id !== jobId));
     }
   };

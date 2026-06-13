@@ -38,9 +38,9 @@ export function ReferModal({ isOpen, onClose, job, alumniProfile }: Props) {
   const handleClose = () => { reset(); onClose(); };
 
   const handleSubmit = async () => {
-    if (!refereeName.trim()) { showToast("Referee's name is required", "error"); return; }
+    if (!refereeName.trim()) { showToast("error", "Referee's name is required"); return; }
     if (!refereeEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(refereeEmail)) {
-      showToast("A valid email is required", "error");
+      showToast("error", "A valid email is required");
       return;
     }
 
@@ -74,7 +74,7 @@ export function ReferModal({ isOpen, onClose, job, alumniProfile }: Props) {
       setSavedName(refereeName.trim());
       setSuccess(true);
     } catch {
-      showToast("Failed to submit referral", "error");
+      showToast("error", "Failed to submit referral");
     } finally {
       setSubmitting(false);
     }
