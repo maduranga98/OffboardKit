@@ -3,7 +3,6 @@ import { Timestamp } from "firebase/firestore";
 import { updatePassword } from "firebase/auth";
 import { format } from "date-fns";
 import {
-  User,
   Mail,
   Briefcase,
   Building2,
@@ -13,6 +12,7 @@ import {
   Save,
   X,
   Lock,
+  ChevronRight,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
@@ -22,7 +22,6 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { ReturnBanner } from "../../components/alumni-portal/ReturnBanner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { updateDocument, getDocument, serverTimestamp } from "../../lib/firestore";
-import type { AlumniProfile } from "../../types/alumni.types";
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
   if (!ts) return null;
@@ -38,32 +37,22 @@ export default function AlumniProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
-    newPassword: "",
-    confirmPassword: "",
-  });
+  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [form, setForm] = useState({
-    currentCompany: "",
-    currentRole: "",
-    linkedIn: "",
-  });
+  const [form, setForm] = useState({ currentCompany: "", currentRole: "", linkedIn: "" });
 
   useEffect(() => {
-    if (alumniProfile) {
-      setForm({
-        currentCompany: alumniProfile.currentCompany,
-        currentRole: alumniProfile.currentRole,
-        linkedIn: alumniProfile.linkedIn,
-      });
-      if (alumniProfile.companyId) {
-        getDocument<{ name: string }>("companies", alumniProfile.companyId)
-          .then((company) => {
-            if (company?.name) setCompanyName(company.name);
-          })
-          .catch(console.error);
-      }
+    if (!alumniProfile) return;
+    setForm({
+      currentCompany: alumniProfile.currentCompany,
+      currentRole: alumniProfile.currentRole,
+      linkedIn: alumniProfile.linkedIn,
+    });
+    if (alumniProfile.companyId) {
+      getDocument<{ name: string }>("companies", alumniProfile.companyId)
+        .then((c) => { if (c?.name) setCompanyName(c.name); })
+        .catch(() => {});
     }
   }, [alumniProfile]);
 
@@ -88,296 +77,185 @@ export default function AlumniProfile() {
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess(false);
-
     if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
       setPasswordError("Please fill in all password fields.");
       return;
     }
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError("New passwords don't match.");
+      setPasswordError("Passwords don't match.");
       return;
     }
-
     if (passwordForm.newPassword.length < 6) {
       setPasswordError("Password must be at least 6 characters.");
       return;
     }
-
-    if (!user) {
-      setPasswordError("Unable to change password.");
-      return;
-    }
-
+    if (!user) { setPasswordError("Unable to change password."); return; }
     try {
       await updatePassword(user, passwordForm.newPassword);
       setPasswordSuccess(true);
-      setPasswordForm({
-        newPassword: "",
-        confirmPassword: "",
-      });
-      setTimeout(() => {
-        setShowPasswordModal(false);
-        setPasswordSuccess(false);
-      }, 2000);
+      setPasswordForm({ newPassword: "", confirmPassword: "" });
+      setTimeout(() => { setShowPasswordModal(false); setPasswordSuccess(false); }, 2000);
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to change password.";
-      setPasswordError(message);
+      setPasswordError(error instanceof Error ? error.message : "Failed to change password.");
     }
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 flex justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
-
-  if (!alumniProfile) {
-    return (
-      <Card>
-        <div className="text-center py-8">
-          <p className="text-mist">Profile not found</p>
-        </div>
-      </Card>
-    );
-  }
+  if (loading) return <div className="py-24 flex justify-center"><LoadingSpinner size="lg" /></div>;
+  if (!alumniProfile) return null;
 
   const exitDate = toDate(alumniProfile.exitDate);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+
+      {/* Welcome hero */}
+      <div className="flex items-center gap-4">
+        <div className="h-14 w-14 rounded-full bg-teal/10 flex items-center justify-center text-teal font-display text-xl flex-shrink-0">
+          {alumniProfile.name.charAt(0)}
+        </div>
         <div>
-          <h1 className="text-2xl font-display text-navy">My Alumni Profile</h1>
-          <p className="text-sm text-mist mt-1">
-            Manage your alumni network profile
+          <h1 className="text-xl font-display text-navy">Welcome back, {alumniProfile.name.split(" ")[0]}!</h1>
+          <p className="text-sm text-mist mt-0.5">
+            {alumniProfile.role}
+            {alumniProfile.department ? ` · ${alumniProfile.department}` : ""}
+            {companyName ? ` at ${companyName}` : ""}
           </p>
         </div>
-        {!isEditing && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
-              <Lock size={14} className="mr-1.5" />
-              Change Password
-            </Button>
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit2 size={14} className="mr-1.5" />
-              Edit Profile
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Return interest banner */}
-      <ReturnBanner
-        alumniProfile={alumniProfile}
-        companyName={companyName}
-        onUpdate={() => {}}
-      />
+      <ReturnBanner alumniProfile={alumniProfile} companyName={companyName} onUpdate={() => {}} />
 
-      {/* Profile Card */}
+      {/* Exit history */}
       <Card>
-        <div className="space-y-6">
-          {/* Avatar and basic info */}
-          <div className="flex items-start gap-4 pb-6 border-b border-navy/5">
-            <div className="h-16 w-16 rounded-full bg-teal/10 flex items-center justify-center text-teal font-display text-xl flex-shrink-0">
-              {alumniProfile.name.charAt(0)}
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold text-navy">
-                {alumniProfile.name}
-              </h2>
-              <p className="text-sm text-mist mt-1">
-                {alumniProfile.role}
-                {alumniProfile.department ? ` · ${alumniProfile.department}` : ""}
-              </p>
+        <h2 className="text-sm font-semibold text-navy mb-4">Your History at {companyName || "the company"}</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-start gap-3">
+            <Mail size={14} className="text-mist mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-xs text-mist mb-0.5">Email</p>
+              <p className="text-sm text-navy break-all">{alumniProfile.email}</p>
             </div>
           </div>
-
-          {/* Read-only section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex items-start gap-3">
+            <Calendar size={14} className="text-mist mt-0.5 flex-shrink-0" />
             <div>
-              <div className="flex items-center gap-2 text-mist mb-2">
-                <Mail size={14} />
-                <span className="text-xs font-medium">Email</span>
-              </div>
-              <p className="text-sm text-navy">{alumniProfile.email}</p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 text-mist mb-2">
-                <Briefcase size={14} />
-                <span className="text-xs font-medium">Role at Exit</span>
-              </div>
-              <p className="text-sm text-navy">{alumniProfile.role}</p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 text-mist mb-2">
-                <Building2 size={14} />
-                <span className="text-xs font-medium">Department</span>
-              </div>
-              <p className="text-sm text-navy">
-                {alumniProfile.department || "—"}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 text-mist mb-2">
-                <Calendar size={14} />
-                <span className="text-xs font-medium">Exit Date</span>
-              </div>
-              <p className="text-sm text-navy">
-                {exitDate ? format(exitDate, "MMM d, yyyy") : "—"}
-              </p>
+              <p className="text-xs text-mist mb-0.5">Exit Date</p>
+              <p className="text-sm text-navy">{exitDate ? format(exitDate, "MMM d, yyyy") : "—"}</p>
             </div>
           </div>
-
-          {/* Editable section */}
-          <div className="pt-6 border-t border-navy/5 space-y-6">
+          <div className="flex items-start gap-3">
+            <Briefcase size={14} className="text-mist mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-navy mb-4">
-                Current Information
-              </h3>
-
-              {isEditing ? (
-                <div className="space-y-4">
-                  <Input
-                    label="Current Company"
-                    value={form.currentCompany}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        currentCompany: e.target.value,
-                      }))
-                    }
-                    placeholder="Where do you work now?"
-                  />
-                  <Input
-                    label="Current Role"
-                    value={form.currentRole}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, currentRole: e.target.value }))
-                    }
-                    placeholder="Your current role"
-                  />
-                  <Input
-                    label="LinkedIn URL"
-                    value={form.linkedIn}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, linkedIn: e.target.value }))
-                    }
-                    placeholder="https://linkedin.com/in/..."
-                  />
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      onClick={handleSave}
-                      loading={saving}
-                      className="flex-1"
-                    >
-                      <Save size={14} className="mr-1.5" />
-                      Save Changes
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setIsEditing(false)}
-                      className="flex-1"
-                    >
-                      <X size={14} className="mr-1.5" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="flex items-center gap-2 text-mist mb-2">
-                      <Building2 size={14} />
-                      <span className="text-xs font-medium">
-                        Current Company
-                      </span>
-                    </div>
-                    <p className="text-sm text-navy">
-                      {form.currentCompany || "—"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 text-mist mb-2">
-                      <Briefcase size={14} />
-                      <span className="text-xs font-medium">Current Role</span>
-                    </div>
-                    <p className="text-sm text-navy">
-                      {form.currentRole || "—"}
-                    </p>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <div className="flex items-center gap-2 text-mist mb-2">
-                      <Linkedin size={14} />
-                      <span className="text-xs font-medium">LinkedIn</span>
-                    </div>
-                    {form.linkedIn ? (
-                      <a
-                        href={form.linkedIn.startsWith("http") ? form.linkedIn : `https://${form.linkedIn}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-teal hover:text-teal-light"
-                      >
-                        {form.linkedIn}
-                      </a>
-                    ) : (
-                      <p className="text-sm text-navy">—</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              <p className="text-xs text-mist mb-0.5">Role at Exit</p>
+              <p className="text-sm text-navy">{alumniProfile.role || "—"}</p>
             </div>
-          </div>
-
-          {/* Metadata */}
-          <div className="pt-6 border-t border-navy/5 text-xs text-mist space-y-1">
-            <p>
-              Profile created{" "}
-              {toDate(alumniProfile.createdAt)
-                ? format(toDate(alumniProfile.createdAt)!, "MMM d, yyyy")
-                : "—"}
-            </p>
-            <p>
-              Last updated{" "}
-              {toDate(alumniProfile.updatedAt)
-                ? format(toDate(alumniProfile.updatedAt)!, "MMM d, yyyy")
-                : "—"}
-            </p>
           </div>
         </div>
       </Card>
 
-      {/* Info box */}
-      <Card className="bg-teal/5 border border-teal/20">
-        <div className="flex gap-3">
-          <User size={16} className="text-teal flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-navy">Privacy</p>
-            <p className="text-xs text-mist mt-1">
-              Your profile information is only visible to you and your former
-              employer.
-            </p>
-          </div>
+      {/* Current info — editable */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-navy">What are you up to now?</h2>
+          {!isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1 text-xs text-teal hover:text-teal/80 transition-colors"
+            >
+              <Edit2 size={12} />
+              Edit
+            </button>
+          )}
         </div>
+
+        {isEditing ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Current Company"
+                value={form.currentCompany}
+                onChange={(e) => setForm((p) => ({ ...p, currentCompany: e.target.value }))}
+                placeholder="Where do you work now?"
+              />
+              <Input
+                label="Current Role"
+                value={form.currentRole}
+                onChange={(e) => setForm((p) => ({ ...p, currentRole: e.target.value }))}
+                placeholder="Your current role"
+              />
+            </div>
+            <Input
+              label="LinkedIn URL"
+              value={form.linkedIn}
+              onChange={(e) => setForm((p) => ({ ...p, linkedIn: e.target.value }))}
+              placeholder="https://linkedin.com/in/..."
+            />
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleSave} loading={saving} size="sm">
+                <Save size={12} className="mr-1.5" />
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                <X size={12} className="mr-1.5" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex items-start gap-3">
+              <Building2 size={14} className="text-mist mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-mist mb-0.5">Current Company</p>
+                <p className="text-sm text-navy">{form.currentCompany || <span className="text-mist italic">Not set</span>}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Briefcase size={14} className="text-mist mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-mist mb-0.5">Current Role</p>
+                <p className="text-sm text-navy">{form.currentRole || <span className="text-mist italic">Not set</span>}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Linkedin size={14} className="text-mist mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-xs text-mist mb-0.5">LinkedIn</p>
+                {form.linkedIn ? (
+                  <a
+                    href={form.linkedIn.startsWith("http") ? form.linkedIn : `https://${form.linkedIn}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-teal hover:underline break-all"
+                  >
+                    View profile
+                  </a>
+                ) : (
+                  <span className="text-sm text-mist italic">Not set</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
+
+      {/* Account */}
+      <button
+        onClick={() => setShowPasswordModal(true)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-white border border-navy/10 rounded-xl text-sm text-navy hover:bg-navy/[0.02] transition-colors"
+      >
+        <span className="flex items-center gap-2 text-mist">
+          <Lock size={14} />
+          Change Password
+        </span>
+        <ChevronRight size={14} className="text-mist" />
+      </button>
 
       {/* Change Password Modal */}
       <Modal
         isOpen={showPasswordModal}
-        onClose={() => {
-          setShowPasswordModal(false);
-          setPasswordError("");
-          setPasswordSuccess(false);
-        }}
+        onClose={() => { setShowPasswordModal(false); setPasswordError(""); setPasswordSuccess(false); }}
         title="Change Password"
         size="sm"
       >
@@ -387,52 +265,28 @@ export default function AlumniProfile() {
               Password changed successfully!
             </div>
           )}
-
           {passwordError && (
             <div className="p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
               {passwordError}
             </div>
           )}
-
           <Input
             label="New Password"
             type="password"
             placeholder="Enter new password"
             value={passwordForm.newPassword}
-            onChange={(e) =>
-              setPasswordForm((p) => ({
-                ...p,
-                newPassword: e.target.value,
-              }))
-            }
+            onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
           />
           <Input
             label="Confirm Password"
             type="password"
             placeholder="Confirm new password"
             value={passwordForm.confirmPassword}
-            onChange={(e) =>
-              setPasswordForm((p) => ({
-                ...p,
-                confirmPassword: e.target.value,
-              }))
-            }
+            onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
           />
-
           <div className="flex gap-2 pt-4 border-t border-navy/5">
-            <Button
-              variant="ghost"
-              onClick={() => setShowPasswordModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleChangePassword}
-              className="flex-1"
-            >
-              Change Password
-            </Button>
+            <Button variant="ghost" onClick={() => setShowPasswordModal(false)} className="flex-1">Cancel</Button>
+            <Button onClick={handleChangePassword} className="flex-1">Change Password</Button>
           </div>
         </div>
       </Modal>
