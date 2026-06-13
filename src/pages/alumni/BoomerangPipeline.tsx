@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
-import { format, differenceInMonths } from "date-fns";
+import { differenceInMonths } from "date-fns";
 import { Timestamp } from "firebase/firestore";
 import clsx from "clsx";
 import { Button } from "../../components/ui/Button";
