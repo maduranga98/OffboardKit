@@ -12,13 +12,6 @@ import {
   Building,
   TrendingUp,
   Edit2,
-  GitBranch,
-  Briefcase,
-  Megaphone,
-  MessageCircle,
-  BarChart3,
-  Users,
-  FileText,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
 import ConsultingPool from "./ConsultingPool";
@@ -127,9 +120,6 @@ export default function Alumni() {
   const { companyId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get("tab") as AlumniTab) || "directory";
-  function setActiveTab(tab: AlumniTab) {
-    setSearchParams({ tab });
-  }
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);
