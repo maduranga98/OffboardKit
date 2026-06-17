@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -67,8 +68,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
 
   const isAlumniActive = location.pathname === "/alumni" || location.pathname.startsWith("/alumni/");
+  const [alumniExpanded, setAlumniExpanded] = useState(isAlumniActive);
   const searchParams = new URLSearchParams(location.search);
   const activeAlumniTab = searchParams.get("tab") || "directory";
+
+  useEffect(() => {
+    if (isAlumniActive) setAlumniExpanded(true);
+  }, [isAlumniActive]);
 
   const roleLabel = appUser?.role
     ? appUser.role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -104,7 +110,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-2 space-y-0.5">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           {(() => {
             const activeTo = [...navItems]
               .sort((a, b) => b.to.length - a.to.length)
@@ -123,7 +129,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <div key={item.to}>
                 <NavLink
                   to={isAlumniItem ? "/alumni?tab=directory" : item.to}
-                  onClick={isAlumniItem ? (e) => { e.preventDefault(); navigate("/alumni?tab=directory"); onClose(); } : onClose}
+                  onClick={isAlumniItem ? (e) => {
+                    e.preventDefault();
+                    if (!isAlumniActive) {
+                      navigate("/alumni?tab=directory");
+                      setAlumniExpanded(true);
+                    } else {
+                      setAlumniExpanded((prev) => !prev);
+                    }
+                  } : onClose}
                   className={clsx(
                     "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                     isActive
@@ -133,9 +147,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 >
                   <Icon size={18} />
                   <span className="flex-1">{item.label}</span>
-                  {isAlumniItem && (isAlumniActive ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                  {isAlumniItem && (alumniExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                 </NavLink>
-                {isAlumniItem && isAlumniActive && (
+                {isAlumniItem && alumniExpanded && (
                   <div className="ml-4 mt-0.5 space-y-0.5 border-l border-teal/20 pl-3">
                     {alumniSubItems.map((sub) => {
                       const SubIcon = sub.icon;

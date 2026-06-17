@@ -103,13 +103,19 @@ export default function DocRequestsPanel({ companyId }: Props) {
       const updated = await queryDocuments<DocRequest>("docRequests", [
         where("id", "==", requestId),
       ]);
-      if (updated[0]?.status === "delivered") {
+      const doc = updated[0];
+      if (!doc) return;
+      if (doc.status === "delivered" || doc.lastError) {
         clearInterval(pollIntervals.current.get(requestId)!);
         pollIntervals.current.delete(requestId);
         setRequests((prev) =>
-          prev.map((r) => (r.id === requestId ? updated[0] : r))
+          prev.map((r) => (r.id === requestId ? doc : r))
         );
-        showToast("success", "✓ Document generated and sent to alumni");
+        if (doc.status === "delivered") {
+          showToast("success", "✓ Document generated and sent to alumni");
+        } else if (doc.lastError) {
+          showToast("error", "Document generation failed", doc.lastError);
+        }
       }
     }, 3000);
     pollIntervals.current.set(requestId, interval);
@@ -200,6 +206,35 @@ export default function DocRequestsPanel({ companyId }: Props) {
       showToast("error", "Failed to create request");
     } finally {
       setCreatingReq(false);
+    }
+  }
+
+  async function handleRetryGeneration(req: DocRequest) {
+    if (!appUser) return;
+    setApprovingId(req.id);
+    try {
+      await updateDocument("docRequests", req.id, {
+        status: "pending",
+        lastError: null,
+        updatedAt: serverTimestamp(),
+      });
+      await updateDocument("docRequests", req.id, {
+        status: "approved",
+        approvedBy: appUser.id,
+        approvedByName: appUser.displayName,
+        approvedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === req.id ? { ...r, status: "approved", lastError: undefined } : r
+        )
+      );
+      startPolling(req.id);
+    } catch {
+      showToast("error", "Failed to retry generation");
+    } finally {
+      setApprovingId(null);
     }
   }
 
@@ -559,10 +594,26 @@ export default function DocRequestsPanel({ companyId }: Props) {
                   </div>
                 )}
 
-                {req.status === "approved" && (
+                {req.status === "approved" && !req.lastError && (
                   <div className="flex items-center gap-2 text-xs text-mist">
                     <Loader2 size={12} className="animate-spin" />
                     Generating document…
+                  </div>
+                )}
+
+                {req.status === "approved" && req.lastError && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-ember bg-ember/5 border border-ember/20 rounded-lg px-3 py-2">
+                      Generation failed: {req.lastError}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRetryGeneration(req)}
+                      loading={approvingId === req.id}
+                    >
+                      Retry Generation
+                    </Button>
                   </div>
                 )}
 
