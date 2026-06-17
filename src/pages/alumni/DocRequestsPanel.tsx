@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Plus,
 } from "lucide-react";
 import clsx from "clsx";
 import { formatDistanceToNow } from "date-fns";
@@ -16,18 +17,21 @@ import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
   queryDocuments,
+  setDocument,
   updateDocument,
   serverTimestamp,
   where,
   orderBy,
 } from "../../lib/firestore";
-import type { DocRequest } from "../../types/docRequests.types";
+import type { DocRequest, DocRequestType, RequestPurpose, RequestUrgency } from "../../types/docRequests.types";
 import {
   DOC_TYPE_CONFIG,
   PURPOSE_LABELS,
   STATUS_CONFIG,
 } from "../../types/docRequests.types";
 import type { Timestamp } from "firebase/firestore";
+import type { AlumniProfile } from "../../types/alumni.types";
+import { Modal } from "../../components/ui/Modal";
 
 interface Props {
   companyId: string;
@@ -52,6 +56,14 @@ export default function DocRequestsPanel({ companyId }: Props) {
   const [showNotes, setShowNotes] = useState<Record<string, boolean>>({});
   const [notesText, setNotesText] = useState<Record<string, string>>({});
   const pollIntervals = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [allAlumni, setAllAlumni] = useState<AlumniProfile[]>([]);
+  const [newReqAlumniId, setNewReqAlumniId] = useState("");
+  const [newReqType, setNewReqType] = useState<DocRequestType>("reference_letter");
+  const [newReqPurpose, setNewReqPurpose] = useState<RequestPurpose>("job_application");
+  const [newReqDetails, setNewReqDetails] = useState("");
+  const [newReqUrgency, setNewReqUrgency] = useState<RequestUrgency>("standard");
+  const [creatingReq, setCreatingReq] = useState(false);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -70,6 +82,13 @@ export default function DocRequestsPanel({ companyId }: Props) {
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
+
+  useEffect(() => {
+    queryDocuments<AlumniProfile>("alumniProfiles", [
+      where("companyId", "==", companyId),
+      orderBy("name", "asc"),
+    ]).then(setAllAlumni).catch(() => {});
+  }, [companyId]);
 
   useEffect(() => {
     const intervals = pollIntervals.current;
@@ -142,6 +161,45 @@ export default function DocRequestsPanel({ companyId }: Props) {
       setRejectingId(null);
     } catch {
       showToast("error", "Failed to reject request");
+    }
+  }
+
+  async function handleCreateRequest() {
+    const alumni = allAlumni.find((a) => a.id === newReqAlumniId);
+    if (!alumni || !appUser) return;
+    setCreatingReq(true);
+    try {
+      const requestId = crypto.randomUUID();
+      await setDocument("docRequests", requestId, {
+        id: requestId,
+        companyId,
+        alumniId: alumni.id,
+        alumniName: alumni.name,
+        alumniEmail: alumni.email,
+        type: newReqType,
+        purpose: newReqPurpose,
+        purposeDetails: newReqDetails,
+        urgency: newReqUrgency,
+        status: "pending",
+        hrNotes: "",
+        rejectionReason: null,
+        documentUrl: null,
+        approvedBy: null,
+        approvedByName: null,
+        approvedAt: null,
+        deliveredAt: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      await loadRequests();
+      setShowCreateModal(false);
+      setNewReqAlumniId("");
+      setNewReqDetails("");
+      showToast("success", "Request created", `Document request created for ${alumni.name}`);
+    } catch {
+      showToast("error", "Failed to create request");
+    } finally {
+      setCreatingReq(false);
     }
   }
 
@@ -220,12 +278,99 @@ export default function DocRequestsPanel({ companyId }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-display text-xl text-navy">Document Requests</h2>
-        <p className="text-sm text-mist mt-0.5">
-          Reference letters and employment verification requests from alumni
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-display text-xl text-navy">Document Requests</h2>
+          <p className="text-sm text-mist mt-0.5">
+            Reference letters and employment verification requests from alumni
+          </p>
+        </div>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Plus size={14} className="mr-1.5" />
+          Create Request
+        </Button>
       </div>
+
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Create Document Request"
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2 pt-4 border-t border-navy/5">
+            <Button variant="ghost" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button
+              onClick={handleCreateRequest}
+              loading={creatingReq}
+              disabled={!newReqAlumniId}
+            >
+              Create Request
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Alumni <span className="text-ember">*</span></label>
+            <select
+              value={newReqAlumniId}
+              onChange={(e) => setNewReqAlumniId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 bg-white"
+            >
+              <option value="">Select alumni…</option>
+              {allAlumni.map((a) => (
+                <option key={a.id} value={a.id}>{a.name} — {a.email}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Document Type</label>
+            <select
+              value={newReqType}
+              onChange={(e) => setNewReqType(e.target.value as DocRequestType)}
+              className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 bg-white"
+            >
+              <option value="reference_letter">Reference Letter</option>
+              <option value="employment_verification">Employment Verification</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Purpose</label>
+            <select
+              value={newReqPurpose}
+              onChange={(e) => setNewReqPurpose(e.target.value as RequestPurpose)}
+              className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 bg-white"
+            >
+              {(Object.entries(PURPOSE_LABELS) as [RequestPurpose, string][]).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Details</label>
+            <textarea
+              rows={3}
+              value={newReqDetails}
+              onChange={(e) => setNewReqDetails(e.target.value)}
+              placeholder="Add any relevant details for this request…"
+              className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Processing Time</label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="urgency" value="standard" checked={newReqUrgency === "standard"} onChange={() => setNewReqUrgency("standard")} className="accent-teal" />
+                <span className="text-sm text-navy">Standard (3–5 business days)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="urgency" value="urgent" checked={newReqUrgency === "urgent"} onChange={() => setNewReqUrgency("urgent")} className="accent-teal" />
+                <span className="text-sm text-navy">Urgent (within 24 hours)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">

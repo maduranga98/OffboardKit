@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Network,
   UserCheck,
@@ -120,9 +121,15 @@ const EMPTY_FORM = {
   tags: [] as string[],
 };
 
+type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting" | "requests";
+
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [activeTab, setActiveTab] = useState<"directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting" | "requests">("directory");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as AlumniTab) || "directory";
+  function setActiveTab(tab: AlumniTab) {
+    setSearchParams({ tab });
+  }
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
   const [loading, setLoading] = useState(true);

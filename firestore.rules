@@ -236,6 +236,43 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /docRequests/{requestId} {
+      // HR company members: full access for their company
+      allow read, write: if isAuth() && (
+        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
+        (resource != null && resource.data.companyId == currentCompanyId())
+      );
+      // Alumni: can create requests for themselves
+      allow create: if isAuth() && request.resource.data.alumniId != null
+        && request.resource.data.alumniEmail == request.auth.token.email;
+      // Alumni: can read their own requests
+      allow read: if isAuth() && resource.data.alumniEmail == request.auth.token.email;
+    }
+
+    match /gigRequests/{requestId} {
+      // HR company members: full access for their company
+      allow read, write: if isAuth() && (
+        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
+        (resource != null && resource.data.companyId == currentCompanyId())
+      );
+      // Alumni: can read and update gig requests sent to them
+      allow read, update: if isAuth() && resource.data.alumniEmail == request.auth.token.email;
+    }
+
+    match /knowledgeThreads/{threadId} {
+      // HR company members: full access for their company
+      allow read, write: if isAuth() && (
+        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
+        (resource != null && resource.data.companyId == currentCompanyId())
+      );
+      // Alumni: can read and update their own threads
+      allow read, update: if isAuth() && resource.data.alumniEmail == request.auth.token.email;
+
+      match /messages/{messageId} {
+        allow read, write: if isAuth();
+      }
+    }
+
     match /invites/{inviteId} {
       allow read: if !isAuth() || (
         resource.data.email == request.auth.token.email ||

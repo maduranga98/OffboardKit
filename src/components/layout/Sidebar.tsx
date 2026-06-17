@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -13,6 +13,13 @@ import {
   HelpCircle,
   X,
   LogOut,
+  GitBranch,
+  Briefcase,
+  Megaphone,
+  MessageCircle,
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../hooks/useAuth";
@@ -23,6 +30,17 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const alumniSubItems = [
+  { tab: "directory", label: "Directory", icon: Network },
+  { tab: "pipeline", label: "Boomerang Pipeline", icon: GitBranch },
+  { tab: "jobboard", label: "Job Board", icon: Briefcase },
+  { tab: "announcements", label: "Announcements", icon: Megaphone },
+  { tab: "expertthreads", label: "Expert Threads", icon: MessageCircle },
+  { tab: "pulsesurveys", label: "Pulse Surveys", icon: BarChart3 },
+  { tab: "consulting", label: "Consulting", icon: Users },
+  { tab: "requests", label: "Requests", icon: FileText },
+];
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -46,6 +64,11 @@ function OffboardSetLogo() {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { appUser, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const isAlumniActive = location.pathname === "/alumni" || location.pathname.startsWith("/alumni/");
+  const searchParams = new URLSearchParams(location.search);
+  const activeAlumniTab = searchParams.get("tab") || "directory";
 
   const roleLabel = appUser?.role
     ? appUser.role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -95,21 +118,47 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             const Icon = item.icon;
             const isActive = activeTo === item.to;
 
+            const isAlumniItem = item.to === "/alumni";
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={onClose}
-                className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                  isActive
-                    ? "text-teal bg-teal/10 border-l-2 border-teal"
-                    : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
+              <div key={item.to}>
+                <NavLink
+                  to={isAlumniItem ? "/alumni?tab=directory" : item.to}
+                  onClick={isAlumniItem ? (e) => { e.preventDefault(); navigate("/alumni?tab=directory"); onClose(); } : onClose}
+                  className={clsx(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                    isActive
+                      ? "text-teal bg-teal/10 border-l-2 border-teal"
+                      : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
+                  )}
+                >
+                  <Icon size={18} />
+                  <span className="flex-1">{item.label}</span>
+                  {isAlumniItem && (isAlumniActive ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                </NavLink>
+                {isAlumniItem && isAlumniActive && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-teal/20 pl-3">
+                    {alumniSubItems.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive = activeAlumniTab === sub.tab;
+                      return (
+                        <button
+                          key={sub.tab}
+                          onClick={() => { navigate(`/alumni?tab=${sub.tab}`); onClose(); }}
+                          className={clsx(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
+                            isSubActive
+                              ? "text-teal bg-teal/10"
+                              : "text-mist hover:text-white hover:bg-teal/5"
+                          )}
+                        >
+                          <SubIcon size={13} />
+                          <span>{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </NavLink>
+              </div>
             );
           });
           })()}
