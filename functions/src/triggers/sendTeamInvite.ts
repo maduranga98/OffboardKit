@@ -66,15 +66,12 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
             </a>
           </td></tr></table>
           <p style="margin:20px 0 0;font-size:13px;color:#6B7280;">
-            This invite expires in 7 days. If the button doesn't work, copy and paste this link:
-          </p>
-          <p style="margin:4px 0 0;font-size:13px;color:#0D9E8A;word-break:break-all;">
-            ${signupUrl}
+            This invite expires in 7 days.
           </p>
         </td></tr>
         <tr><td style="padding:24px 40px;border-top:1px solid #E5E7EB;">
           <p style="margin:0;font-size:12px;color:#9CA3AF;">
-            Sent by OffboardSet &middot; <a href="https://offboardset.com" style="color:#0D9E8A;text-decoration:none;">offboardset.com</a>
+            Sent by OffboardSet
           </p>
         </td></tr>
       </table>

@@ -59,7 +59,7 @@ export function emailWrapper(bodyContent: string): string {
           <tr>
             <td style="padding:20px 32px 28px;border-top:1px solid #F3F4F6;">
               <p style="margin:0;font-family:${FONT};font-size:12px;color:${BRAND.muted};text-align:center;">
-                Sent by <a href="https://offboardset.com" style="color:${BRAND.teal};text-decoration:none;">OffboardSet</a> · You are receiving this because you are part of an offboarding process.
+                Sent by OffboardSet · You are receiving this because you are part of an offboarding process.
               </p>
             </td>
           </tr>

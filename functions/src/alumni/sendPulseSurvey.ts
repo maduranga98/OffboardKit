@@ -83,7 +83,7 @@ function surveyEmailHtml(params: {
         </td></tr>
         <tr><td style="padding:20px 32px 28px;border-top:1px solid #F3F4F6;">
           <p style="margin:0;font-size:12px;color:#9CA3AF;text-align:center;font-family:${FONT};">
-            Sent by <a href="https://offboardset.com" style="color:#0D9E8A;text-decoration:none;">OffboardSet</a>
+            Sent by OffboardSet
           </p>
         </td></tr>
       </table>
