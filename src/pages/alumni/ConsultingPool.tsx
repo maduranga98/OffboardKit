@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -13,6 +13,7 @@ import {
   where,
   orderBy,
 } from "../../lib/firestore";
+import { Modal } from "../../components/ui/Modal";
 import { useAuth } from "../../hooks/useAuth";
 import type { AlumniProfile } from "../../types/alumni.types";
 import type { GigRequest, GigStatus } from "../../types/gigRequests.types";
@@ -69,6 +70,9 @@ export default function ConsultingPool({ companyId }: Props) {
   const [search, setSearch] = useState("");
   const [gigStatusFilter, setGigStatusFilter] = useState<GigStatus | "all">("all");
   const [sendModal, setSendModal] = useState<{ alumni: AlumniProfile } | null>(null);
+  const [allAlumni, setAllAlumni] = useState<AlumniProfile[]>([]);
+  const [showSelectAlumni, setShowSelectAlumni] = useState(false);
+  const [selectedAlumniId, setSelectedAlumniId] = useState("");
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -98,6 +102,12 @@ export default function ConsultingPool({ companyId }: Props) {
 
   useEffect(() => { loadAlumni(); }, [loadAlumni]);
   useEffect(() => { loadGigs(); }, [loadGigs]);
+  useEffect(() => {
+    queryDocuments<AlumniProfile>("alumniProfiles", [
+      where("companyId", "==", companyId),
+      orderBy("name", "asc"),
+    ]).then(setAllAlumni).catch(() => {});
+  }, [companyId]);
 
   const filteredAlumni = alumni.filter((a) => {
     if (!search) return true;
@@ -165,8 +175,49 @@ export default function ConsultingPool({ companyId }: Props) {
           <h2 className="text-2xl font-display text-navy">Consulting Pool</h2>
           <p className="text-sm text-mist mt-1">Alumni available for freelance and consulting engagements</p>
         </div>
-        <span className="text-sm text-mist self-start mt-1">{alumni.length} alumni available</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-mist self-start mt-1">{alumni.length} alumni available</span>
+          <Button onClick={() => { setSelectedAlumniId(""); setShowSelectAlumni(true); }}>
+            <Plus size={14} className="mr-1.5" />
+            New Gig Request
+          </Button>
+        </div>
       </div>
+
+      <Modal
+        isOpen={showSelectAlumni}
+        onClose={() => setShowSelectAlumni(false)}
+        title="Select Alumni for Gig Request"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2 pt-4 border-t border-navy/5">
+            <Button variant="ghost" onClick={() => setShowSelectAlumni(false)}>Cancel</Button>
+            <Button
+              disabled={!selectedAlumniId}
+              onClick={() => {
+                const a = allAlumni.find((x) => x.id === selectedAlumniId);
+                if (a) { setShowSelectAlumni(false); setSendModal({ alumni: a }); }
+              }}
+            >
+              Continue
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-mist">Choose an alumni to send a consulting gig request to.</p>
+          <select
+            value={selectedAlumniId}
+            onChange={(e) => setSelectedAlumniId(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 bg-white"
+          >
+            <option value="">Choose an alumni…</option>
+            {allAlumni.map((a) => (
+              <option key={a.id} value={a.id}>{a.name} — {a.role || a.department || a.email}</option>
+            ))}
+          </select>
+        </div>
+      </Modal>
 
       {/* Two-panel grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
