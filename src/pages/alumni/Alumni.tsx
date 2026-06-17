@@ -118,7 +118,7 @@ type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expe
 
 export default function Alumni() {
   const { companyId } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const activeTab = (searchParams.get("tab") as AlumniTab) || "directory";
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
   const [completedFlows, setCompletedFlows] = useState<OffboardFlow[]>([]);
