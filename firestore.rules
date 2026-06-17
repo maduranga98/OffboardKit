@@ -244,6 +244,16 @@ service cloud.firestore {
       allow read, write: if isAuth();
     }
 
+    match /pulseSurveys/{surveyId} {
+      allow read, write: if isAuth();
+    }
+
+    match /pulseResponses/{responseId} {
+      allow read, write: if isAuth();
+      // Alumni access pulse survey links via token without a /users doc
+      allow read, update: if resource.data.token != null;
+    }
+
     match /knowledgeThreads/{threadId} {
       allow read, write: if isAuth();
 
