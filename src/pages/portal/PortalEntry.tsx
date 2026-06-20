@@ -759,68 +759,110 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
     );
   }
 
-  const statusLabel: Record<string, string> = {
-    assigned: "Awaiting return",
-    returned: "Return received — pending verification",
-    verified: "Verified",
-    wiped: "Complete",
-  };
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <p className="text-sm text-mist">
-        The following company assets are assigned to you. Please return them before your last day.
+        The following company assets are assigned to you. Return each item before your last day.
       </p>
+
+      {/* 2-step legend */}
+      <div className="flex items-center gap-6 px-4 py-3 bg-navy/5 rounded-lg text-xs text-mist">
+        <div className="flex items-center gap-1.5">
+          <span className="h-5 w-5 rounded-full bg-teal flex items-center justify-center text-white font-bold text-[10px]">1</span>
+          <span>You confirm return</span>
+        </div>
+        <div className="h-px flex-1 bg-navy/10" />
+        <div className="flex items-center gap-1.5">
+          <span className="h-5 w-5 rounded-full bg-teal flex items-center justify-center text-white font-bold text-[10px]">2</span>
+          <span>HR / IT verifies</span>
+        </div>
+      </div>
+
       {assets.map((asset) => {
-        const confirmed =
-          asset.status === "returned" ||
-          asset.status === "verified" ||
-          asset.status === "wiped";
+        const employeeStep = asset.status === "assigned";
+        const adminStep = asset.status === "returned";
+        const done = asset.status === "verified" || asset.status === "wiped";
+
         return (
-        <div key={asset.id} className="bg-white border border-navy/5 rounded-lg px-4 py-3">
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              disabled={confirmed || updatingId === asset.id}
-              onClick={() => handleConfirmReturned(asset)}
-              aria-label={confirmed ? "Confirmed received" : "Confirm received"}
-              className={clsx(
-                "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                confirmed
-                  ? "bg-teal border-teal text-white cursor-default"
-                  : "border-navy/20 hover:border-teal cursor-pointer",
-                updatingId === asset.id && "opacity-50",
+          <div key={asset.id} className="bg-white border border-navy/5 rounded-lg overflow-hidden">
+            {/* Asset header */}
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-navy">{asset.name}</p>
+                <p className="text-xs text-mist mt-0.5">
+                  {asset.type}{asset.serialNumber ? ` · SN: ${asset.serialNumber}` : ""}
+                </p>
+              </div>
+              <Badge
+                variant={done ? "teal" : adminStep ? "amber" : "mist"}
+              >
+                {done ? "Complete" : adminStep ? "Pending verification" : "Awaiting return"}
+              </Badge>
+            </div>
+
+            {/* Progress stepper */}
+            <div className="border-t border-navy/5 px-4 py-3">
+              <div className="flex items-center gap-2">
+                {/* Step 1 */}
+                <div className={clsx(
+                  "flex items-center gap-1.5 text-xs font-medium",
+                  !employeeStep ? "text-teal" : "text-mist"
+                )}>
+                  <span className={clsx(
+                    "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0",
+                    !employeeStep ? "bg-teal text-white" : "bg-navy/10 text-navy"
+                  )}>
+                    {!employeeStep ? "✓" : "1"}
+                  </span>
+                  You confirmed
+                </div>
+                <div className={clsx("flex-1 h-px", !employeeStep ? "bg-teal" : "bg-navy/10")} />
+                {/* Step 2 */}
+                <div className={clsx(
+                  "flex items-center gap-1.5 text-xs font-medium",
+                  done ? "text-teal" : "text-mist"
+                )}>
+                  <span className={clsx(
+                    "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0",
+                    done ? "bg-teal text-white" : "bg-navy/10 text-navy"
+                  )}>
+                    {done ? "✓" : "2"}
+                  </span>
+                  HR / IT verified
+                </div>
+              </div>
+
+              {/* Action */}
+              {employeeStep && (
+                <button
+                  type="button"
+                  disabled={updatingId === asset.id}
+                  onClick={() => handleConfirmReturned(asset)}
+                  className={clsx(
+                    "mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md border-2 border-dashed text-sm font-medium transition-colors",
+                    updatingId === asset.id
+                      ? "opacity-50 cursor-not-allowed border-navy/10 text-mist"
+                      : "border-teal/40 text-teal hover:bg-teal/5 cursor-pointer"
+                  )}
+                >
+                  <CheckCircle size={15} />
+                  {updatingId === asset.id ? "Confirming…" : "Confirm I have returned this asset"}
+                </button>
               )}
-            >
-              {confirmed && <CheckCircle size={12} />}
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-navy">{asset.name}</p>
-              <p className="text-xs text-mist mt-0.5">{asset.type}{asset.serialNumber ? ` · SN: ${asset.serialNumber}` : ""}</p>
-              {!confirmed && (
-                <p className="text-xs text-mist mt-1">
-                  Tick the box once you have received / are ready to return this asset.
+              {adminStep && (
+                <p className="mt-2 text-xs text-amber-600 text-center">
+                  Return received — waiting for HR / IT to verify
+                </p>
+              )}
+              {done && (
+                <p className="mt-2 text-xs text-teal text-center">
+                  This asset has been verified. Thank you!
                 </p>
               )}
             </div>
-            <Badge
-              variant={
-                asset.status === "verified" || asset.status === "wiped"
-                  ? "teal"
-                  : asset.status === "returned"
-                    ? "amber"
-                    : "mist"
-              }
-            >
-              {statusLabel[asset.status] ?? asset.status}
-            </Badge>
           </div>
-        </div>
         );
       })}
-      <p className="text-xs text-mist pt-2">
-        Once you hand over an asset, your HR or IT team will verify and update its status here.
-      </p>
     </div>
   );
 }
