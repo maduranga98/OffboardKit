@@ -32,6 +32,7 @@ export interface SendEmailParams {
   to: EmailRecipient[];
   subject: string;
   htmlContent: string;
+  textContent?: string;
   sender?: { email: string; name: string };
   replyTo?: { email: string; name: string };
   attachments?: EmailAttachment[];
@@ -52,6 +53,13 @@ export async function sendSmtpEmail(params: SendEmailParams): Promise<void> {
     to: toAddresses,
     subject: params.subject,
     html: params.htmlContent,
+    text: params.textContent,
+    headers: {
+      "X-Mailer": "OffboardSet",
+      "X-Priority": "3",
+      "Precedence": "bulk",
+      "List-Unsubscribe": `<mailto:${sender.email}?subject=unsubscribe>`,
+    },
   };
 
   if (params.replyTo) {

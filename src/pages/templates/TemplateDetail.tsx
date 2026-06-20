@@ -209,7 +209,7 @@ export default function TemplateDetail() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl mx-auto">
       {/* Back link + header */}
       <div>
         <button
@@ -339,6 +339,17 @@ export default function TemplateDetail() {
                         rows={2}
                         className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
                       />
+                      {(task.type === "form" || task.type === "link") && (
+                        <input
+                          type="url"
+                          value={task.linkUrl || ""}
+                          onChange={(e) =>
+                            updateTask(task.id, { linkUrl: e.target.value })
+                          }
+                          placeholder={task.type === "form" ? "Form URL (e.g. https://forms.google.com/...)" : "Link URL (e.g. https://...)"}
+                          className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                        />
+                      )}
                       <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-1.5">
                           <label className="text-xs text-mist">Type</label>

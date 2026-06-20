@@ -34,17 +34,18 @@ export default function SignatureCanvas({
     }
   }, []);
 
+  const getPos = (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
+    const { x, y } = getPos(canvas, e.clientX, e.clientY);
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
@@ -55,11 +56,7 @@ export default function SignatureCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
+    const { x, y } = getPos(canvas, e.clientX, e.clientY);
     ctx.lineTo(x, y);
     ctx.stroke();
     setHasSignature(true);
@@ -67,6 +64,33 @@ export default function SignatureCanvas({
 
   const stopDrawing = () => {
     setIsDrawing(false);
+  };
+
+  const startDrawingTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(canvas, touch.clientX, touch.clientY);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const drawTouch = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = getPos(canvas, touch.clientX, touch.clientY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setHasSignature(true);
   };
 
   const clearSignature = () => {
@@ -96,7 +120,10 @@ export default function SignatureCanvas({
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
-          className="w-full block cursor-crosshair"
+          onTouchStart={startDrawingTouch}
+          onTouchMove={drawTouch}
+          onTouchEnd={stopDrawing}
+          className="w-full block cursor-crosshair touch-none"
           style={{ minHeight: "200px" }}
         />
       </div>

@@ -611,7 +611,7 @@ function TasksList({
                   </div>
                 ) : (
                   <a
-                    href={task.description || "#"}
+                    href={task.linkUrl || task.description || "#"}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => handleToggleTask(task)}
