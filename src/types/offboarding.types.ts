@@ -33,6 +33,7 @@ export interface TemplateTask {
   isRequired: boolean;
   order: number;
   dependsOnTaskId?: string;
+  linkUrl?: string;
 }
 
 export interface OffboardTemplate {
@@ -142,4 +143,5 @@ export interface FlowTask {
   notes: string;
   isRequired: boolean;
   dependsOnTaskId?: string;
+  linkUrl?: string;
 }

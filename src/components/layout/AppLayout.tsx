@@ -9,6 +9,7 @@ import { useNotifications } from "../../hooks/useNotifications";
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/offboardings": "Offboardings",
+  "/assets": "Assets",
   "/templates": "Templates",
   "/interviews": "Interviews",
   "/knowledge": "Knowledge Base",

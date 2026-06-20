@@ -1142,16 +1142,16 @@ export default function InterviewList() {
                   <div className="h-10 w-10 rounded-md bg-teal/10 flex items-center justify-center flex-shrink-0">
                     <MessageSquare size={20} className="text-teal" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0">
                       <p className="text-sm font-medium text-navy truncate">
                         {template.name}
                       </p>
                       {template.isDefault && (
-                        <Badge variant="teal">Default</Badge>
+                        <Badge variant="teal" className="flex-shrink-0">Default</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-mist mt-0.5 truncate">
+                    <p className="text-xs text-mist mt-0.5 line-clamp-2 break-words">
                       {template.description || "No description"}
                     </p>
                   </div>

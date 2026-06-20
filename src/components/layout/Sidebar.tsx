@@ -110,7 +110,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-hide">
           {(() => {
             const activeTo = [...navItems]
               .sort((a, b) => b.to.length - a.to.length)

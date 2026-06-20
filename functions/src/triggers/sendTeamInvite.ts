@@ -80,10 +80,13 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
 </body>
 </html>`;
 
+  const textContent = `You've been invited to join ${invite.companyName} on OffboardSet as ${roleLabel}.\n\n${invite.invitedByName} has invited you to help manage employee offboarding.\n\nAccept the invitation and sign up here:\n${signupUrl}\n\nThis invite expires in 7 days.\n\n---\nOffboardSet | Employee Offboarding Platform`;
+
   await sendSmtpEmail({
-    to: [{ email: invite.email }],
+    to: [{ email: invite.email, name: invite.email }],
     subject: `${invite.invitedByName} invited you to join ${invite.companyName} on OffboardSet`,
     htmlContent: html,
+    textContent,
   });
 
   console.log(`Invite email sent to ${invite.email} for company ${invite.companyName}`);

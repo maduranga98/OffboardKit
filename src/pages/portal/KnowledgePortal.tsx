@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   BookOpen,
   User,
@@ -10,12 +10,16 @@ import {
   AlertCircle,
   Edit2,
   RotateCcw,
+  Upload,
+  Paperclip,
 } from "lucide-react";
 import clsx from "clsx";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Badge } from "../../components/ui/Badge";
+import { Progress } from "../../components/ui/Progress";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import {
   subscribeToCollection,
@@ -24,6 +28,7 @@ import {
   serverTimestamp,
   where,
 } from "../../lib/firestore";
+import { storage } from "../../lib/firebase";
 import type {
   KnowledgeItem,
   KnowledgeItemType,
@@ -87,6 +92,9 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>("new");
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Form state
   const [editForm, setEditForm] = useState<EditForm>({
@@ -101,6 +109,8 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
   const resetToNew = useCallback(() => {
     setFormMode("new");
     setEditForm({ id: "", title: "", type: "process", description: "", url: "", successor: "" });
+    setUploadProgress(null);
+    setUploadedFileName(null);
   }, []);
 
   useEffect(() => {
@@ -131,6 +141,43 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
       successor: item.successor || "",
     });
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  }
+
+  async function handleDocumentUpload(file: File) {
+    setSaving(true);
+    setUploadProgress(0);
+    setErrorMsg(null);
+    try {
+      const filePath = `companies/${flow.companyId}/knowledge/${flow.id}/${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, filePath);
+      const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type || "application/octet-stream" });
+
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          (snap) => {
+            setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+          },
+          reject,
+          async () => {
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              setEditForm((f) => ({ ...f, url }));
+              setUploadedFileName(file.name);
+              setUploadProgress(null);
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
+    } catch {
+      setErrorMsg("Failed to upload file. Please try again.");
+      setUploadProgress(null);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSubmit() {
@@ -401,7 +448,11 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
             <label className="block text-sm font-medium text-navy mb-1">Type</label>
             <select
               value={editForm.type}
-              onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value as KnowledgeItemType }))}
+              onChange={(e) => {
+                setEditForm((f) => ({ ...f, type: e.target.value as KnowledgeItemType, url: "" }));
+                setUploadedFileName(null);
+                setUploadProgress(null);
+              }}
               className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal bg-white"
             >
               {EMPLOYEE_TYPES.map((t) => (
@@ -419,12 +470,60 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
               className="w-full px-3 py-2 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal resize-none"
             />
           </div>
-          <Input
-            label="URL"
-            value={editForm.url}
-            onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
-            placeholder="Link to document, video, or resource"
-          />
+          {editForm.type === "document" ? (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Upload Document</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDocumentUpload(file);
+                  e.target.value = "";
+                }}
+              />
+              {uploadProgress !== null ? (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-mist">
+                    <span>Uploading…</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} max={100} size="sm" color="teal" />
+                </div>
+              ) : uploadedFileName ? (
+                <div className="flex items-center gap-2 px-3 py-2 border border-teal/30 bg-teal/5 rounded-lg">
+                  <Paperclip size={14} className="text-teal flex-shrink-0" />
+                  <span className="text-sm text-navy truncate flex-1">{uploadedFileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-teal underline flex-shrink-0"
+                  >
+                    Replace
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-navy/15 rounded-lg py-4 px-4 text-center hover:border-teal/50 hover:bg-teal/5 transition-colors"
+                >
+                  <Upload size={18} className="text-mist mx-auto mb-1.5" />
+                  <p className="text-sm text-mist">Click to upload a document</p>
+                  <p className="text-xs text-mist/70 mt-0.5">PDF, Word, Excel, PowerPoint, or image</p>
+                </button>
+              )}
+            </div>
+          ) : (
+            <Input
+              label="URL"
+              value={editForm.url}
+              onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
+              placeholder="Link to document, video, or resource"
+            />
+          )}
           <Input
             label="Who needs this?"
             value={editForm.successor}
