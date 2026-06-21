@@ -168,6 +168,7 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
       await setDocument("exitInterviewResponses", responseId, {
         companyId: flow.companyId,
         flowId: flow.id,
+        portalToken: flow.portalToken,
         employeeId: flow.employeeId,
         employeeName: flow.employeeName,
         employeeEmail: flow.employeeEmail,
