@@ -174,7 +174,7 @@ function GigCard({
   );
 }
 
-
+export default function AlumniGigs() {
   const { alumniProfile } = useAlumniAuth();
   const [gigs, setGigs] = useState<GigRequest[]>([]);
   const [loading, setLoading] = useState(true);
