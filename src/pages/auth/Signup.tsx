@@ -245,6 +245,18 @@ export default function Signup() {
               Sign in
             </Link>
           </p>
+
+          <p className="mt-4 text-xs text-center text-mist/50">
+            A product of{" "}
+            <a
+              href="https://www.lumoraventures.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-teal transition-colors"
+            >
+              Lumora Ventures PVT LTD
+            </a>
+          </p>
         </div>
       </div>
     </div>

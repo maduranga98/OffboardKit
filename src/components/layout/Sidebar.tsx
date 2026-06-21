@@ -194,6 +194,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </NavLink>
         </div>
 
+        <div className="px-4 pb-2">
+          <a
+            href="https://www.lumoraventures.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-white/25 hover:text-white/50 transition-colors leading-tight block text-center"
+          >
+            A product of Lumora Ventures PVT LTD
+          </a>
+        </div>
+
         <div className="border-t border-white/10 px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-teal/20 flex items-center justify-center text-teal text-sm font-medium flex-shrink-0">

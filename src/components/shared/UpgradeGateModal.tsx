@@ -73,7 +73,7 @@ export function UpgradeGateModal({
 
         {/* Footer text */}
         <p className="text-xs text-mist text-center mt-4">
-          Annual plans available — save 2 months.
+          Annual plans save 16%. Non-profits get 30% off.
         </p>
       </div>
     </div>

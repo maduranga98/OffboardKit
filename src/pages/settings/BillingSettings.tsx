@@ -12,6 +12,11 @@ import {
   Globe,
   Lock,
   X,
+  Star,
+  MessageCircle,
+  GitBranch,
+  Shield,
+  Briefcase,
 } from "lucide-react";
 import { format } from "date-fns";
 import { httpsCallable } from "firebase/functions";
@@ -33,122 +38,331 @@ const PLAN_CONFIG: Record<
   PlanKey,
   {
     label: string;
+    emoji: string;
+    tagline: string;
     monthly: number | null;
     annual: number | null;
+    annualTotal: number | null;
+    annualSaving: number | null;
+    annualSavingPct: number | null;
     color: "mist" | "teal" | "navy" | "amber";
     userLimit: number | null;
     employeeLimit: number | null;
+    exitLimit: number | null;
     popular?: boolean;
   }
 > = {
-  free: { label: "Free", monthly: 0, annual: 0, color: "mist", userLimit: 2, employeeLimit: null },
-  starter: { label: "Starter", monthly: 29, annual: 24, color: "teal", userLimit: 3, employeeLimit: 50 },
-  growth: { label: "Growth", monthly: 79, annual: 66, color: "teal", userLimit: 10, employeeLimit: 200, popular: true },
-  business: { label: "Business", monthly: 199, annual: 166, color: "navy", userLimit: 25, employeeLimit: 500 },
-  enterprise: { label: "Enterprise", monthly: null, annual: null, color: "amber", userLimit: null, employeeLimit: null },
+  free: {
+    label: "Free", emoji: "🆓", tagline: "Try before you commit",
+    monthly: 0, annual: 0, annualTotal: 0, annualSaving: 0, annualSavingPct: null,
+    color: "mist", userLimit: 1, employeeLimit: null, exitLimit: 3,
+  },
+  starter: {
+    label: "Starter", emoji: "💼", tagline: "Unlimited offboarding for small teams",
+    monthly: 29, annual: 24, annualTotal: 290, annualSaving: 58, annualSavingPct: 16,
+    color: "teal", userLimit: 3, employeeLimit: 50, exitLimit: null,
+  },
+  growth: {
+    label: "Growth", emoji: "🚀", tagline: "Complete platform for growing teams",
+    monthly: 79, annual: 66, annualTotal: 790, annualSaving: 158, annualSavingPct: 16,
+    color: "teal", userLimit: 10, employeeLimit: 200, exitLimit: null, popular: true,
+  },
+  business: {
+    label: "Business", emoji: "🏢", tagline: "Advanced AI + full alumni tools",
+    monthly: 199, annual: 166, annualTotal: 1990, annualSaving: 398, annualSavingPct: 16,
+    color: "navy", userLimit: 25, employeeLimit: 500, exitLimit: null,
+  },
+  enterprise: {
+    label: "Enterprise", emoji: "🏛️", tagline: "White-label, SSO & compliance",
+    monthly: null, annual: null, annualTotal: null, annualSaving: null, annualSavingPct: null,
+    color: "amber", userLimit: null, employeeLimit: null, exitLimit: null,
+  },
 };
 
 interface PlanFeatures {
+  // Core
   offboardings: string;
+  templates: string;
   users: string;
-  knowledgeTransfer: boolean;
+  employees: string;
+  taskRouting: boolean;
+  removeBranding: boolean;
+  // Knowledge Transfer
+  documentUpload: boolean;
+  aiQACapture: boolean;
+  videoUpload: boolean;
+  fullTextSearch: boolean;
   aiGapDetection: boolean;
-  aiSentiment: boolean;
-  exitInterviews: boolean;
+  // Access Revocation
   accessRevocation: boolean;
-  advancedAnalytics: boolean;
-  alumniPortal: boolean;
-  apiAccess: boolean;
+  complianceExport: boolean;
+  // Exit Interviews
+  exitInterviews: string;
+  aiSentiment: boolean;
+  advancedExitAnalytics: boolean;
+  // Alumni
+  alumniDirectory: string;
+  boomerangPipeline: string;
+  jobBoard: boolean;
+  pulseSurveys: string;
+  reEngagementScore: boolean;
+  askTheExpert: boolean;
+  consultingPool: boolean;
+  referenceLetters: boolean;
+  // Analytics
+  analyticsDashboard: string;
+  csvExport: boolean;
+  scheduledReports: boolean;
+  // Admin
+  sso: boolean;
   sla: boolean;
-  slack: boolean;
+  dedicatedManager: boolean;
+  // Support
+  support: string;
 }
 
 const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
   free: {
-    offboardings: "3/year",
-    users: "2 HR users",
-    knowledgeTransfer: true,
+    offboardings: "3 / year",
+    templates: "1",
+    users: "1 HR user",
+    employees: "—",
+    taskRouting: false,
+    removeBranding: false,
+    documentUpload: true,
+    aiQACapture: false,
+    videoUpload: false,
+    fullTextSearch: false,
     aiGapDetection: false,
+    accessRevocation: false,
+    complianceExport: false,
+    exitInterviews: "—",
     aiSentiment: false,
-    exitInterviews: true,
-    accessRevocation: true,
-    advancedAnalytics: false,
-    alumniPortal: false,
-    apiAccess: false,
+    advancedExitAnalytics: false,
+    alumniDirectory: "—",
+    boomerangPipeline: "—",
+    jobBoard: false,
+    pulseSurveys: "—",
+    reEngagementScore: false,
+    askTheExpert: false,
+    consultingPool: false,
+    referenceLetters: false,
+    analyticsDashboard: "—",
+    csvExport: false,
+    scheduledReports: false,
+    sso: false,
     sla: false,
-    slack: false,
+    dedicatedManager: false,
+    support: "Email (72h)",
   },
   starter: {
     offboardings: "Unlimited",
+    templates: "5",
     users: "3 HR users",
-    knowledgeTransfer: true,
+    employees: "Up to 50",
+    taskRouting: true,
+    removeBranding: true,
+    documentUpload: true,
+    aiQACapture: true,
+    videoUpload: false,
+    fullTextSearch: false,
     aiGapDetection: false,
-    aiSentiment: false,
-    exitInterviews: true,
     accessRevocation: true,
-    advancedAnalytics: false,
-    alumniPortal: false,
-    apiAccess: false,
+    complianceExport: false,
+    exitInterviews: "Fixed template",
+    aiSentiment: false,
+    advancedExitAnalytics: false,
+    alumniDirectory: "View-only",
+    boomerangPipeline: "—",
+    jobBoard: false,
+    pulseSurveys: "—",
+    reEngagementScore: false,
+    askTheExpert: false,
+    consultingPool: false,
+    referenceLetters: false,
+    analyticsDashboard: "90 days",
+    csvExport: false,
+    scheduledReports: false,
+    sso: false,
     sla: false,
-    slack: false,
+    dedicatedManager: false,
+    support: "Email (48h)",
   },
   growth: {
     offboardings: "Unlimited",
+    templates: "Unlimited",
     users: "10 HR users",
-    knowledgeTransfer: true,
-    aiGapDetection: true,
-    aiSentiment: true,
-    exitInterviews: true,
+    employees: "Up to 200",
+    taskRouting: true,
+    removeBranding: true,
+    documentUpload: true,
+    aiQACapture: true,
+    videoUpload: true,
+    fullTextSearch: true,
+    aiGapDetection: false,
     accessRevocation: true,
-    advancedAnalytics: true,
-    alumniPortal: true,
-    apiAccess: false,
+    complianceExport: false,
+    exitInterviews: "Custom builder",
+    aiSentiment: true,
+    advancedExitAnalytics: false,
+    alumniDirectory: "Full + profiles",
+    boomerangPipeline: "2 stages",
+    jobBoard: true,
+    pulseSurveys: "Manual + basic",
+    reEngagementScore: true,
+    askTheExpert: false,
+    consultingPool: false,
+    referenceLetters: false,
+    analyticsDashboard: "All time",
+    csvExport: true,
+    scheduledReports: false,
+    sso: false,
     sla: false,
-    slack: true,
+    dedicatedManager: false,
+    support: "Priority email (24h)",
   },
   business: {
     offboardings: "Unlimited",
+    templates: "Unlimited",
     users: "25 HR users",
-    knowledgeTransfer: true,
+    employees: "Up to 500",
+    taskRouting: true,
+    removeBranding: true,
+    documentUpload: true,
+    aiQACapture: true,
+    videoUpload: true,
+    fullTextSearch: true,
     aiGapDetection: true,
-    aiSentiment: true,
-    exitInterviews: true,
     accessRevocation: true,
-    advancedAnalytics: true,
-    alumniPortal: true,
-    apiAccess: true,
-    sla: true,
-    slack: true,
+    complianceExport: true,
+    exitInterviews: "Advanced builder",
+    aiSentiment: true,
+    advancedExitAnalytics: true,
+    alumniDirectory: "Full + profiles",
+    boomerangPipeline: "4-stage Kanban",
+    jobBoard: true,
+    pulseSurveys: "Scheduled + analytics",
+    reEngagementScore: true,
+    askTheExpert: true,
+    consultingPool: true,
+    referenceLetters: true,
+    analyticsDashboard: "All time",
+    csvExport: true,
+    scheduledReports: true,
+    sso: false,
+    sla: false,
+    dedicatedManager: false,
+    support: "Priority chat (8h)",
   },
   enterprise: {
     offboardings: "Unlimited",
+    templates: "Unlimited",
     users: "Unlimited",
-    knowledgeTransfer: true,
+    employees: "Unlimited",
+    taskRouting: true,
+    removeBranding: true,
+    documentUpload: true,
+    aiQACapture: true,
+    videoUpload: true,
+    fullTextSearch: true,
     aiGapDetection: true,
-    aiSentiment: true,
-    exitInterviews: true,
     accessRevocation: true,
-    advancedAnalytics: true,
-    alumniPortal: true,
-    apiAccess: true,
+    complianceExport: true,
+    exitInterviews: "Advanced builder",
+    aiSentiment: true,
+    advancedExitAnalytics: true,
+    alumniDirectory: "Full + profiles",
+    boomerangPipeline: "Full",
+    jobBoard: true,
+    pulseSurveys: "Full",
+    reEngagementScore: true,
+    askTheExpert: true,
+    consultingPool: true,
+    referenceLetters: true,
+    analyticsDashboard: "All time",
+    csvExport: true,
+    scheduledReports: true,
+    sso: true,
     sla: true,
-    slack: true,
+    dedicatedManager: true,
+    support: "Dedicated manager (4h)",
   },
 };
 
-const FEATURE_ROWS: { key: keyof PlanFeatures; label: string; icon: React.ReactNode }[] = [
-  { key: "offboardings", label: "Offboardings", icon: <FileText size={14} /> },
-  { key: "users", label: "HR Users", icon: <Users size={14} /> },
-  { key: "knowledgeTransfer", label: "Knowledge transfer", icon: <FileText size={14} /> },
-  { key: "exitInterviews", label: "Exit interviews", icon: <FileText size={14} /> },
-  { key: "accessRevocation", label: "Access revocation tracker", icon: <Lock size={14} /> },
-  { key: "aiGapDetection", label: "AI gap detection", icon: <Brain size={14} /> },
-  { key: "aiSentiment", label: "AI sentiment analysis", icon: <Brain size={14} /> },
-  { key: "advancedAnalytics", label: "Advanced analytics", icon: <BarChart2 size={14} /> },
-  { key: "alumniPortal", label: "Alumni portal", icon: <Globe size={14} /> },
-  { key: "slack", label: "Slack integration", icon: <Zap size={14} /> },
-  { key: "apiAccess", label: "API access", icon: <Lock size={14} /> },
-  { key: "sla", label: "SLA + priority support", icon: <CheckCircle size={14} /> },
+type FeatureRowGroup = { group: string; rows: { key: keyof PlanFeatures; label: string; icon: React.ReactNode }[] };
+
+const FEATURE_ROW_GROUPS: FeatureRowGroup[] = [
+  {
+    group: "Core Offboarding",
+    rows: [
+      { key: "offboardings", label: "Offboardings / year", icon: <FileText size={14} /> },
+      { key: "templates", label: "Checklist templates", icon: <FileText size={14} /> },
+      { key: "users", label: "HR / Manager users", icon: <Users size={14} /> },
+      { key: "employees", label: "Employees in system", icon: <Users size={14} /> },
+      { key: "taskRouting", label: "Task routing by dept.", icon: <CheckCircle size={14} /> },
+      { key: "removeBranding", label: "Remove OffboardKit branding", icon: <Star size={14} /> },
+    ],
+  },
+  {
+    group: "Knowledge Transfer",
+    rows: [
+      { key: "documentUpload", label: "Document upload", icon: <FileText size={14} /> },
+      { key: "aiQACapture", label: "AI-guided Q&A capture", icon: <Brain size={14} /> },
+      { key: "videoUpload", label: "Video upload + link attach", icon: <FileText size={14} /> },
+      { key: "fullTextSearch", label: "Full-text knowledge search", icon: <FileText size={14} /> },
+      { key: "aiGapDetection", label: "AI knowledge gap detection", icon: <Brain size={14} /> },
+    ],
+  },
+  {
+    group: "Access Revocation",
+    rows: [
+      { key: "accessRevocation", label: "Access revocation tracker", icon: <Lock size={14} /> },
+      { key: "complianceExport", label: "Compliance audit export (PDF)", icon: <Shield size={14} /> },
+    ],
+  },
+  {
+    group: "Exit Interviews",
+    rows: [
+      { key: "exitInterviews", label: "Exit interview", icon: <MessageCircle size={14} /> },
+      { key: "aiSentiment", label: "AI sentiment analysis", icon: <Brain size={14} /> },
+      { key: "advancedExitAnalytics", label: "Advanced analytics + benchmarking", icon: <BarChart2 size={14} /> },
+    ],
+  },
+  {
+    group: "Alumni Portal",
+    rows: [
+      { key: "alumniDirectory", label: "Alumni directory", icon: <Globe size={14} /> },
+      { key: "boomerangPipeline", label: "Boomerang hire pipeline", icon: <GitBranch size={14} /> },
+      { key: "jobBoard", label: "Job board + referral flow", icon: <Briefcase size={14} /> },
+      { key: "pulseSurveys", label: "Pulse survey system", icon: <BarChart2 size={14} /> },
+      { key: "reEngagementScore", label: "Re-engagement score", icon: <Zap size={14} /> },
+      { key: "askTheExpert", label: "Ask the Expert threads", icon: <MessageCircle size={14} /> },
+      { key: "consultingPool", label: "Consulting / gig requests", icon: <Users size={14} /> },
+      { key: "referenceLetters", label: "Reference letter + verification PDF", icon: <FileText size={14} /> },
+    ],
+  },
+  {
+    group: "Analytics",
+    rows: [
+      { key: "analyticsDashboard", label: "Analytics dashboard", icon: <BarChart2 size={14} /> },
+      { key: "csvExport", label: "CSV / PDF export", icon: <FileText size={14} /> },
+      { key: "scheduledReports", label: "Scheduled analytics reports", icon: <BarChart2 size={14} /> },
+    ],
+  },
+  {
+    group: "Admin & Security",
+    rows: [
+      { key: "sso", label: "SSO / SAML login", icon: <Lock size={14} /> },
+      { key: "sla", label: "SLA guarantee (99.9% uptime)", icon: <CheckCircle size={14} /> },
+      { key: "dedicatedManager", label: "Dedicated account manager", icon: <Users size={14} /> },
+    ],
+  },
+  {
+    group: "Support",
+    rows: [
+      { key: "support", label: "Support channel + response", icon: <MessageCircle size={14} /> },
+    ],
+  },
 ];
 
 function FeatureCell({ value }: { value: boolean | string }) {
@@ -261,7 +475,7 @@ export default function BillingSettings() {
     ? format(company.createdAt.toDate(), "MMMM yyyy")
     : "Unknown";
 
-  const annualSavingsPct = 17; // 2 months free
+  const annualSavingsPct = 16;
 
   const handleSubscribe = async (plan: PlanKey) => {
     if (!companyId) return;
@@ -326,7 +540,7 @@ export default function BillingSettings() {
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-sm font-medium text-navy">Offboardings this year</span>
                   <span className="text-sm text-mist">
-                    {usageCount.offboardingsThisYear} / 3
+                    {usageCount.offboardingsThisYear} / {planConfig.exitLimit ?? 3}
                   </span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-navy/10 overflow-hidden">
@@ -334,11 +548,11 @@ export default function BillingSettings() {
                     className={`h-full rounded-full transition-all ${
                       usageCount.offboardingsThisYear >= 3 ? "bg-ember" : "bg-teal"
                     }`}
-                    style={{ width: `${Math.min((usageCount.offboardingsThisYear / 3) * 100, 100)}%` }}
+                    style={{ width: `${Math.min((usageCount.offboardingsThisYear / (planConfig.exitLimit ?? 3)) * 100, 100)}%` }}
                   />
                 </div>
               </div>
-              {usageCount.offboardingsThisYear >= 3 && (
+              {usageCount.offboardingsThisYear >= (planConfig.exitLimit ?? 3) && (
                 <div className="flex items-start gap-3 rounded-lg bg-ember/5 border border-ember/20 p-3">
                   <Zap size={15} className="text-ember mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-ember">
@@ -469,6 +683,47 @@ export default function BillingSettings() {
             const isCurrentPlan = currentPlan === plan;
             const price = billingCycle === "annual" ? cfg.annual : cfg.monthly;
 
+            const planHighlights: Record<PlanKey, string[]> = {
+              free: ["3 exits/year", "1 HR user", "Document upload"],
+              starter: [
+                `${PLAN_FEATURES[plan].offboardings} offboardings`,
+                PLAN_FEATURES[plan].users,
+                `Up to ${cfg.employeeLimit} employees`,
+                "AI-guided knowledge capture",
+                "Access revocation tracker",
+                "Fixed exit interview template",
+              ],
+              growth: [
+                `${PLAN_FEATURES[plan].offboardings} offboardings`,
+                PLAN_FEATURES[plan].users,
+                `Up to ${cfg.employeeLimit} employees`,
+                "Full alumni portal + job board",
+                "Boomerang hire pipeline",
+                "Pulse surveys + re-engagement score",
+                "AI sentiment analysis",
+                "Analytics (all time)",
+              ],
+              business: [
+                `${PLAN_FEATURES[plan].offboardings} offboardings`,
+                PLAN_FEATURES[plan].users,
+                `Up to ${cfg.employeeLimit} employees`,
+                "AI knowledge gap detection",
+                "Ask the Expert threads",
+                "Consulting / gig pool",
+                "Reference letter PDF generation",
+                "Compliance audit export",
+                "Scheduled analytics reports",
+              ],
+              enterprise: [
+                "Unlimited everything",
+                "White-label portal",
+                "SSO / SAML login",
+                "99.9% SLA guarantee",
+                "Dedicated account manager",
+                "SOC 2 / HIPAA documentation",
+              ],
+            };
+
             return (
               <Card
                 key={plan}
@@ -483,16 +738,25 @@ export default function BillingSettings() {
                 )}
                 <div className="space-y-5 pt-2">
                   <div>
-                    <h4 className="text-base font-semibold text-navy">{cfg.label}</h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{cfg.emoji}</span>
+                      <h4 className="text-base font-semibold text-navy">{cfg.label}</h4>
+                    </div>
+                    <p className="text-xs text-mist mt-0.5">{cfg.tagline}</p>
                     {plan === "enterprise" ? (
-                      <p className="text-2xl font-display text-navy mt-1">Custom</p>
+                      <p className="text-2xl font-display text-navy mt-2">Custom</p>
                     ) : (
-                      <div className="mt-1">
+                      <div className="mt-2">
                         <span className="text-2xl font-display text-navy">${price}</span>
                         <span className="text-xs text-mist ml-1">/mo</span>
-                        {billingCycle === "annual" && (
+                        {billingCycle === "annual" && cfg.annualTotal && (
                           <p className="text-xs text-teal mt-0.5">
-                            ${price! * 12}/yr · saves ${(cfg.monthly! - price!) * 12}/yr
+                            ${cfg.annualTotal}/yr · save ${cfg.annualSaving} ({cfg.annualSavingPct}%)
+                          </p>
+                        )}
+                        {billingCycle === "monthly" && (
+                          <p className="text-xs text-mist/70 mt-0.5">
+                            or ${cfg.annual}/mo billed annually
                           </p>
                         )}
                       </div>
@@ -500,24 +764,12 @@ export default function BillingSettings() {
                   </div>
 
                   <ul className="space-y-2 text-sm">
-                    {[
-                      PLAN_FEATURES[plan].offboardings,
-                      `${PLAN_FEATURES[plan].users}`,
-                      PLAN_FEATURES[plan].aiGapDetection ? "AI gap detection" : null,
-                      PLAN_FEATURES[plan].aiSentiment ? "AI sentiment analysis" : null,
-                      PLAN_FEATURES[plan].advancedAnalytics ? "Advanced analytics" : null,
-                      PLAN_FEATURES[plan].alumniPortal ? "Alumni portal" : null,
-                      PLAN_FEATURES[plan].slack ? "Slack integration" : null,
-                      PLAN_FEATURES[plan].apiAccess ? "API access" : null,
-                      PLAN_FEATURES[plan].sla ? "SLA + priority support" : null,
-                    ]
-                      .filter(Boolean)
-                      .map((feat) => (
-                        <li key={feat} className="flex items-start gap-2 text-navy">
-                          <CheckCircle size={13} className="text-teal mt-0.5 flex-shrink-0" />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
+                    {planHighlights[plan].map((feat) => (
+                      <li key={feat} className="flex items-start gap-2 text-navy">
+                        <CheckCircle size={13} className="text-teal mt-0.5 flex-shrink-0" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
                   </ul>
 
                   {isCurrentPlan ? (
@@ -525,7 +777,7 @@ export default function BillingSettings() {
                       Current Plan
                     </Button>
                   ) : plan === "enterprise" ? (
-                    <a href="mailto:hello@offboardset.com">
+                    <a href="mailto:hello@offboardkit.com">
                       <Button fullWidth variant="outline">
                         Contact Sales
                       </Button>
@@ -553,7 +805,7 @@ export default function BillingSettings() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-navy/10">
-                <th className="pb-3 text-left font-medium text-mist w-48">Feature</th>
+                <th className="pb-3 text-left font-medium text-mist w-52">Feature</th>
                 {(["free", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((p) => (
                   <th
                     key={p}
@@ -570,22 +822,34 @@ export default function BillingSettings() {
               </tr>
             </thead>
             <tbody>
-              {FEATURE_ROWS.map((row) => (
-                <tr key={row.key} className="border-b border-navy/5 last:border-0">
-                  <td className="py-3 pr-4">
-                    <div className="flex items-center gap-2 text-navy">
-                      <span className="text-mist">{row.icon}</span>
-                      {row.label}
-                    </div>
-                  </td>
-                  {(["free", "starter", "growth", "business", "enterprise"] as PlanKey[]).map(
-                    (p) => (
-                      <td key={p} className="py-3 text-center">
-                        <FeatureCell value={PLAN_FEATURES[p][row.key]} />
+              {FEATURE_ROW_GROUPS.map((group) => (
+                <>
+                  <tr key={`group-${group.group}`}>
+                    <td
+                      colSpan={6}
+                      className="pt-5 pb-1 text-xs font-semibold text-mist uppercase tracking-wider"
+                    >
+                      {group.group}
+                    </td>
+                  </tr>
+                  {group.rows.map((row) => (
+                    <tr key={row.key} className="border-b border-navy/5 last:border-0">
+                      <td className="py-2.5 pr-4">
+                        <div className="flex items-center gap-2 text-navy">
+                          <span className="text-mist">{row.icon}</span>
+                          {row.label}
+                        </div>
                       </td>
-                    )
-                  )}
-                </tr>
+                      {(["free", "starter", "growth", "business", "enterprise"] as PlanKey[]).map(
+                        (p) => (
+                          <td key={p} className="py-2.5 text-center">
+                            <FeatureCell value={PLAN_FEATURES[p][row.key]} />
+                          </td>
+                        )
+                      )}
+                    </tr>
+                  ))}
+                </>
               ))}
             </tbody>
           </table>
@@ -599,17 +863,17 @@ export default function BillingSettings() {
             <Mail size={18} className="text-teal" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-navy">Upgrade early or need Enterprise?</h3>
+            <h3 className="font-semibold text-navy">Need Enterprise or have questions?</h3>
             <p className="text-sm text-mist mt-1">
-              We can set up your plan manually while Stripe billing is being rolled out.
-              Annual plans available — save 2 months.
+              Annual plans save 16% (2 months free). Non-profits get 30% off. Startups under 1 year get 20% off their first year.
+              Invoice-based payment available for Enterprise.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-3">
-              <a href="mailto:hello@offboardset.com" className="text-sm font-medium text-teal hover:underline">
-                hello@offboardset.com
+              <a href="mailto:hello@offboardkit.com" className="text-sm font-medium text-teal hover:underline">
+                hello@offboardkit.com
               </a>
               <span className="text-xs text-mist">
-                Usually responds within 1 business day
+                Built by Lumora Ventures PVT LTD · offboardkit.com
               </span>
             </div>
           </div>
