@@ -117,7 +117,7 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
     if (!flow.id) return;
     const unsub = subscribeToCollection<KnowledgeItem>(
       "knowledgeItems",
-      [where("flowId", "==", flow.id)],
+      [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken)],
       (data) => {
         setItems(data.sort((a, b) => {
           const aMs = (a.createdAt as unknown as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
