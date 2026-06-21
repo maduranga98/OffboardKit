@@ -130,6 +130,12 @@ service cloud.firestore {
       allow read: if isAuth() && resource.data.companyId == currentCompanyId();
       allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
       allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
+      // Portal: employee can read and mark assets returned using the flow's portalToken.
+      allow read: if resource.data.portalToken != null;
+      allow update: if resource.data.portalToken != null
+        && request.resource.data.portalToken == resource.data.portalToken
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'returnedAt', 'updatedAt']);
     }
 
     // Portal reads interview templates (not sensitive) and submits responses.

@@ -28,6 +28,7 @@ import { WIPE_REQUIRED_TYPES } from "../../types/asset.types";
 interface AssetReturnTrackerProps {
   flowId: string;
   companyId: string;
+  portalToken?: string;
   onScoreUpdate?: (newScore: number) => void;
 }
 
@@ -84,6 +85,7 @@ function statusBadge(a: Asset) {
 export default function AssetReturnTracker({
   flowId,
   companyId,
+  portalToken,
   onScoreUpdate,
 }: AssetReturnTrackerProps) {
   const { appUser } = useAuth();
@@ -178,6 +180,7 @@ export default function AssetReturnTracker({
         id: newId,
         companyId,
         flowId,
+        ...(portalToken ? { portalToken } : {}),
         name: formData.name.trim(),
         type: formData.type,
         serialNumber: formData.serialNumber.trim(),
