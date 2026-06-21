@@ -49,6 +49,7 @@ import {
   orderBy,
 } from "../../lib/firestore";
 import EngagementBadge from "../../components/alumni/EngagementBadge";
+import { usePlanGate } from "../../hooks/usePlanGate";
 import type {
   AlumniProfile,
   AlumniStatus,
@@ -115,6 +116,35 @@ const EMPTY_FORM = {
 };
 
 type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting" | "requests";
+
+function PlanGateBlock({ title, minPlan, children }: { title: string; minPlan: string; children: React.ReactNode }) {
+  const { plan } = usePlanGate();
+  const planOrder = ["free", "starter", "growth", "business", "enterprise"];
+  const planLabels: Record<string, string> = {
+    growth: "Growth ($79/mo)",
+    business: "Business ($199/mo)",
+    enterprise: "Enterprise",
+  };
+  const hasAccess = planOrder.indexOf(plan) >= planOrder.indexOf(minPlan);
+  if (hasAccess) return <>{children}</>;
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+      <div className="text-4xl">🔒</div>
+      <h3 className="text-lg font-semibold text-navy">{title}</h3>
+      <p className="text-sm text-mist max-w-sm">
+        This feature requires the{" "}
+        <span className="font-medium text-navy">{planLabels[minPlan] ?? minPlan}</span> plan
+        or above.
+      </p>
+      <a
+        href="/settings/billing"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-teal hover:underline"
+      >
+        View plans →
+      </a>
+    </div>
+  );
+}
 
 export default function Alumni() {
   const { companyId } = useAuth();
@@ -694,13 +724,41 @@ export default function Alumni() {
         {activeTab === "jobboard" && null}
       </div>
 
-      {activeTab === "requests" && companyId && <DocRequestsPanel companyId={companyId} />}
-      {activeTab === "consulting" && companyId && <ConsultingPool companyId={companyId} />}
-      {activeTab === "pipeline" && <BoomerangPipeline />}
-      {activeTab === "jobboard" && <AlumniJobBoard />}
-      {activeTab === "announcements" && <AlumniAnnouncements />}
-      {activeTab === "expertthreads" && companyId && <ExpertThreads companyId={companyId} />}
-      {activeTab === "pulsesurveys" && companyId && <PulseSurveys companyId={companyId} />}
+      {activeTab === "requests" && companyId && (
+        <PlanGateBlock title="Reference Letters & Verification" minPlan="business">
+          <DocRequestsPanel companyId={companyId} />
+        </PlanGateBlock>
+      )}
+      {activeTab === "consulting" && companyId && (
+        <PlanGateBlock title="Consulting & Gig Requests Pool" minPlan="business">
+          <ConsultingPool companyId={companyId} />
+        </PlanGateBlock>
+      )}
+      {activeTab === "pipeline" && (
+        <PlanGateBlock title="Boomerang Hire Pipeline" minPlan="growth">
+          <BoomerangPipeline />
+        </PlanGateBlock>
+      )}
+      {activeTab === "jobboard" && (
+        <PlanGateBlock title="Job Board & Referral Flow" minPlan="growth">
+          <AlumniJobBoard />
+        </PlanGateBlock>
+      )}
+      {activeTab === "announcements" && (
+        <PlanGateBlock title="Company Announcements Feed" minPlan="starter">
+          <AlumniAnnouncements />
+        </PlanGateBlock>
+      )}
+      {activeTab === "expertthreads" && companyId && (
+        <PlanGateBlock title="Ask the Expert Threads" minPlan="business">
+          <ExpertThreads companyId={companyId} />
+        </PlanGateBlock>
+      )}
+      {activeTab === "pulsesurveys" && companyId && (
+        <PlanGateBlock title="Pulse Survey System" minPlan="growth">
+          <PulseSurveys companyId={companyId} />
+        </PlanGateBlock>
+      )}
 
       {activeTab === "directory" && <>
       {/* Suggestion banner */}

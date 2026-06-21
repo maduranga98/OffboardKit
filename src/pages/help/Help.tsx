@@ -13,6 +13,11 @@ import {
   FileText,
   HelpCircle,
   ExternalLink,
+  Network,
+  Briefcase,
+  Megaphone,
+  MessageCircle,
+  BarChart3,
 } from "lucide-react";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -326,6 +331,253 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "alumni-portal",
+    title: "Alumni portal overview",
+    icon: Network,
+    body: (
+      <>
+        <p>
+          The alumni portal (Growth plan and above) lets HR teams stay connected
+          with former employees after offboarding. Opted-in alumni get a private
+          portal where they can update their profile, view announcements, browse
+          open roles, and respond to pulse surveys.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            <strong>Opt-in only</strong> — alumni must explicitly consent during
+            offboarding or via their portal invite. HR can see who has opted in
+            from the Directory tab.
+          </li>
+          <li>
+            <strong>Exit interview card</strong> — when an alumni was offboarded
+            via OffboardKit, their exit interview data (sentiment, themes, risk
+            flags, NPS) auto-populates their HR alumni profile. No manual entry
+            required.
+          </li>
+          <li>
+            <strong>Re-engagement score</strong> — a 0–100 score computed per
+            alumni based on login recency, survey responses, job views, referrals,
+            and return intent. Scores update automatically on every portal event.
+          </li>
+          <li>
+            <strong>Network health widget</strong> — live snapshot on the Analytics
+            page showing opted-in count, boomerang pipeline stages, referral
+            conversion, and a suggested priority action.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "boomerang-pipeline",
+    title: "Boomerang hire pipeline",
+    icon: GitBranch,
+    body: (
+      <>
+        <p>
+          Track alumni you want to re-hire through a Kanban pipeline:{" "}
+          <strong>Potential → Contacted → Interviewing → Rehired</strong>. Available
+          on Growth (2 stages) and Business (full 4-stage) plans.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            Alumni cards show exit interview context, tenure, department, and
+            recent portal activity to help prioritise outreach.
+          </li>
+          <li>
+            Alumni can toggle <strong>Open to Return / Not Right Now</strong> from
+            their portal. This flag is visible in the directory and affects the
+            re-engagement score.
+          </li>
+          <li>
+            Moving a card through stages records the action in the alumni's
+            engagement log for audit purposes.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "job-board",
+    title: "Job board &amp; referral flow",
+    icon: Briefcase,
+    body: (
+      <>
+        <p>
+          Post open roles directly to your alumni network from the Job Board tab.
+          Available on Growth and above.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            <strong>Audience targeting</strong> (Business+) — limit visibility to
+            all alumni, a specific department, or rehire candidates only.
+          </li>
+          <li>
+            Alumni can <strong>Apply</strong>, <strong>Refer someone</strong>, or
+            hide a post. Applications and referrals appear in the HR Job Board
+            panel.
+          </li>
+          <li>
+            Business plan adds hire conversion tracking — mark a referral as hired
+            to measure referral analytics.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "pulse-surveys",
+    title: "Pulse survey system",
+    icon: BarChart3,
+    body: (
+      <>
+        <p>
+          Send short 3-question surveys to opted-in alumni to measure satisfaction
+          and return intent. Available on Growth and above.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            Alumni receive a tokenised email link — <strong>no login required</strong>{" "}
+            to respond. One question at a time, ~30 second completion.
+          </li>
+          <li>
+            Results aggregate into: response rate, satisfaction score, would-return
+            %, and would-refer %.
+          </li>
+          <li>
+            <strong>Default questions:</strong> (1) How's your current role going?
+            (1–5), (2) Would you consider returning? (Yes / Maybe / No), (3) Would
+            you refer someone to work here? (Yes / No).
+          </li>
+          <li>
+            Business plan adds scheduled surveys (quarterly / bi-annual) and full
+            analytics filtering.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "announcements",
+    title: "Company announcements feed",
+    icon: Megaphone,
+    body: (
+      <>
+        <p>
+          HR can publish posts to opted-in alumni — news, open roles, milestones,
+          and events. Alumni see an in-portal feed and receive an optional email
+          digest.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            Posts are read-only for alumni. HR can target by audience on Growth+
+            plans.
+          </li>
+          <li>
+            Read tracking per alumni is recorded in{" "}
+            <code>alumniAnnouncementReads</code> for engagement analytics.
+          </li>
+          <li>
+            Starter plan gets basic announcements (news + roles). Growth and above
+            unlock all post types with audience targeting.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "ask-the-expert",
+    title: "Ask the Expert threads",
+    icon: MessageCircle,
+    body: (
+      <>
+        <p>
+          Business plan only. Open a question thread directly from a completed
+          offboarding record to retrieve post-departure knowledge from the former
+          employee.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            The alumni receives an email notification and replies inline from their
+            portal — no extra account setup.
+          </li>
+          <li>
+            Threads are linked to specific knowledge items and remain searchable in
+            the Knowledge Base.
+          </li>
+          <li>
+            <strong>HR view:</strong> Thread inbox in Alumni tab · "Ask [Name]" button
+            on completed offboarding records · Close thread when resolved.
+          </li>
+          <li>
+            <strong>Alumni view:</strong> Question inbox in portal · Reply inline ·
+            Email notification on each new question.
+          </li>
+        </ul>
+        <p className="mt-3 text-sm text-mist">
+          No other offboarding platform offers post-departure knowledge retrieval.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "consulting-pool",
+    title: "Consulting &amp; gig requests",
+    icon: Users,
+    body: (
+      <>
+        <p>
+          Business plan only. Alumni can toggle "Available for Consulting" in
+          their profile and list their skills. HR browses a consulting pool
+          filtered by skill and department.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            <strong>Send a gig request</strong> — include scope, timeline, and
+            budget. Alumni accept, decline (with a note), or reconsider within 24h.
+          </li>
+          <li>
+            Status lifecycle:{" "}
+            <code>sent → accepted → declined → completed</code>
+          </li>
+          <li>
+            Completed gigs are logged to the alumni's profile and appear in HR's
+            consulting history.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "reference-letters",
+    title: "Reference letters &amp; verification",
+    icon: FileText,
+    body: (
+      <>
+        <p>
+          Business plan only. Alumni can request reference letters or employment
+          verification certificates directly from their portal. HR approves with
+          one click.
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
+          <li>
+            A Cloud Function generates a branded PDF with company letterhead and
+            delivers it by email. Also downloadable from the alumni portal.
+          </li>
+          <li>
+            <strong>Employment verification</strong> includes: company name, employee
+            name, role, department, employment dates, total tenure, and the
+            approving HR user's signature. Gender-neutral language by default.
+          </li>
+          <li>
+            Requests appear in the HR panel under{" "}
+            <code>Alumni → Requests</code> with status tracking.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: "faq",
     title: "FAQ",
     icon: HelpCircle,
@@ -379,6 +631,40 @@ const SECTIONS: Section[] = [
             Edit the webhook entry under <code>Settings → HRIS Webhooks</code>
             , paste a new secret, and rotate it on the receiving end. There's
             no overlap window — coordinate the change.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-navy">
+            How does an alumni opt in to the portal?
+          </dt>
+          <dd className="text-mist mt-1">
+            During the offboarding process the employee portal includes an opt-in
+            checkbox. HR can also send a manual invite from the Alumni → Directory
+            tab. Opted-out alumni don't appear in the directory and receive no
+            communications.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-navy">
+            What plan do I need for the alumni portal?
+          </dt>
+          <dd className="text-mist mt-1">
+            Growth ($79/mo) unlocks the full alumni directory, job board, pulse
+            surveys, boomerang pipeline (2 stages), and re-engagement scores.
+            Business ($199/mo) adds Ask the Expert threads, consulting pool,
+            reference letter generation, 4-stage Kanban pipeline, and scheduled
+            surveys.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-navy">
+            Can an alumni withdraw consent?
+          </dt>
+          <dd className="text-mist mt-1">
+            Yes. Alumni can opt out at any time from their portal profile. This
+            immediately removes them from the directory, stops all email
+            communications, and marks them as opted-out in Firestore. Their
+            historical data is retained for the company's audit log.
           </dd>
         </div>
       </dl>
@@ -477,10 +763,10 @@ export default function Help() {
               <p className="text-sm text-mist mt-1">
                 Email{" "}
                 <a
-                  href="mailto:support@offboardset.com"
+                  href="mailto:support@offboardkit.com"
                   className="text-teal hover:underline inline-flex items-center gap-1"
                 >
-                  support@offboardset.com <ExternalLink size={12} />
+                  support@offboardkit.com <ExternalLink size={12} />
                 </a>{" "}
                 with the flow ID and a brief description of what you expected
                 to happen.
