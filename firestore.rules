@@ -25,6 +25,18 @@ service cloud.firestore {
       return hasUserProfile() ? currentUser().role : null;
     }
 
+    function getFlow(flowId) {
+      return get(/databases/$(database)/documents/offboardFlows/$(flowId)).data;
+    }
+
+    function isValidPortalFlow(flowId) {
+      return flowId is string
+        && getFlow(flowId).portalToken != null
+        && (!('portalExpiresAt' in getFlow(flowId))
+            || getFlow(flowId).portalExpiresAt == null
+            || request.time < getFlow(flowId).portalExpiresAt);
+    }
+
     function isCompanyMember(companyId) {
       return isAuth() && currentCompanyId() == companyId;
     }
@@ -130,10 +142,11 @@ service cloud.firestore {
       allow read: if isAuth() && resource.data.companyId == currentCompanyId();
       allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
       allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
-      // Portal: employee can read and mark assets returned using the flow's portalToken.
-      allow read: if resource.data.portalToken != null;
-      allow update: if resource.data.portalToken != null
-        && request.resource.data.portalToken == resource.data.portalToken
+      // Portal: employee can read/update assets for their flow. Verified via
+      // the parent flow's portalToken so no denormalization is required on the
+      // asset document itself.
+      allow read: if isValidPortalFlow(resource.data.flowId);
+      allow update: if isValidPortalFlow(resource.data.flowId)
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'returnedAt', 'updatedAt']);
     }

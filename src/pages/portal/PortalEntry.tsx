@@ -200,6 +200,7 @@ function TasksList({
 }) {
   const [tasks, setTasks] = useState<FlowTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>(
     {}
   );
@@ -276,6 +277,7 @@ function TasksList({
     );
 
     try {
+      setSaveError(null);
       await updateDocument("flowTasks", task.id, {
         status: newStatus,
         completedAt: newStatus === "completed" ? serverTimestamp() : null,
@@ -283,12 +285,12 @@ function TasksList({
       });
       await syncFlowProgress(updatedTasks);
     } catch {
-      // Revert on error
       setTasks(prevTasks);
       onProgressChange(
         prevTasks.filter((t) => t.status === "completed").length,
         prevTasks.length
       );
+      setSaveError("Failed to save task. Please try again.");
     }
   }
 
@@ -347,7 +349,7 @@ function TasksList({
         );
       });
     } catch {
-      // Signature save failed
+      setSaveError("Failed to save signature. Please try again.");
     }
   }
 
@@ -406,7 +408,7 @@ function TasksList({
         );
       });
     } catch {
-      // Upload failed — leave task in previous state
+      setSaveError("Upload failed. Please try again.");
     } finally {
       setUploadingTaskId(null);
     }
@@ -433,6 +435,11 @@ function TasksList({
 
   return (
     <div className="space-y-3">
+      {saveError && (
+        <div className="px-4 py-3 bg-ember/10 border border-ember/20 rounded-lg text-sm text-ember">
+          {saveError}
+        </div>
+      )}
       {tasks.map((task) => {
         const dueDate = toDate(task.dueDate);
         const overdue =
@@ -717,7 +724,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken)])
+    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
       .then((data) => setAssets(data))
       .catch(() => {})
       .finally(() => setLoading(false));
