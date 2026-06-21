@@ -98,13 +98,11 @@ export const onAlumniOptedIn = functions.firestore
     let setupPasswordUrl: string;
     try {
       setupPasswordUrl = await admin.auth().generatePasswordResetLink(email, {
-        url: `${APP_URL}/alumni-login`,
+        url: `${APP_URL}/alumni-login?companyId=${after.companyId}`,
       });
     } catch (err) {
       console.error("onAlumniOptedIn: failed to generate password reset link", err);
-      // Fall back to a direct link to the login page so the invitation
-      // still goes out and the alumni can use "Forgot password" themselves.
-      setupPasswordUrl = `${APP_URL}/alumni-login`;
+      setupPasswordUrl = `${APP_URL}/alumni-login${after.companyId ? `?companyId=${after.companyId}` : ""}`;
     }
 
     try {

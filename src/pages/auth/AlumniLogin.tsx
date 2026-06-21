@@ -13,7 +13,9 @@ import logo from "../../assets/logo.png";
 export default function AlumniLogin() {
   const { user, alumniProfile, loading, authError, signInWithEmail } = useAlumniAuth();
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState("");
+  const emailFromUrl = searchParams.get("email") || "";
+  const companyIdFromUrl = searchParams.get("companyId") || "";
+  const [email, setEmail] = useState(emailFromUrl);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -177,7 +179,7 @@ export default function AlumniLogin() {
           <p className="mt-6 text-sm text-center text-mist">
             First time here?{" "}
             <Link
-              to="/alumni-register"
+              to={`/alumni-register${companyIdFromUrl ? `?companyId=${companyIdFromUrl}&email=${encodeURIComponent(emailFromUrl)}` : ""}`}
               className="text-teal hover:text-teal-light font-medium"
             >
               Create your account

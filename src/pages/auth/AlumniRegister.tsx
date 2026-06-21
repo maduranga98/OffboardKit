@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Heart } from "lucide-react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../lib/firebase";
@@ -11,8 +11,11 @@ import logo from "../../assets/logo.png";
 
 export default function AlumniRegister() {
   const { user, alumniProfile, loading, authError, setAuthError } = useAlumniAuth();
+  const [searchParams] = useSearchParams();
+  const emailFromUrl = searchParams.get("email") || "";
+  const companyIdFromUrl = searchParams.get("companyId") || "";
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailFromUrl);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -138,7 +141,10 @@ export default function AlumniRegister() {
 
           <p className="mt-6 text-sm text-center text-mist">
             Already have an account?{" "}
-            <Link to="/alumni-login" className="text-teal hover:text-teal-light font-medium">
+            <Link
+              to={`/alumni-login${companyIdFromUrl ? `?companyId=${companyIdFromUrl}&email=${encodeURIComponent(emailFromUrl)}` : ""}`}
+              className="text-teal hover:text-teal-light font-medium"
+            >
               Sign in
             </Link>
           </p>
