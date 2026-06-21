@@ -17,6 +17,7 @@ import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
   queryDocuments,
+  getDocument,
   setDocument,
   updateDocument,
   serverTimestamp,
@@ -72,11 +73,18 @@ export default function DocRequestsPanel({ companyId }: Props) {
         orderBy("createdAt", "desc"),
       ]);
       setRequests(data);
+      // Resume polling for any requests already stuck in "approved" state
+      data.forEach((req) => {
+        if (req.status === "approved" && !req.lastError) {
+          startPolling(req.id);
+        }
+      });
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
   useEffect(() => {
@@ -100,10 +108,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
   function startPolling(requestId: string) {
     if (pollIntervals.current.has(requestId)) return;
     const interval = setInterval(async () => {
-      const updated = await queryDocuments<DocRequest>("docRequests", [
-        where("id", "==", requestId),
-      ]);
-      const doc = updated[0];
+      const doc = await getDocument<DocRequest>("docRequests", requestId);
       if (!doc) return;
       if (doc.status === "delivered" || doc.lastError) {
         clearInterval(pollIntervals.current.get(requestId)!);
