@@ -113,7 +113,7 @@ service cloud.firestore {
     match /flowTasks/{taskId} {
       allow read, write: if isAuth();
       allow read: if resource.data.portalToken != null;
-      allow update: if request.resource.data.portalToken == resource.data.portalToken
+      allow update: if isValidPortalFlow(resource.data.flowId)
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['status', 'completedAt', 'completedBy', 'uploadedFileUrl']);
     }
@@ -179,6 +179,12 @@ service cloud.firestore {
         && request.resource.data.portalToken is string
         && request.resource.data.portalToken ==
            get(/databases/$(database)/documents/offboardFlows/$(request.resource.data.flowId)).data.portalToken;
+      // Portal resubmit: employee can edit their own item while the flow is active.
+      allow update: if isValidPortalFlow(resource.data.flowId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['title', 'type', 'description', 'url', 'successor', 'status',
+                    'managerVerificationStatus', 'managerVerified', 'managerVerifiedBy',
+                    'managerVerifiedAt', 'updatedAt']);
     }
 
     match /alumniProfiles/{profileId} {

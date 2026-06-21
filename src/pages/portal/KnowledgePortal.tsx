@@ -207,6 +207,7 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           id,
           companyId: flow.companyId,
           flowId: flow.id,
+          portalToken: flow.portalToken,
           employeeName: flow.employeeName,
           employeeDepartment: flow.employeeDepartment,
           title: editForm.title.trim(),
