@@ -103,7 +103,7 @@ export const sendAlumniInvite = functions.https.onCall(async (data, context) => 
   let setupPasswordUrl: string;
   try {
     setupPasswordUrl = await admin.auth().generatePasswordResetLink(email, {
-      url: `${APP_URL}/alumni-login`,
+      url: `${APP_URL}/alumni-login?companyId=${profile.companyId}`,
     });
   } catch {
     setupPasswordUrl = `${APP_URL}/alumni-login`;

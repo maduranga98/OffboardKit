@@ -134,10 +134,12 @@ function WelcomeHeader({
 }
 
 function AllDoneState({
+  flow,
   totalTasks,
   knowledgeItemCount,
   interviewCompleted,
 }: {
+  flow: OffboardFlow;
   totalTasks: number;
   knowledgeItemCount: number;
   interviewCompleted: boolean;
@@ -182,7 +184,9 @@ function AllDoneState({
           </span>
         </div>
       </div>
-      <Link to="/alumni-login">
+      <Link
+        to={`/alumni-login?companyId=${flow.companyId}&email=${encodeURIComponent(flow.employeeEmail)}`}
+      >
         <Button variant="primary" size="sm">
           Access Alumni Network
         </Button>
@@ -450,7 +454,8 @@ function TasksList({
         const isUploading = uploadingTaskId === task.id;
         const uploadPct = uploadProgress[task.id] ?? 0;
         const isUploadTask = task.type === "upload";
-        const isClickable = !isUploadTask;
+        const isSignatureTask = task.type === "signature";
+        const isClickable = !isUploadTask && !isSignatureTask;
 
         const dependsOnTask = task.dependsOnTaskId
           ? tasks.find((t) => t.id === task.dependsOnTaskId)
@@ -1033,6 +1038,7 @@ export default function PortalEntry() {
         <div className={portalTab === "tasks" ? "block" : "hidden"}>
           {allTasksDone && (
             <AllDoneState
+              flow={flow}
               totalTasks={totalTasks}
               knowledgeItemCount={knowledgeItemCount}
               interviewCompleted={interviewCompleted}
