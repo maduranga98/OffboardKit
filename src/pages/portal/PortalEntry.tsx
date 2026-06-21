@@ -15,7 +15,7 @@ import {
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
@@ -309,49 +309,32 @@ function TasksList({
 
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
-      const uploadTask = uploadBytesResumable(storageRef, blob, {
+      const snapshot = await uploadBytes(storageRef, blob, {
         contentType: "image/png",
       });
-
-      await new Promise<void>((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          () => {},
-          reject,
-          async () => {
-            try {
-              const downloadURL = await getDownloadURL(
-                uploadTask.snapshot.ref
-              );
-              await updateDocument("flowTasks", task.id, {
-                status: "completed",
-                completedAt: serverTimestamp(),
-                completedBy: "employee",
-                uploadedFileUrl: downloadURL,
-              });
-              const updatedTasks = tasks.map((t) =>
-                t.id === task.id
-                  ? {
-                      ...t,
-                      status: "completed" as const,
-                      uploadedFileUrl: downloadURL,
-                    }
-                  : t
-              );
-              setTasks(updatedTasks);
-              setSigningTaskId(null);
-              onProgressChange(
-                updatedTasks.filter((t) => t.status === "completed").length,
-                updatedTasks.length
-              );
-              await syncFlowProgress(updatedTasks);
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          }
-        );
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      await updateDocument("flowTasks", task.id, {
+        status: "completed",
+        completedAt: serverTimestamp(),
+        completedBy: "employee",
+        uploadedFileUrl: downloadURL,
       });
+      const updatedTasks = tasks.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              status: "completed" as const,
+              uploadedFileUrl: downloadURL,
+            }
+          : t
+      );
+      setTasks(updatedTasks);
+      setSigningTaskId(null);
+      onProgressChange(
+        updatedTasks.filter((t) => t.status === "completed").length,
+        updatedTasks.length
+      );
+      await syncFlowProgress(updatedTasks);
     } catch {
       setSaveError("Failed to save signature. Please try again.");
     }
