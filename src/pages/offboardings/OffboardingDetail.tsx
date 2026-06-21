@@ -868,6 +868,7 @@ export default function OffboardingDetail() {
         <AssetReturnTracker
           flowId={flow.id}
           companyId={flow.companyId}
+          portalToken={flow.portalToken}
           onScoreUpdate={handleAssetScoreUpdate}
         />
       )}

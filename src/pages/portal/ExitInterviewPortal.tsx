@@ -75,7 +75,7 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
         // Check for existing response
         const existing = await queryDocuments<ExitInterviewResponse>(
           "exitInterviewResponses",
-          [where("flowId", "==", flow.id), firestoreLimit(1)]
+          [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken), firestoreLimit(1)]
         );
         if (existing.length > 0) {
           setSubmitted(true);

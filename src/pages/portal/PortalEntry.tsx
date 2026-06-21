@@ -212,6 +212,7 @@ function TasksList({
       try {
         const data = await queryDocuments<FlowTask>("flowTasks", [
           where("flowId", "==", flow.id),
+          where("portalToken", "==", flow.portalToken),
           where("assigneeRole", "==", "employee"),
         ]);
         setTasks(data);
@@ -232,6 +233,7 @@ function TasksList({
       // Fetch ALL tasks (not just employee tasks) for overall progress
       const allTasks = await queryDocuments<FlowTask>("flowTasks", [
         where("flowId", "==", flow.id),
+        where("portalToken", "==", flow.portalToken),
       ]);
       // Merge optimistic employee-task updates into the full set
       const taskMap = new Map(updatedTasks.map((t) => [t.id, t]));
@@ -715,7 +717,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
+    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken)])
       .then((data) => setAssets(data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -911,9 +913,11 @@ export default function PortalEntry() {
         const [knowledgeItems, interviews] = await Promise.all([
           queryDocuments("knowledgeItems", [
             where("flowId", "==", flow.id),
+            where("portalToken", "==", flow.portalToken),
           ]),
           queryDocuments("exitInterviewResponses", [
             where("flowId", "==", flow.id),
+            where("portalToken", "==", flow.portalToken),
             firestoreLimit(1),
           ]),
         ]);

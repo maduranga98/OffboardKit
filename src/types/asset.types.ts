@@ -40,6 +40,8 @@ export interface Asset {
   wipeCompletedAt: Timestamp | null;
   wipeCompletedBy: string;
 
+  portalToken?: string;
+
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
