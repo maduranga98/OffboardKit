@@ -43,6 +43,14 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
   return null;
 }
 
+// Ensures a URL string has an absolute protocol so window.open / <a href>
+// don't treat it as a relative app path (e.g. "docs.google.com/..." → app-internal 404).
+function toAbsoluteUrl(url: string): string {
+  if (!url) return "#";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+
 function OffboardSetLogo() {
   return (
     <img
@@ -629,7 +637,7 @@ function TasksList({
                     </div>
                     {(task.linkUrl || task.description) && (
                       <a
-                        href={task.linkUrl || task.description || "#"}
+                        href={toAbsoluteUrl(task.linkUrl || task.description || "")}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-teal underline"
@@ -644,7 +652,7 @@ function TasksList({
                     className="w-full"
                     onClick={() => {
                       const url = task.linkUrl || task.description;
-                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      if (url) window.open(toAbsoluteUrl(url), "_blank", "noopener,noreferrer");
                       handleToggleTask(task);
                     }}
                   >
