@@ -26,6 +26,7 @@ export interface DocRequest {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   lastError?: string;
+  letterBodyOverride?: string | null;
 }
 
 export const DOC_TYPE_CONFIG: Record<

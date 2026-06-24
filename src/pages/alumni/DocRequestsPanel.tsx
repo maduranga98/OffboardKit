@@ -8,6 +8,7 @@ import {
   ChevronUp,
   ExternalLink,
   Plus,
+  Pencil,
 } from "lucide-react";
 import clsx from "clsx";
 import { formatDistanceToNow } from "date-fns";
@@ -32,6 +33,50 @@ import {
 } from "../../types/docRequests.types";
 import type { Timestamp } from "firebase/firestore";
 import type { AlumniProfile } from "../../types/alumni.types";
+
+const PURPOSE_LABELS_LOCAL: Record<string, string> = {
+  job_application: "Job Application",
+  visa: "Visa / Immigration",
+  loan: "Loan / Mortgage",
+  rental: "Rental Agreement",
+  other: "Other",
+};
+
+function calcTenureStr(startDate: Date, exitDate: Date): string {
+  const ms = exitDate.getTime() - startDate.getTime();
+  const totalMonths = Math.floor(ms / (30.44 * 24 * 60 * 60 * 1000));
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  if (years > 0 && months > 0) return `${years} year${years > 1 ? "s" : ""} and ${months} month${months > 1 ? "s" : ""}`;
+  if (years > 0) return `${years} year${years > 1 ? "s" : ""}`;
+  return `${months} month${months !== 1 ? "s" : ""}`;
+}
+
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function buildDefaultBody(req: DocRequest, alumni: AlumniProfile, companyName: string): string {
+  const exitDate: Date = (alumni as unknown as Record<string, unknown>).exitDate &&
+    typeof ((alumni as unknown as Record<string, unknown>).exitDate as Record<string, unknown>).toDate === "function"
+    ? ((alumni as unknown as Record<string, unknown>).exitDate as { toDate: () => Date }).toDate()
+    : new Date();
+  const tenureMs = (alumni as unknown as Record<string, number>).tenureMonths
+    ? (alumni as unknown as Record<string, number>).tenureMonths * 30 * 24 * 60 * 60 * 1000
+    : 0;
+  const startDate = new Date(exitDate.getTime() - tenureMs);
+  const tenureStr = calcTenureStr(startDate, exitDate);
+  const role = (alumni as unknown as Record<string, string>).role || "Team Member";
+  const department = (alumni as unknown as Record<string, string>).department || "—";
+  const firstName = alumni.name.split(" ")[0];
+  const purposeLabel = PURPOSE_LABELS_LOCAL[req.purpose] || req.purpose;
+
+  if (req.type === "employment_verification") {
+    return `This letter serves as official confirmation that ${alumni.name} was employed with ${companyName} in the capacity of ${role} within the ${department} department for a period of ${tenureStr}.\n\nEmployee Name: ${alumni.name}\nPosition Held: ${role}\nDepartment: ${department}\nEmployment Period: ${fmtDate(startDate)} — ${fmtDate(exitDate)}\nTotal Tenure: ${tenureStr}\n\nThis letter is issued for the purpose of ${purposeLabel}${req.purposeDetails ? ` (${req.purposeDetails})` : ""} and should not be construed as a character reference.`;
+  }
+
+  return `I am pleased to confirm that ${alumni.name} was a valued member of our team at ${companyName}, serving as ${role} in the ${department} department from ${fmtDate(startDate)} to ${fmtDate(exitDate)}, a tenure of ${tenureStr}.\n\nDuring their time with us, they demonstrated professionalism and dedication to their work. We wish ${firstName} the very best in their future endeavours.`;
+}
 import { Modal } from "../../components/ui/Modal";
 
 interface Props {
@@ -65,6 +110,9 @@ export default function DocRequestsPanel({ companyId }: Props) {
   const [newReqDetails, setNewReqDetails] = useState("");
   const [newReqUrgency, setNewReqUrgency] = useState<RequestUrgency>("standard");
   const [creatingReq, setCreatingReq] = useState(false);
+  const [editModal, setEditModal] = useState<{ req: DocRequest; body: string } | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -126,7 +174,27 @@ export default function DocRequestsPanel({ companyId }: Props) {
     pollIntervals.current.set(requestId, interval);
   }
 
-  async function handleApprove(req: DocRequest) {
+  async function openEditModal(req: DocRequest) {
+    setEditLoading(true);
+    try {
+      const [alumniData, companyData] = await Promise.all([
+        getDocument<AlumniProfile>("alumniProfiles", req.alumniId),
+        getDocument<{ name: string }>("companies", req.companyId),
+      ]);
+      const defaultBody = alumniData && companyData
+        ? buildDefaultBody(req, alumniData, companyData.name)
+        : "";
+      const body = req.letterBodyOverride ?? defaultBody;
+      setEditBody(body);
+      setEditModal({ req, body });
+    } catch {
+      showToast("error", "Failed to load letter preview");
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  async function handleApprove(req: DocRequest, letterBody: string) {
     if (!appUser) return;
     setApprovingId(req.id);
     try {
@@ -136,6 +204,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
         approvedByName: appUser.displayName,
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        letterBodyOverride: letterBody.trim() || null,
       });
       setRequests((prev) =>
         prev.map((r) =>
@@ -144,6 +213,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
             : r
         )
       );
+      setEditModal(null);
       startPolling(req.id);
     } catch {
       showToast("error", "Failed to approve request");
@@ -412,6 +482,43 @@ export default function DocRequestsPanel({ companyId }: Props) {
         </div>
       </Modal>
 
+      {/* Edit Letter Modal */}
+      {editModal && (
+        <Modal
+          isOpen={true}
+          onClose={() => setEditModal(null)}
+          title="Review & Edit Letter"
+          size="lg"
+          footer={
+            <div className="flex justify-end gap-2 pt-4 border-t border-navy/5">
+              <Button variant="ghost" onClick={() => setEditModal(null)}>Cancel</Button>
+              <Button
+                loading={approvingId === editModal.req.id}
+                onClick={() => handleApprove(editModal.req, editBody)}
+              >
+                Confirm & Generate
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-mist">
+              Review and edit the letter content below before generating the PDF. The final document will include your company header, signature, and footer automatically.
+            </p>
+            <textarea
+              rows={14}
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-navy/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/50 resize-y font-mono leading-relaxed"
+              placeholder="Letter content…"
+            />
+            <p className="text-xs text-mist">
+              Tip: Edit the paragraphs as needed. Leave blank to use the auto-generated content.
+            </p>
+          </div>
+        </Modal>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
@@ -526,10 +633,11 @@ export default function DocRequestsPanel({ companyId }: Props) {
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        loading={isApproving}
-                        onClick={() => handleApprove(req)}
+                        loading={isApproving || editLoading}
+                        onClick={() => openEditModal(req)}
                       >
-                        Approve & Generate
+                        <Pencil size={12} className="mr-1.5" />
+                        Review & Generate
                       </Button>
                       <Button
                         size="sm"
