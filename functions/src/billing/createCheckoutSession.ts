@@ -4,11 +4,23 @@ import * as admin from "firebase-admin";
 
 const PLAN_PRICES: Record<
   string,
-  { monthly: number; annual: number; label: string }
+  { monthly: string; annual: string; label: string }
 > = {
-  starter: { monthly: 2900, annual: 2400, label: "Starter" },
-  growth: { monthly: 7900, annual: 6600, label: "Growth" },
-  business: { monthly: 19900, annual: 16600, label: "Business" },
+  starter: {
+    monthly: "price_1TllKHQQchLsdaEfrxFB6Iz8",
+    annual: "price_1TllKHQQchLsdaEfD50Ubg8o",
+    label: "Starter",
+  },
+  growth: {
+    monthly: "price_1TllLmQQchLsdaEfO4ugtag8",
+    annual: "price_1TllLmQQchLsdaEf1UsLtdt6",
+    label: "Growth",
+  },
+  business: {
+    monthly: "price_1TllMlQQchLsdaEfrL9XcFYD",
+    annual: "price_1TllMlQQchLsdaEfWCpBmhgU",
+    label: "Business",
+  },
 };
 
 export const createCheckoutSession = functions.https.onCall(async (data, context) => {
@@ -52,8 +64,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
 
   const appUrl = process.env.APP_URL || "http://localhost:5173";
   const priceConfig = PLAN_PRICES[plan];
-  const unitAmount = billingCycle === "annual" ? priceConfig.annual : priceConfig.monthly;
-  const interval = billingCycle === "annual" ? "year" : "month";
+  const priceId = billingCycle === "annual" ? priceConfig.annual : priceConfig.monthly;
 
   let customerId = companyData.stripeCustomerId as string | undefined;
 
@@ -74,15 +85,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     mode: "subscription",
     line_items: [
       {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `OffboardSet ${priceConfig.label}`,
-            description: `${priceConfig.label} plan — billed ${billingCycle}`,
-          },
-          recurring: { interval },
-          unit_amount: unitAmount,
-        },
+        price: priceId,
         quantity: 1,
       },
     ],
