@@ -141,6 +141,8 @@ export default function OffboardingDetail() {
   const [showAskModal, setShowAskModal] = useState(false);
   const [expandedThreadId, setExpandedThreadId] = useState<string | null>(null);
   const [knowledgeItems, setKnowledgeItems] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [editingUrlTaskId, setEditingUrlTaskId] = useState<string | null>(null);
+  const [editingUrlValue, setEditingUrlValue] = useState("");
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -350,6 +352,19 @@ export default function OffboardingDetail() {
       }
     } catch {
       // Revert on error
+      loadData();
+    }
+  }
+
+  async function handleSaveTaskUrl(task: FlowTask) {
+    const url = editingUrlValue.trim();
+    setEditingUrlTaskId(null);
+    setEditingUrlValue("");
+    if (!url) return;
+    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, linkUrl: url } : t));
+    try {
+      await updateDocument("flowTasks", task.id, { linkUrl: url });
+    } catch {
       loadData();
     }
   }
@@ -853,19 +868,50 @@ export default function OffboardingDetail() {
                             </div>
                           )}
 
-                          {(task.type === "form" || task.type === "link") && task.linkUrl && (
-                            <div className="ml-8 flex items-center gap-2">
-                              <a
-                                href={toAbsoluteUrl(task.linkUrl)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs text-teal hover:underline font-medium"
-                              >
-                                <ExternalLink size={12} />
-                                {task.type === "form" ? "Open Form" : "Open Link"}
-                              </a>
-                              {task.status !== "completed" && canToggleTask(task) && (
-                                <span className="text-xs text-mist">— open then mark complete above</span>
+                          {(task.type === "form" || task.type === "link") && (
+                            <div className="ml-8">
+                              {task.linkUrl ? (
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={toAbsoluteUrl(task.linkUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs text-teal hover:underline font-medium"
+                                  >
+                                    <ExternalLink size={12} />
+                                    {task.type === "form" ? "Open Form" : "Open Link"}
+                                  </a>
+                                  <button
+                                    onClick={() => { setEditingUrlTaskId(task.id); setEditingUrlValue(task.linkUrl ?? ""); }}
+                                    className="text-xs text-mist hover:text-navy underline"
+                                  >
+                                    Edit URL
+                                  </button>
+                                  {task.status !== "completed" && canToggleTask(task) && (
+                                    <span className="text-xs text-mist">— open then mark complete above</span>
+                                  )}
+                                </div>
+                              ) : editingUrlTaskId === task.id ? (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="url"
+                                    value={editingUrlValue}
+                                    onChange={(e) => setEditingUrlValue(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleSaveTaskUrl(task); if (e.key === "Escape") { setEditingUrlTaskId(null); setEditingUrlValue(""); } }}
+                                    placeholder="https://..."
+                                    autoFocus
+                                    className="text-xs border border-navy/20 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal/50 w-64"
+                                  />
+                                  <button onClick={() => handleSaveTaskUrl(task)} className="text-xs text-teal font-medium hover:underline">Save</button>
+                                  <button onClick={() => { setEditingUrlTaskId(null); setEditingUrlValue(""); }} className="text-xs text-mist hover:underline">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingUrlTaskId(task.id); setEditingUrlValue(""); }}
+                                  className="text-xs text-ember hover:underline"
+                                >
+                                  + Set URL (missing)
+                                </button>
                               )}
                             </div>
                           )}
