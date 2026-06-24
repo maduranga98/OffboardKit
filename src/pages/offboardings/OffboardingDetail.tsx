@@ -853,10 +853,10 @@ export default function OffboardingDetail() {
                             </div>
                           )}
 
-                          {(task.type === "form" || task.type === "link") && (task.linkUrl || task.description) && (
+                          {(task.type === "form" || task.type === "link") && task.linkUrl && (
                             <div className="ml-8 flex items-center gap-2">
                               <a
-                                href={toAbsoluteUrl(task.linkUrl || task.description || "")}
+                                href={toAbsoluteUrl(task.linkUrl)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 text-xs text-teal hover:underline font-medium"

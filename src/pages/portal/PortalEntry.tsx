@@ -635,9 +635,9 @@ function TasksList({
                         {task.type === "form" ? "Form completed" : "Link accessed"}
                       </span>
                     </div>
-                    {(task.linkUrl || task.description) && (
+                    {task.linkUrl && (
                       <a
-                        href={toAbsoluteUrl(task.linkUrl || task.description || "")}
+                        href={toAbsoluteUrl(task.linkUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-teal underline"
@@ -651,8 +651,7 @@ function TasksList({
                     size="sm"
                     className="w-full"
                     onClick={() => {
-                      const url = task.linkUrl || task.description;
-                      if (url) window.open(toAbsoluteUrl(url), "_blank", "noopener,noreferrer");
+                      if (task.linkUrl) window.open(toAbsoluteUrl(task.linkUrl), "_blank", "noopener,noreferrer");
                       handleToggleTask(task);
                     }}
                   >
