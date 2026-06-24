@@ -21,7 +21,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
-  CheckSquare,
   ShieldOff,
 } from "lucide-react";
 import clsx from "clsx";
