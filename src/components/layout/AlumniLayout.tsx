@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, Navigate, useNavigate, NavLink } from "react-router-dom";
-import { LogOut, Briefcase, User, Megaphone, MessageCircle, FileText } from "lucide-react";
+import { LogOut, Briefcase, User, Megaphone, MessageCircle, FileText, BarChart3 } from "lucide-react";
 import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: "/alumni-portal/threads",   icon: MessageCircle, label: "Threads"   },
   { to: "/alumni-portal/gigs",      icon: Briefcase,     label: "Gigs"      },
   { to: "/alumni-portal/documents", icon: FileText,      label: "Documents" },
+  { to: "/alumni-portal/surveys",   icon: BarChart3,     label: "Surveys"   },
 ] as const;
 
 export default function AlumniLayout() {
