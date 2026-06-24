@@ -60,6 +60,12 @@ function toDate(ts: Timestamp | null | undefined): Date | null {
   return null;
 }
 
+function toAbsoluteUrl(url: string): string {
+  if (!url) return "#";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+
 function statusBadge(status: FlowStatus) {
   const map: Record<
     FlowStatus,
@@ -850,7 +856,7 @@ export default function OffboardingDetail() {
                           {(task.type === "form" || task.type === "link") && (task.linkUrl || task.description) && (
                             <div className="ml-8 flex items-center gap-2">
                               <a
-                                href={task.linkUrl || task.description || "#"}
+                                href={toAbsoluteUrl(task.linkUrl || task.description || "")}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1.5 text-xs text-teal hover:underline font-medium"
