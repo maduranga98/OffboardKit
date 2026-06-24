@@ -647,16 +647,18 @@ function TasksList({
                     )}
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      if (task.linkUrl) window.open(toAbsoluteUrl(task.linkUrl), "_blank", "noopener,noreferrer");
-                      handleToggleTask(task);
-                    }}
-                  >
-                    {task.type === "form" ? "Open Form" : "Open Link"}
-                  </Button>
+                  task.linkUrl ? (
+                    <a
+                      href={toAbsoluteUrl(task.linkUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-teal text-white hover:bg-teal-light shadow-sm transition-colors"
+                    >
+                      {task.type === "form" ? "Open Form" : "Open Link"}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-mist">No link provided</span>
+                  )
                 )}
               </div>
             )}
