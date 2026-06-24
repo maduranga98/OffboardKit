@@ -280,6 +280,7 @@ export default function NewOffboarding() {
             notes: "",
             isRequired: task.isRequired,
             dependsOnTaskId: dependsOn,
+            linkUrl: task.linkUrl ?? "",
           });
         }
       }
