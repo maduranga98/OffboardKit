@@ -600,24 +600,36 @@ function TasksList({
             {(task.type === "form" || task.type === "link") && (
               <div className="px-4 pb-3">
                 {task.status === "completed" ? (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className="text-teal flex-shrink-0" />
-                    <span className="text-xs text-navy">
-                      {task.type === "form" ? "Form completed" : "Link accessed"}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={16} className="text-teal flex-shrink-0" />
+                      <span className="text-xs text-navy">
+                        {task.type === "form" ? "Form completed" : "Link accessed"}
+                      </span>
+                    </div>
+                    {(task.linkUrl || task.description) && (
+                      <a
+                        href={task.linkUrl || task.description || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-teal underline"
+                      >
+                        Open again
+                      </a>
+                    )}
                   </div>
                 ) : (
-                  <a
-                    href={task.linkUrl || task.description || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => handleToggleTask(task)}
-                    className="inline-block w-full"
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      const url = task.linkUrl || task.description;
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      handleToggleTask(task);
+                    }}
                   >
-                    <Button size="sm" className="w-full">
-                      {task.type === "form" ? "Open Form" : "Open Link"}
-                    </Button>
-                  </a>
+                    {task.type === "form" ? "Open Form" : "Open Link"}
+                  </Button>
                 )}
               </div>
             )}
