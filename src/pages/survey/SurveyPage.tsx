@@ -101,10 +101,11 @@ export default function SurveyPage() {
         updatedAt: serverTimestamp(),
       });
 
-      await updateDocument("pulseSurveys", survey.id, {
+      // These are best-effort — don't block thank-you on permission failures
+      updateDocument("pulseSurveys", survey.id, {
         totalResponded: (survey.totalResponded || 0) + 1,
         updatedAt: serverTimestamp(),
-      });
+      }).catch(console.error);
 
       const engLogId = crypto.randomUUID();
       setDoc(doc(collection(db, 'alumniEngagementLog'), engLogId), {

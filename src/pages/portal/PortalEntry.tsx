@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   ClipboardList,
   BookOpen,
@@ -142,12 +142,10 @@ function WelcomeHeader({
 }
 
 function AllDoneState({
-  flow,
   totalTasks,
   knowledgeItemCount,
   interviewCompleted,
 }: {
-  flow: OffboardFlow;
   totalTasks: number;
   knowledgeItemCount: number;
   interviewCompleted: boolean;
@@ -192,13 +190,9 @@ function AllDoneState({
           </span>
         </div>
       </div>
-      <Link
-        to={`/alumni-login?companyId=${flow.companyId}&email=${encodeURIComponent(flow.employeeEmail)}`}
-      >
-        <Button variant="primary" size="sm">
-          Access Alumni Network
-        </Button>
-      </Link>
+      <p className="text-xs text-mist mt-2">
+        Your HR team will send you an invitation to the alumni network by email.
+      </p>
     </div>
   );
 }
@@ -1082,7 +1076,6 @@ export default function PortalEntry() {
         <div className={portalTab === "tasks" ? "block" : "hidden"}>
           {allTasksDone && (
             <AllDoneState
-              flow={flow}
               totalTasks={totalTasks}
               knowledgeItemCount={knowledgeItemCount}
               interviewCompleted={interviewCompleted}

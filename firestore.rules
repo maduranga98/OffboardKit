@@ -208,6 +208,10 @@ service cloud.firestore {
       // Alumni (authenticated via Firebase Auth, no /users doc) can read any open job.
       // Client-side filters by companyId and audience keep the visible set correct.
       allow read: if isAuth() && resource.data.status == 'open';
+      // Alumni can increment referralCount on open jobs when submitting a referral.
+      allow update: if isAuth() && resource.data.status == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['referralCount', 'updatedAt']);
     }
 
     match /alumniApplications/{applicationId} {
