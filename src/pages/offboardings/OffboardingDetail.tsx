@@ -16,7 +16,6 @@ import {
   Upload,
   ExternalLink,
   FileText,
-  AlertCircle,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
