@@ -21,6 +21,8 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  CheckSquare,
+  ShieldOff,
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../hooks/useAuth";
@@ -32,7 +34,19 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const alumniSubItems = [
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+}
+
+interface AlumniSubItem {
+  tab: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+}
+
+const allAlumniSubItems: AlumniSubItem[] = [
   { tab: "directory", label: "Directory", icon: Network },
   { tab: "pipeline", label: "Boomerang Pipeline", icon: GitBranch },
   { tab: "jobboard", label: "Job Board", icon: Briefcase },
@@ -43,18 +57,57 @@ const alumniSubItems = [
   { tab: "requests", label: "Requests", icon: FileText },
 ];
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/offboardings", label: "Offboardings", icon: Users },
-  { to: "/assets", label: "Assets", icon: Package },
-  { to: "/templates", label: "Templates", icon: FileText },
-  { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
-  { to: "/analytics", label: "Analytics", icon: BarChart2 },
-  { to: "/analytics/trends", label: "Trends", icon: TrendingUp },
-  { to: "/interviews", label: "Exit Interviews", icon: MessageSquare },
-  { to: "/alumni", label: "Alumni", icon: Network },
-  { to: "/help", label: "Help", icon: HelpCircle },
-];
+interface RoleNavConfig {
+  main: NavItem[];
+  showSettings: boolean;
+  alumniSubItems: AlumniSubItem[];
+}
+
+function getNavConfig(role: string | undefined): RoleNavConfig {
+  if (role === "manager") {
+    return {
+      main: [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/offboardings", label: "My Team's Offboardings", icon: Users },
+        { to: "/knowledge", label: "Knowledge Transfer", icon: BookOpen },
+        { to: "/alumni", label: "Alumni Directory", icon: Network },
+        { to: "/help", label: "Help", icon: HelpCircle },
+      ],
+      showSettings: true,
+      alumniSubItems: [{ tab: "directory", label: "Directory", icon: Network }],
+    };
+  }
+
+  if (role === "it_admin") {
+    return {
+      main: [
+        { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/offboardings", label: "Access Revocation", icon: ShieldOff },
+        { to: "/help", label: "Help", icon: HelpCircle },
+      ],
+      showSettings: true,
+      alumniSubItems: [],
+    };
+  }
+
+  // hr_admin, super_admin, fallback — full access
+  return {
+    main: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/offboardings", label: "Offboardings", icon: Users },
+      { to: "/templates", label: "Templates", icon: FileText },
+      { to: "/knowledge", label: "Knowledge Base", icon: BookOpen },
+      { to: "/analytics", label: "Analytics", icon: BarChart2 },
+      { to: "/analytics/trends", label: "Trends", icon: TrendingUp },
+      { to: "/interviews", label: "Exit Interviews", icon: MessageSquare },
+      { to: "/alumni", label: "Alumni", icon: Network },
+      { to: "/assets", label: "Assets", icon: Package },
+      { to: "/help", label: "Help", icon: HelpCircle },
+    ],
+    showSettings: true,
+    alumniSubItems: allAlumniSubItems,
+  };
+}
 
 function OffboardSetLogo() {
   return (
@@ -66,6 +119,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { appUser, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const role = appUser?.role;
+  const { main: navItems, showSettings, alumniSubItems } = getNavConfig(role);
 
   const isAlumniActive = location.pathname === "/alumni" || location.pathname.startsWith("/alumni/");
   const [alumniExpanded, setAlumniExpanded] = useState(isAlumniActive);
@@ -121,78 +177,89 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     location.pathname.startsWith(i.to + "/")),
               )?.to;
             return navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTo === item.to;
+              const Icon = item.icon;
+              const isActive = activeTo === item.to;
+              const isAlumniItem = item.to === "/alumni";
 
-            const isAlumniItem = item.to === "/alumni";
-            return (
-              <div key={item.to}>
-                <NavLink
-                  to={isAlumniItem ? "/alumni?tab=directory" : item.to}
-                  onClick={isAlumniItem ? (e) => {
-                    e.preventDefault();
-                    if (!isAlumniActive) {
-                      navigate("/alumni?tab=directory");
-                      setAlumniExpanded(true);
-                    } else {
-                      setAlumniExpanded((prev) => !prev);
+              return (
+                <div key={item.to}>
+                  <NavLink
+                    to={isAlumniItem ? "/alumni?tab=directory" : item.to}
+                    onClick={
+                      isAlumniItem
+                        ? (e) => {
+                            e.preventDefault();
+                            if (!isAlumniActive) {
+                              navigate("/alumni?tab=directory");
+                              setAlumniExpanded(true);
+                            } else {
+                              setAlumniExpanded((prev) => !prev);
+                            }
+                          }
+                        : onClose
                     }
-                  } : onClose}
-                  className={clsx(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                    isActive
-                      ? "text-teal bg-teal/10 border-l-2 border-teal"
-                      : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                      isActive
+                        ? "text-teal bg-teal/10 border-l-2 border-teal"
+                        : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
+                    )}
+                  >
+                    <Icon size={18} />
+                    <span className="flex-1">{item.label}</span>
+                    {isAlumniItem && alumniSubItems.length > 0 && (
+                      alumniExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                    )}
+                  </NavLink>
+                  {isAlumniItem && alumniExpanded && alumniSubItems.length > 0 && (
+                    <div className="ml-4 mt-0.5 space-y-0.5 border-l border-teal/20 pl-3">
+                      {alumniSubItems.map((sub) => {
+                        const SubIcon = sub.icon;
+                        const isSubActive = activeAlumniTab === sub.tab;
+                        return (
+                          <button
+                            key={sub.tab}
+                            onClick={() => {
+                              navigate(`/alumni?tab=${sub.tab}`);
+                              onClose();
+                            }}
+                            className={clsx(
+                              "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
+                              isSubActive
+                                ? "text-teal bg-teal/10"
+                                : "text-mist hover:text-white hover:bg-teal/5",
+                            )}
+                          >
+                            <SubIcon size={13} />
+                            <span>{sub.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
-                >
-                  <Icon size={18} />
-                  <span className="flex-1">{item.label}</span>
-                  {isAlumniItem && (alumniExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
-                </NavLink>
-                {isAlumniItem && alumniExpanded && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-teal/20 pl-3">
-                    {alumniSubItems.map((sub) => {
-                      const SubIcon = sub.icon;
-                      const isSubActive = activeAlumniTab === sub.tab;
-                      return (
-                        <button
-                          key={sub.tab}
-                          onClick={() => { navigate(`/alumni?tab=${sub.tab}`); onClose(); }}
-                          className={clsx(
-                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
-                            isSubActive
-                              ? "text-teal bg-teal/10"
-                              : "text-mist hover:text-white hover:bg-teal/5"
-                          )}
-                        >
-                          <SubIcon size={13} />
-                          <span>{sub.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          });
+                </div>
+              );
+            });
           })()}
         </nav>
 
-        <div className="px-3 py-2 mb-2">
-          <NavLink
-            to="/settings"
-            onClick={onClose}
-            className={clsx(
-              "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-              location.pathname.startsWith("/settings")
-                ? "text-teal bg-teal/10 border-l-2 border-teal"
-                : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
-            )}
-          >
-            <Settings size={18} />
-            <span>Settings</span>
-          </NavLink>
-        </div>
+        {showSettings && (
+          <div className="px-3 py-2 mb-2">
+            <NavLink
+              to="/settings"
+              onClick={onClose}
+              className={clsx(
+                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                location.pathname.startsWith("/settings")
+                  ? "text-teal bg-teal/10 border-l-2 border-teal"
+                  : "text-mist hover:text-white hover:bg-teal/5 border-l-2 border-transparent",
+              )}
+            >
+              <Settings size={18} />
+              <span>Settings</span>
+            </NavLink>
+          </div>
+        )}
 
         <div className="px-4 pb-2">
           <a

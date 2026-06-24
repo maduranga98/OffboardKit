@@ -58,7 +58,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <div className="hidden lg:flex lg:w-[60%] bg-navy flex-col justify-center px-16 xl:px-24">
         <h1 className="font-display text-4xl xl:text-5xl text-white leading-tight">
           Exit with intention.
@@ -77,7 +77,7 @@ export default function Login() {
         </ul>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 py-12">
+      <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 overflow-y-auto py-8">
         <div className="w-full max-w-sm">
           <div className="flex items-center gap-2 mb-8">
             <img
