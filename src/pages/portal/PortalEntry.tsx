@@ -345,10 +345,30 @@ function TasksList({
     setUploadProgress((prev) => ({ ...prev, [task.id]: 0 }));
 
     try {
+      // Some browsers return an empty MIME type for valid file types (e.g. .docx on iOS).
+      // Derive from extension as a fallback so storage rules aren't rejected.
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const MIME_FALLBACKS: Record<string, string> = {
+        pdf: "application/pdf",
+        doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xls: "application/vnd.ms-excel",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ppt: "application/vnd.ms-powerpoint",
+        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        png: "image/png",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        gif: "image/gif",
+        webp: "image/webp",
+        txt: "text/plain",
+      };
+      const contentType = file.type || MIME_FALLBACKS[ext] || "application/octet-stream";
+
       const filePath = `companies/${flow.companyId}/offboardings/${flow.id}/tasks/${task.id}/${file.name}`;
       const storageRef = ref(storage, filePath);
       const uploadTask = uploadBytesResumable(storageRef, file, {
-        contentType: file.type || "application/octet-stream",
+        contentType,
       });
 
       await new Promise<void>((resolve, reject) => {
@@ -722,6 +742,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
@@ -732,16 +753,21 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
 
   async function handleConfirmReturned(asset: Asset) {
     setUpdatingId(asset.id);
+    const note = pendingNotes[asset.id]?.trim() || "";
     try {
       await updateDocument("assets", asset.id, {
         status: "returned",
         returnedAt: serverTimestamp(),
+        ...(note ? { notes: note } : {}),
       });
       setAssets((prev) =>
         prev.map((a) =>
-          a.id === asset.id ? { ...a, status: "returned" as Asset["status"] } : a,
+          a.id === asset.id
+            ? { ...a, status: "returned" as Asset["status"], notes: note || a.notes }
+            : a,
         ),
       );
+      setPendingNotes((prev) => { const n = { ...prev }; delete n[asset.id]; return n; });
     } catch {
       // ignore
     } finally {
@@ -801,6 +827,9 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
                 <p className="text-xs text-mist mt-0.5">
                   {asset.type}{asset.serialNumber ? ` · SN: ${asset.serialNumber}` : ""}
                 </p>
+                {asset.notes && !employeeStep && (
+                  <p className="text-xs text-navy/60 mt-1 italic">Note: {asset.notes}</p>
+                )}
               </div>
               <Badge
                 variant={done ? "teal" : adminStep ? "amber" : "mist"}
@@ -843,20 +872,31 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
 
               {/* Action */}
               {employeeStep && (
-                <button
-                  type="button"
-                  disabled={updatingId === asset.id}
-                  onClick={() => handleConfirmReturned(asset)}
-                  className={clsx(
-                    "mt-3 w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md border-2 border-dashed text-sm font-medium transition-colors",
-                    updatingId === asset.id
-                      ? "opacity-50 cursor-not-allowed border-navy/10 text-mist"
-                      : "border-teal/40 text-teal hover:bg-teal/5 cursor-pointer"
-                  )}
-                >
-                  <CheckCircle size={15} />
-                  {updatingId === asset.id ? "Confirming…" : "Confirm I have returned this asset"}
-                </button>
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    rows={2}
+                    placeholder="Add a note (optional) — e.g. charger not included, minor scratch on lid…"
+                    value={pendingNotes[asset.id] ?? ""}
+                    onChange={(e) =>
+                      setPendingNotes((prev) => ({ ...prev, [asset.id]: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal resize-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={updatingId === asset.id}
+                    onClick={() => handleConfirmReturned(asset)}
+                    className={clsx(
+                      "w-full flex items-center justify-center gap-2 py-2 px-4 rounded-md border-2 border-dashed text-sm font-medium transition-colors",
+                      updatingId === asset.id
+                        ? "opacity-50 cursor-not-allowed border-navy/10 text-mist"
+                        : "border-teal/40 text-teal hover:bg-teal/5 cursor-pointer"
+                    )}
+                  >
+                    <CheckCircle size={15} />
+                    {updatingId === asset.id ? "Confirming…" : "Confirm I have returned this asset"}
+                  </button>
+                </div>
               )}
               {adminStep && (
                 <p className="mt-2 text-xs text-amber-600 text-center">

@@ -2,14 +2,16 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Portal task file uploads — unauthenticated employees upload via the exit portal.
-    // Size limited to 25 MB; only common document and image types accepted.
+    // Size limited to 25 MB; content-type check is best-effort (some browsers report
+    // application/octet-stream for valid document types, so it is included).
     match /companies/{companyId}/offboardings/{flowId}/tasks/{taskId}/{fileName} {
       allow read: if true;
       allow write: if request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches(
           'image/.*|application/pdf|application/msword|'
           + 'application/vnd\\.openxmlformats-officedocument\\..*|'
-          + 'text/plain|image/png|image/jpeg|image/gif|image/webp'
+          + 'text/plain|image/png|image/jpeg|image/gif|image/webp|'
+          + 'application/octet-stream'
         );
     }
 
