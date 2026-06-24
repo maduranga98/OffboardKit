@@ -12,6 +12,11 @@ import {
   BookOpen,
   ClipboardList,
   MessageCircle,
+  PenLine,
+  Upload,
+  ExternalLink,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format, differenceInDays, isPast } from "date-fns";
@@ -702,67 +707,163 @@ export default function OffboardingDetail() {
                         task.status !== "completed" &&
                         task.status !== "skipped";
 
+                      // Tasks that require employee action — checkbox-only toggle is not meaningful
+                      const isEmployeeAction =
+                        task.type === "signature" ||
+                        task.type === "upload";
+                      // Admin can manually mark checkbox for form/link/checkbox types
+                      const isCheckboxToggleable =
+                        !isEmployeeAction && canToggleTask(task);
+
                       return (
                         <div
                           key={task.id}
-                          className="flex items-start gap-3 px-6 py-3"
+                          className="px-6 py-3 space-y-2"
                         >
-                          {/* Checkbox */}
-                          <button
-                            onClick={() => canToggleTask(task) && handleToggleTask(task)}
-                            disabled={!canToggleTask(task)}
-                            title={!canToggleTask(task) && canAct ? "You can only complete tasks assigned to your role" : undefined}
-                            className={clsx(
-                              "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                              task.status === "completed"
-                                ? "bg-teal border-teal text-white"
-                                : "border-navy/20 hover:border-teal",
-                              !canToggleTask(task) && "opacity-50 cursor-not-allowed"
-                            )}
-                          >
-                            {task.status === "completed" && (
-                              <CheckCircle size={12} />
-                            )}
-                          </button>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <p
+                          <div className="flex items-start gap-3">
+                            {/* Checkbox — disabled for signature/upload (employee must act) */}
+                            <button
+                              onClick={() => isCheckboxToggleable && handleToggleTask(task)}
+                              disabled={!isCheckboxToggleable}
+                              title={
+                                isEmployeeAction
+                                  ? `This task requires the employee to ${task.type === "signature" ? "provide a signature" : "upload a file"} in their portal`
+                                  : !canToggleTask(task) && canAct
+                                  ? "You can only complete tasks assigned to your role"
+                                  : undefined
+                              }
                               className={clsx(
-                                "text-sm font-medium",
+                                "mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                                 task.status === "completed"
-                                  ? "text-mist line-through"
-                                  : "text-navy"
+                                  ? "bg-teal border-teal text-white"
+                                  : "border-navy/20 hover:border-teal",
+                                (!isCheckboxToggleable) && "opacity-50 cursor-not-allowed"
                               )}
                             >
-                              {task.title}
-                            </p>
-                            {task.description && (
-                              <p className="text-xs text-mist mt-0.5 line-clamp-2">
-                                {task.description}
-                              </p>
-                            )}
-                          </div>
+                              {task.status === "completed" && (
+                                <CheckCircle size={12} />
+                              )}
+                            </button>
 
-                          {/* Meta */}
-                          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                            {task.isRequired && (
-                              <Badge variant="amber">Required</Badge>
-                            )}
-                            {taskDueDate && (
-                              <span
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <p
                                 className={clsx(
-                                  "text-xs",
-                                  taskOverdue
-                                    ? "text-ember font-medium"
-                                    : "text-mist"
+                                  "text-sm font-medium",
+                                  task.status === "completed"
+                                    ? "text-mist line-through"
+                                    : "text-navy"
                                 )}
                               >
-                                {format(taskDueDate, "MMM d")}
-                              </span>
-                            )}
-                            {taskStatusBadge(task.status)}
+                                {task.title}
+                              </p>
+                              {task.description && (
+                                <p className="text-xs text-mist mt-0.5 line-clamp-2">
+                                  {task.description}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Meta */}
+                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                              {task.isRequired && (
+                                <Badge variant="amber">Required</Badge>
+                              )}
+                              {taskDueDate && (
+                                <span
+                                  className={clsx(
+                                    "text-xs",
+                                    taskOverdue
+                                      ? "text-ember font-medium"
+                                      : "text-mist"
+                                  )}
+                                >
+                                  {format(taskDueDate, "MMM d")}
+                                </span>
+                              )}
+                              {taskStatusBadge(task.status)}
+                            </div>
                           </div>
+
+                          {/* Type-specific indicators */}
+                          {task.type === "signature" && (
+                            <div className={clsx(
+                              "ml-8 flex items-center gap-2 rounded-md px-3 py-2 text-xs",
+                              task.status === "completed"
+                                ? "bg-teal/10 text-teal"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            )}>
+                              {task.status === "completed" ? (
+                                <>
+                                  <CheckCircle size={13} className="flex-shrink-0" />
+                                  <span>Signature captured by employee</span>
+                                  {task.uploadedFileUrl && (
+                                    <a
+                                      href={task.uploadedFileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="ml-auto underline font-medium"
+                                    >
+                                      View
+                                    </a>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <PenLine size={13} className="flex-shrink-0" />
+                                  <span>Awaiting employee signature via their portal</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {task.type === "upload" && (
+                            <div className={clsx(
+                              "ml-8 flex items-center gap-2 rounded-md px-3 py-2 text-xs",
+                              task.status === "completed"
+                                ? "bg-teal/10 text-teal"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            )}>
+                              {task.status === "completed" ? (
+                                <>
+                                  <FileText size={13} className="flex-shrink-0" />
+                                  <span>File uploaded by employee</span>
+                                  {task.uploadedFileUrl && (
+                                    <a
+                                      href={task.uploadedFileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="ml-auto underline font-medium"
+                                    >
+                                      Download
+                                    </a>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <Upload size={13} className="flex-shrink-0" />
+                                  <span>Awaiting file upload from employee portal</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {(task.type === "form" || task.type === "link") && (task.linkUrl || task.description) && (
+                            <div className="ml-8 flex items-center gap-2">
+                              <a
+                                href={task.linkUrl || task.description || "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-teal hover:underline font-medium"
+                              >
+                                <ExternalLink size={12} />
+                                {task.type === "form" ? "Open Form" : "Open Link"}
+                              </a>
+                              {task.status !== "completed" && canToggleTask(task) && (
+                                <span className="text-xs text-mist">— open then mark complete above</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

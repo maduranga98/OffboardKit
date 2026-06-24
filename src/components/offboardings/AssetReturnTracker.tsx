@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Check, ShieldCheck, HardDrive } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, Check, ShieldCheck, HardDrive, PackagePlus, X } from "lucide-react";
 import { format } from "date-fns";
 import { Timestamp } from "firebase/firestore";
 import { Card } from "../ui/Card";
@@ -92,6 +92,12 @@ export default function AssetReturnTracker({
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  function openForm() {
+    setShowForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+  }
   const [formData, setFormData] = useState({
     name: "",
     type: "Laptop",
@@ -371,7 +377,7 @@ export default function AssetReturnTracker({
             title="No assets to return"
             description="Track laptops, phones, badges, and other company property."
             action={
-              <Button size="sm" onClick={() => setShowForm(true)}>
+              <Button size="sm" onClick={openForm}>
                 <Plus size={14} className="mr-1" />
                 Add Asset
               </Button>
@@ -547,102 +553,127 @@ export default function AssetReturnTracker({
             })}
           </div>
           {!showForm && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowForm(true)}
-              className="w-full"
+            <button
+              onClick={openForm}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-teal/40 bg-teal/5 hover:bg-teal/10 hover:border-teal/60 transition-colors py-3 text-sm font-medium text-teal"
             >
-              <Plus size={14} className="mr-1" />
-              Add Asset
-            </Button>
+              <Plus size={16} />
+              Add Another Asset
+            </button>
           )}
         </>
       )}
 
       {showForm && (
-        <Card className="border-teal/30 bg-teal/5">
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-navy">Add Asset</h3>
-            <Input
-              label="Asset Name"
-              placeholder="e.g., MacBook Pro 14&quot;"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-navy mb-1">
-                Type
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
-              >
-                {ASSET_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                    {wipeRequired(t) ? " (wipe required)" : ""}
-                  </option>
-                ))}
-              </select>
+        <div ref={formRef} className="rounded-xl border-2 border-teal bg-white shadow-lg overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center justify-between px-4 py-3 bg-teal/10 border-b border-teal/20">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-teal/20 rounded-md">
+                <PackagePlus size={16} className="text-teal" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-navy">Add New Asset</h3>
+                <p className="text-xs text-mist">Fill in the details for the company asset to track</p>
+              </div>
             </div>
-            <Input
-              label="Serial Number (optional)"
-              placeholder="e.g., C02XK1JZJG5J"
-              value={formData.serialNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, serialNumber: e.target.value })
-              }
-            />
-            <Input
-              label="Assigned to (optional)"
-              placeholder="Employee name or ID"
-              value={formData.assignedTo}
-              onChange={(e) =>
-                setFormData({ ...formData, assignedTo: e.target.value })
-              }
-            />
-            <Input
-              label="Estimated value (USD, optional)"
-              placeholder="e.g., 2200"
-              type="number"
-              value={formData.estimatedValue}
-              onChange={(e) =>
-                setFormData({ ...formData, estimatedValue: e.target.value })
-              }
-            />
-            <div>
-              <label className="block text-sm font-medium text-navy mb-1">
-                Notes (optional)
-              </label>
-              <textarea
-                placeholder="Charger included? Accessories? Known issues?"
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-                rows={2}
-                className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
-              />
+            <button
+              onClick={() => setShowForm(false)}
+              className="p-1 text-mist hover:text-navy transition-colors rounded-md hover:bg-navy/10"
+              title="Close form"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <Input
+                  label="Asset Name"
+                  placeholder='e.g., MacBook Pro 14"'
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy mb-1">
+                  Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
+                  className="w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                >
+                  {ASSET_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                      {wipeRequired(t) ? " (wipe required)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Input
+                  label="Serial Number (optional)"
+                  placeholder="e.g., C02XK1JZJG5J"
+                  value={formData.serialNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, serialNumber: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Input
+                  label="Assigned to (optional)"
+                  placeholder="Employee name or ID"
+                  value={formData.assignedTo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, assignedTo: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Input
+                  label="Estimated value (USD, optional)"
+                  placeholder="e.g., 2200"
+                  type="number"
+                  value={formData.estimatedValue}
+                  onChange={(e) =>
+                    setFormData({ ...formData, estimatedValue: e.target.value })
+                  }
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-navy mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  placeholder="Charger included? Accessories? Known issues?"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  rows={2}
+                  className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Button size="sm" onClick={handleAddAsset} className="flex-1">
+                <PackagePlus size={14} className="mr-1.5" />
                 Add Asset
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setShowForm(false)}
-                className="flex-1"
               >
                 Cancel
               </Button>
             </div>
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );
