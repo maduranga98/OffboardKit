@@ -7,9 +7,8 @@ const PLAN_PRICES: Record<
   { monthly: string; annual: string; label: string }
 > = {
   basic: {
-    // TODO: replace with live Stripe price IDs once created in the dashboard
-    monthly: "price_BASIC_MONTHLY_PLACEHOLDER",
-    annual: "price_BASIC_ANNUAL_PLACEHOLDER",
+    monthly: "price_1Tm6PaQQchLsdaEfMTDq3GSV",
+    annual: "price_1Tm6PaQQchLsdaEf5CNoFQJQ",
     label: "Basic",
   },
   starter: {
