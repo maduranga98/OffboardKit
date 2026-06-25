@@ -284,9 +284,9 @@ service cloud.firestore {
     }
 
     match /letterTemplates/{templateId} {
-      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
-      allow create: if isTeamAdmin() && request.resource.data.companyId == currentCompanyId();
-      allow update, delete: if isTeamAdmin() && resource.data.companyId == currentCompanyId();
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
     }
 
     match /knowledgeThreads/{threadId} {
