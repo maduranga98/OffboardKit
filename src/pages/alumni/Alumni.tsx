@@ -12,6 +12,8 @@ import {
   Building,
   TrendingUp,
   Edit2,
+  FileText,
+  FileDown,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
 import ConsultingPool from "./ConsultingPool";
@@ -20,6 +22,8 @@ import AlumniAnnouncements from "./AlumniAnnouncements";
 import ExpertThreads from "./ExpertThreads";
 import PulseSurveys from "./PulseSurveys";
 import DocRequestsPanel from "./DocRequestsPanel";
+import LetterTemplates from "./components/LetterTemplates";
+import GenerateLetterModal from "./components/GenerateLetterModal";
 import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -115,7 +119,7 @@ const EMPTY_FORM = {
   tags: [] as string[],
 };
 
-type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting" | "requests";
+type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expertthreads" | "pulsesurveys" | "consulting" | "requests" | "letters";
 
 function PlanGateBlock({ title, minPlan, children }: { title: string; minPlan: string; children: React.ReactNode }) {
   const { plan } = usePlanGate();
@@ -165,6 +169,7 @@ export default function Alumni() {
   const [dismissedBanner, setDismissedBanner] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [tagInput, setTagInput] = useState("");
+  const [letterTarget, setLetterTarget] = useState<AlumniProfile | null>(null);
 
   const loadData = useCallback(async () => {
     if (!companyId) return;
@@ -724,6 +729,12 @@ export default function Alumni() {
         {activeTab === "jobboard" && null}
       </div>
 
+      {activeTab === "letters" && (
+        <PlanGateBlock title="Letter Templates" minPlan="starter">
+          <LetterTemplates />
+        </PlanGateBlock>
+      )}
+
       {activeTab === "requests" && companyId && (
         <PlanGateBlock title="Reference Letters & Verification" minPlan="business">
           <DocRequestsPanel companyId={companyId} />
@@ -1000,6 +1011,17 @@ export default function Alumni() {
                     </a>
                   )}
 
+                  {/* Generate Letter */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLetterTarget(profile);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal border border-teal/30 rounded-lg hover:bg-teal/5 transition-colors flex-shrink-0"
+                  >
+                    <FileDown size={13} /> Generate Letter
+                  </button>
+
                   {/* Edit */}
                   <button
                     onClick={(e) => {
@@ -1085,6 +1107,13 @@ export default function Alumni() {
           </div>
         )}
       </Modal>
+
+      {letterTarget && (
+        <GenerateLetterModal
+          alumni={letterTarget}
+          onClose={() => setLetterTarget(null)}
+        />
+      )}
     </div>
   );
 }

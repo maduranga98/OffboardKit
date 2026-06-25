@@ -54,6 +54,7 @@ const allAlumniSubItems: AlumniSubItem[] = [
   { tab: "pulsesurveys", label: "Pulse Surveys", icon: BarChart3 },
   { tab: "consulting", label: "Consulting", icon: Users },
   { tab: "requests", label: "Requests", icon: FileText },
+  { tab: "letters", label: "Letter Templates", icon: FileText },
 ];
 
 interface RoleNavConfig {
