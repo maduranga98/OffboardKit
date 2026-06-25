@@ -63,5 +63,8 @@ export { stripeWebhook } from "./billing/stripeWebhook";
 // Document generation
 export { generateDocument, onDocumentRejected } from "./alumni/generateDocument";
 
+// Letter PDF generation
+export { generateLetterPdf } from "./alumni/generateLetterPdf";
+
 // Re-engagement score
 export { onEngagementEventLogged } from "./alumni/reengagementScore";

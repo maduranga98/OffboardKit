@@ -283,6 +283,12 @@ service cloud.firestore {
       allow read, update: if resource.data.token != null;
     }
 
+    match /letterTemplates/{templateId} {
+      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow create: if isTeamAdmin() && request.resource.data.companyId == currentCompanyId();
+      allow update, delete: if isTeamAdmin() && resource.data.companyId == currentCompanyId();
+    }
+
     match /knowledgeThreads/{threadId} {
       allow read, write: if isAuth();
 
