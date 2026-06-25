@@ -34,7 +34,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
 
   const db = admin.firestore();
   const VALID_PLANS = new Set([
-    "free",
+    "basic",
     "starter",
     "growth",
     "business",
@@ -67,7 +67,7 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
 
         if (companyId && isValidPlan(plan)) {
           const status = subscription.status;
-          const newPlan = status === "active" || status === "trialing" ? plan : "free";
+          const newPlan = status === "active" || status === "trialing" ? plan : "basic";
           await db.collection("companies").doc(companyId).update({
             plan: newPlan,
             stripeSubscriptionStatus: status,
@@ -84,12 +84,12 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
 
         if (companyId) {
           await db.collection("companies").doc(companyId).update({
-            plan: "free",
+            plan: "basic",
             stripeSubscriptionId: null,
             stripeSubscriptionStatus: "canceled",
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          functions.logger.info(`Company ${companyId} downgraded to free`);
+          functions.logger.info(`Company ${companyId} downgraded to basic`);
         }
         break;
       }
@@ -108,11 +108,11 @@ export const stripeWebhook = functions.https.onRequest(async (req, res) => {
           if (!snapshot.empty) {
             const doc = snapshot.docs[0];
             await doc.ref.update({
-              plan: "free",
+              plan: "basic",
               stripeSubscriptionStatus: "past_due",
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            functions.logger.info(`Company ${doc.id} downgraded to free due to payment failure`);
+            functions.logger.info(`Company ${doc.id} downgraded to basic due to payment failure`);
           }
         }
         break;

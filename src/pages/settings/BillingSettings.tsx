@@ -31,7 +31,7 @@ import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
 import { SettingsShell } from "./SettingsShell";
 
-type PlanKey = "free" | "starter" | "growth" | "business" | "enterprise";
+type PlanKey = "basic" | "starter" | "growth" | "business" | "enterprise";
 type BillingCycle = "monthly" | "annual";
 
 const PLAN_CONFIG: Record<
@@ -52,13 +52,13 @@ const PLAN_CONFIG: Record<
     popular?: boolean;
   }
 > = {
-  free: {
-    label: "Free", emoji: "🆓", tagline: "Try before you commit",
-    monthly: 0, annual: 0, annualTotal: 0, annualSaving: 0, annualSavingPct: null,
-    color: "mist", userLimit: 1, employeeLimit: null, exitLimit: 3,
+  basic: {
+    label: "Basic", emoji: "🔹", tagline: "Very small teams. 3 exits per year.",
+    monthly: 10, annual: 8, annualTotal: 100, annualSaving: 20, annualSavingPct: 17,
+    color: "mist", userLimit: 1, employeeLimit: 10, exitLimit: 3,
   },
   starter: {
-    label: "Starter", emoji: "💼", tagline: "Unlimited offboarding for small teams",
+    label: "Starter", emoji: "💼", tagline: "Unlimited offboarding for small businesses",
     monthly: 29, annual: 24, annualTotal: 290, annualSaving: 58, annualSavingPct: 16,
     color: "teal", userLimit: 3, employeeLimit: 50, exitLimit: null,
   },
@@ -92,9 +92,13 @@ interface PlanFeatures {
   aiQACapture: boolean;
   videoUpload: boolean;
   fullTextSearch: boolean;
+  knowledgeThreads: boolean;
   aiGapDetection: boolean;
+  // Asset Management
+  assetManagement: string;
+  dataWiping: boolean;
   // Access Revocation
-  accessRevocation: boolean;
+  accessRevocation: string;
   complianceExport: boolean;
   // Exit Interviews
   exitInterviews: string;
@@ -112,8 +116,10 @@ interface PlanFeatures {
   // Analytics
   analyticsDashboard: string;
   csvExport: boolean;
+  auditExport: boolean;
   scheduledReports: boolean;
   // Admin
+  webhooks: string;
   sso: boolean;
   sla: boolean;
   dedicatedManager: boolean;
@@ -122,19 +128,22 @@ interface PlanFeatures {
 }
 
 const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
-  free: {
+  basic: {
     offboardings: "3 / year",
     templates: "1",
     users: "1 HR user",
-    employees: "—",
+    employees: "Up to 10",
     taskRouting: false,
     removeBranding: false,
     documentUpload: true,
     aiQACapture: false,
     videoUpload: false,
     fullTextSearch: false,
+    knowledgeThreads: false,
     aiGapDetection: false,
-    accessRevocation: false,
+    assetManagement: "—",
+    dataWiping: false,
+    accessRevocation: "—",
     complianceExport: false,
     exitInterviews: "—",
     aiSentiment: false,
@@ -149,7 +158,9 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     referenceLetters: false,
     analyticsDashboard: "—",
     csvExport: false,
+    auditExport: false,
     scheduledReports: false,
+    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -166,13 +177,16 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiQACapture: true,
     videoUpload: false,
     fullTextSearch: false,
+    knowledgeThreads: false,
     aiGapDetection: false,
-    accessRevocation: true,
+    assetManagement: "Assigned → Returned",
+    dataWiping: false,
+    accessRevocation: "10 integrations",
     complianceExport: false,
     exitInterviews: "Fixed template",
     aiSentiment: false,
     advancedExitAnalytics: false,
-    alumniDirectory: "View-only",
+    alumniDirectory: "—",
     boomerangPipeline: "—",
     jobBoard: false,
     pulseSurveys: "—",
@@ -182,7 +196,9 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     referenceLetters: false,
     analyticsDashboard: "90 days",
     csvExport: false,
+    auditExport: false,
     scheduledReports: false,
+    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -199,8 +215,11 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiQACapture: true,
     videoUpload: true,
     fullTextSearch: true,
-    aiGapDetection: false,
-    accessRevocation: true,
+    knowledgeThreads: true,
+    aiGapDetection: true,
+    assetManagement: "Full lifecycle",
+    dataWiping: true,
+    accessRevocation: "22+ integrations",
     complianceExport: false,
     exitInterviews: "Custom builder",
     aiSentiment: true,
@@ -208,14 +227,16 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     alumniDirectory: "Full + profiles",
     boomerangPipeline: "2 stages",
     jobBoard: true,
-    pulseSurveys: "Manual + basic",
+    pulseSurveys: "—",
     reEngagementScore: true,
     askTheExpert: false,
     consultingPool: false,
-    referenceLetters: false,
+    referenceLetters: true,
     analyticsDashboard: "All time",
     csvExport: true,
+    auditExport: false,
     scheduledReports: false,
+    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -232,8 +253,11 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiQACapture: true,
     videoUpload: true,
     fullTextSearch: true,
+    knowledgeThreads: true,
     aiGapDetection: true,
-    accessRevocation: true,
+    assetManagement: "Full lifecycle",
+    dataWiping: true,
+    accessRevocation: "22+ integrations",
     complianceExport: true,
     exitInterviews: "Advanced builder",
     aiSentiment: true,
@@ -248,7 +272,9 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     referenceLetters: true,
     analyticsDashboard: "All time",
     csvExport: true,
+    auditExport: true,
     scheduledReports: true,
+    webhooks: "Generic",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -265,8 +291,11 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiQACapture: true,
     videoUpload: true,
     fullTextSearch: true,
+    knowledgeThreads: true,
     aiGapDetection: true,
-    accessRevocation: true,
+    assetManagement: "Full lifecycle",
+    dataWiping: true,
+    accessRevocation: "22+ + HRIS sync",
     complianceExport: true,
     exitInterviews: "Advanced builder",
     aiSentiment: true,
@@ -281,7 +310,9 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     referenceLetters: true,
     analyticsDashboard: "All time",
     csvExport: true,
+    auditExport: true,
     scheduledReports: true,
+    webhooks: "All providers",
     sso: true,
     sla: true,
     dedicatedManager: true,
@@ -310,7 +341,15 @@ const FEATURE_ROW_GROUPS: FeatureRowGroup[] = [
       { key: "aiQACapture", label: "AI-guided Q&A capture", icon: <Brain size={14} /> },
       { key: "videoUpload", label: "Video upload + link attach", icon: <FileText size={14} /> },
       { key: "fullTextSearch", label: "Full-text knowledge search", icon: <FileText size={14} /> },
+      { key: "knowledgeThreads", label: "Expert Q&A threads", icon: <MessageCircle size={14} /> },
       { key: "aiGapDetection", label: "AI knowledge gap detection", icon: <Brain size={14} /> },
+    ],
+  },
+  {
+    group: "Asset Management",
+    rows: [
+      { key: "assetManagement", label: "Asset lifecycle tracking", icon: <Briefcase size={14} /> },
+      { key: "dataWiping", label: "Data wiping workflow", icon: <Shield size={14} /> },
     ],
   },
   {
@@ -346,12 +385,14 @@ const FEATURE_ROW_GROUPS: FeatureRowGroup[] = [
     rows: [
       { key: "analyticsDashboard", label: "Analytics dashboard", icon: <BarChart2 size={14} /> },
       { key: "csvExport", label: "CSV / PDF export", icon: <FileText size={14} /> },
+      { key: "auditExport", label: "Audit trail export (PDF/CSV)", icon: <FileText size={14} /> },
       { key: "scheduledReports", label: "Scheduled analytics reports", icon: <BarChart2 size={14} /> },
     ],
   },
   {
     group: "Admin & Security",
     rows: [
+      { key: "webhooks", label: "Custom webhooks", icon: <Zap size={14} /> },
       { key: "sso", label: "SSO / SAML login", icon: <Lock size={14} /> },
       { key: "sla", label: "SLA guarantee (99.9% uptime)", icon: <CheckCircle size={14} /> },
       { key: "dedicatedManager", label: "Dedicated account manager", icon: <Users size={14} /> },
@@ -468,8 +509,8 @@ export default function BillingSettings() {
     );
   }
 
-  const currentPlan = (company.plan || "free") as PlanKey;
-  const planConfig = PLAN_CONFIG[currentPlan] || PLAN_CONFIG.free;
+  const currentPlan = (company.plan || "basic") as PlanKey;
+  const planConfig = PLAN_CONFIG[currentPlan] || PLAN_CONFIG.basic;
   const usageCount = company.usageCount || { offboardingsThisYear: 0, activeOffboardings: 0 };
   const memberSince = company.createdAt?.toDate?.()
     ? format(company.createdAt.toDate(), "MMMM yyyy")
@@ -512,18 +553,16 @@ export default function BillingSettings() {
               </div>
               <div>
                 <h2 className="text-3xl font-display text-navy">
-                  {planConfig.monthly === 0
-                    ? "Free"
-                    : planConfig.monthly === null
-                      ? "Custom"
-                      : `$${billingCycle === "annual" ? planConfig.annual : planConfig.monthly}`}
-                  {planConfig.monthly !== null && planConfig.monthly !== 0 && (
+                  {planConfig.monthly === null
+                    ? "Custom"
+                    : `$${billingCycle === "annual" ? planConfig.annual : planConfig.monthly}`}
+                  {planConfig.monthly !== null && (
                     <span className="text-base font-normal text-mist ml-1">/mo</span>
                   )}
                 </h2>
-                {planConfig.monthly !== null && planConfig.monthly !== 0 && billingCycle === "annual" && (
+                {planConfig.monthly !== null && billingCycle === "annual" && (
                   <p className="text-xs text-teal mt-0.5">
-                    Billed annually — save {annualSavingsPct}%
+                    Billed annually — save {planConfig.annualSavingPct ?? annualSavingsPct}%
                   </p>
                 )}
               </div>
@@ -534,7 +573,7 @@ export default function BillingSettings() {
             </div>
           </div>
 
-          {currentPlan === "free" && (
+          {currentPlan === "basic" && (
             <div className="mt-6 space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -556,14 +595,14 @@ export default function BillingSettings() {
                 <div className="flex items-start gap-3 rounded-lg bg-ember/5 border border-ember/20 p-3">
                   <Zap size={15} className="text-ember mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-ember">
-                    Free tier limit reached. Upgrade to continue running offboardings.
+                    Basic plan limit reached. Upgrade to continue running offboardings.
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {currentPlan !== "free" && (
+          {currentPlan !== "basic" && (
             <div className="mt-4 flex items-center gap-2 text-teal text-sm">
               <CheckCircle size={15} />
               <span>
@@ -677,47 +716,59 @@ export default function BillingSettings() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {(["starter", "growth", "business", "enterprise"] as PlanKey[]).map((plan) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((plan) => {
             const cfg = PLAN_CONFIG[plan];
             const isCurrentPlan = currentPlan === plan;
             const price = billingCycle === "annual" ? cfg.annual : cfg.monthly;
 
             const planHighlights: Record<PlanKey, string[]> = {
-              free: ["3 exits/year", "1 HR user", "Document upload"],
+              basic: [
+                "3 exits/year",
+                "1 HR user",
+                "Up to 10 employees",
+                "Document upload",
+                "Secure employee exit portal",
+                "Basic email notifications",
+              ],
               starter: [
                 `${PLAN_FEATURES[plan].offboardings} offboardings`,
                 PLAN_FEATURES[plan].users,
                 `Up to ${cfg.employeeLimit} employees`,
+                "All 6 task types + e-signature",
                 "AI-guided knowledge capture",
-                "Access revocation tracker",
+                "Basic asset tracking",
+                "Access revocation (10 integrations)",
                 "Fixed exit interview template",
               ],
               growth: [
                 `${PLAN_FEATURES[plan].offboardings} offboardings`,
                 PLAN_FEATURES[plan].users,
                 `Up to ${cfg.employeeLimit} employees`,
-                "Full alumni portal + job board",
-                "Boomerang hire pipeline",
-                "Pulse surveys + re-engagement score",
-                "AI sentiment analysis",
-                "Analytics (all time)",
+                "Unlimited templates + approval flow",
+                "AI gap detection + knowledge threads",
+                "Full asset lifecycle + data wiping",
+                "Alumni portal + job board",
+                "AI sentiment + custom exit interviews",
+                "Analytics (all time) + CSV export",
               ],
               business: [
                 `${PLAN_FEATURES[plan].offboardings} offboardings`,
                 PLAN_FEATURES[plan].users,
                 `Up to ${cfg.employeeLimit} employees`,
-                "AI knowledge gap detection",
+                "Pulse surveys + consulting pool",
                 "Ask the Expert threads",
-                "Consulting / gig pool",
-                "Reference letter PDF generation",
+                "Full alumni portal + gig requests",
                 "Compliance audit export",
+                "Custom webhooks (generic)",
                 "Scheduled analytics reports",
               ],
               enterprise: [
                 "Unlimited everything",
                 "White-label portal",
                 "SSO / SAML login",
+                "HRIS integrations (Workday, BambooHR…)",
+                "Okta / Azure AD access sync",
                 "99.9% SLA guarantee",
                 "Dedicated account manager",
                 "SOC 2 / HIPAA documentation",
@@ -806,7 +857,7 @@ export default function BillingSettings() {
             <thead>
               <tr className="border-b border-navy/10">
                 <th className="pb-3 text-left font-medium text-mist w-52">Feature</th>
-                {(["free", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((p) => (
+                {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((p) => (
                   <th
                     key={p}
                     className={`pb-3 text-center font-medium ${
@@ -840,7 +891,7 @@ export default function BillingSettings() {
                           {row.label}
                         </div>
                       </td>
-                      {(["free", "starter", "growth", "business", "enterprise"] as PlanKey[]).map(
+                      {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map(
                         (p) => (
                           <td key={p} className="py-2.5 text-center">
                             <FeatureCell value={PLAN_FEATURES[p][row.key]} />

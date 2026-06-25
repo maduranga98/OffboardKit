@@ -122,8 +122,9 @@ type AlumniTab = "directory" | "pipeline" | "jobboard" | "announcements" | "expe
 
 function PlanGateBlock({ title, minPlan, children }: { title: string; minPlan: string; children: React.ReactNode }) {
   const { plan } = usePlanGate();
-  const planOrder = ["free", "starter", "growth", "business", "enterprise"];
+  const planOrder = ["basic", "starter", "growth", "business", "enterprise"];
   const planLabels: Record<string, string> = {
+    starter: "Starter ($29/mo)",
     growth: "Growth ($79/mo)",
     business: "Business ($199/mo)",
     enterprise: "Enterprise",
