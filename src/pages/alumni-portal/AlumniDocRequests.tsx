@@ -10,6 +10,7 @@ import {
 import clsx from "clsx";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "../../components/ui/Button";
+import { Modal } from "../../components/ui/Modal";
 import { showToast } from "../../components/ui/Toast";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import {
@@ -67,6 +68,7 @@ export default function AlumniDocRequests() {
   const [urgency, setUrgency] = useState<RequestUrgency>("standard");
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [viewDocUrl, setViewDocUrl] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     if (!alumniProfile) return;
@@ -153,6 +155,23 @@ export default function AlumniDocRequests() {
 
   return (
     <div className="space-y-8">
+      {/* PDF Viewer Modal */}
+      {viewDocUrl && (
+        <Modal
+          isOpen={true}
+          onClose={() => setViewDocUrl(null)}
+          title="Document Preview"
+          size="lg"
+        >
+          <iframe
+            src={viewDocUrl}
+            className="w-full rounded-lg border border-navy/10"
+            style={{ height: "70vh" }}
+            title="Document Preview"
+          />
+        </Modal>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="font-display text-xl text-navy">Documents</h1>
@@ -402,14 +421,16 @@ export default function AlumniDocRequests() {
                   )}
 
                   {req.status === "delivered" && req.documentUrl && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => window.open(req.documentUrl!, "_blank")}
-                    >
-                      <Download size={13} className="mr-1" />
-                      Download
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setViewDocUrl(req.documentUrl!)}
+                      >
+                        <Download size={13} className="mr-1" />
+                        View Document
+                      </Button>
+                    </div>
                   )}
 
                   {req.status === "rejected" && req.rejectionReason && (

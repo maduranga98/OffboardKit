@@ -113,6 +113,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
   const [editModal, setEditModal] = useState<{ req: DocRequest; body: string } | null>(null);
   const [editBody, setEditBody] = useState("");
   const [editLoading, setEditLoading] = useState(false);
+  const [viewDocUrl, setViewDocUrl] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -205,11 +206,13 @@ export default function DocRequestsPanel({ companyId }: Props) {
         approvedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         letterBodyOverride: letterBody.trim() || null,
+        documentUrl: null,
+        lastError: null,
       });
       setRequests((prev) =>
         prev.map((r) =>
           r.id === req.id
-            ? { ...r, status: "approved", approvedBy: appUser.id, approvedByName: appUser.displayName }
+            ? { ...r, status: "approved", approvedBy: appUser.id, approvedByName: appUser.displayName, documentUrl: null, lastError: undefined }
             : r
         )
       );
@@ -482,6 +485,23 @@ export default function DocRequestsPanel({ companyId }: Props) {
         </div>
       </Modal>
 
+      {/* PDF Viewer Modal */}
+      {viewDocUrl && (
+        <Modal
+          isOpen={true}
+          onClose={() => setViewDocUrl(null)}
+          title="Document Preview"
+          size="lg"
+        >
+          <iframe
+            src={viewDocUrl}
+            className="w-full rounded-lg border border-navy/10"
+            style={{ height: "70vh" }}
+            title="Document Preview"
+          />
+        </Modal>
+      )}
+
       {/* Edit Letter Modal */}
       {editModal && (
         <Modal
@@ -736,12 +756,21 @@ export default function DocRequestsPanel({ companyId }: Props) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => window.open(req.documentUrl!, "_blank")}
+                        onClick={() => setViewDocUrl(req.documentUrl!)}
                       >
                         <ExternalLink size={13} className="mr-1" />
                         View Document
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={editLoading}
+                      onClick={() => openEditModal(req)}
+                    >
+                      <Pencil size={12} className="mr-1.5" />
+                      Edit & Regenerate
+                    </Button>
                   </div>
                 )}
 
