@@ -6,6 +6,12 @@ const PLAN_PRICES: Record<
   string,
   { monthly: string; annual: string; label: string }
 > = {
+  basic: {
+    // TODO: replace with live Stripe price IDs once created in the dashboard
+    monthly: "price_BASIC_MONTHLY_PLACEHOLDER",
+    annual: "price_BASIC_ANNUAL_PLACEHOLDER",
+    label: "Basic",
+  },
   starter: {
     monthly: "price_1TllKHQQchLsdaEfrxFB6Iz8",
     annual: "price_1TllKHQQchLsdaEfD50Ubg8o",
@@ -33,7 +39,7 @@ export const createCheckoutSession = functions.https.onCall(async (data, context
     billingCycle?: "monthly" | "annual";
   };
 
-  if (!["starter", "growth", "business"].includes(plan)) {
+  if (!["basic", "starter", "growth", "business"].includes(plan)) {
     throw new functions.https.HttpsError("invalid-argument", "Invalid plan selected.");
   }
 

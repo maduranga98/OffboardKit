@@ -9,7 +9,7 @@ function setCompany(overrides: Partial<Company>) {
     company: {
       id: "c1",
       name: "Acme",
-      plan: "free",
+      plan: "basic",
       features: {
         knowledgeVideo: false,
         alumniPortal: false,
@@ -28,13 +28,13 @@ describe("usePlanGate", () => {
     useCompanyStore.setState({ company: null, loading: false });
   });
 
-  it("defaults to plan=free when no company is loaded", () => {
+  it("defaults to plan=basic when no company is loaded", () => {
     const { result } = renderHook(() => usePlanGate());
-    expect(result.current.plan).toBe("free");
+    expect(result.current.plan).toBe("basic");
     expect(result.current.requiresPlan("starter")).toBe(false);
   });
 
-  it("requiresPlan respects the free→enterprise ordering", () => {
+  it("requiresPlan respects the basic→enterprise ordering", () => {
     setCompany({ plan: "growth" });
     const { result } = renderHook(() => usePlanGate());
     expect(result.current.requiresPlan("starter")).toBe(true);
@@ -51,24 +51,24 @@ describe("usePlanGate", () => {
       });
     });
 
-    it("free plan can start the first three of the year", () => {
+    it("basic plan can start the first three of the year", () => {
       setCompany({
-        plan: "free",
+        plan: "basic",
         usageCount: { offboardingsThisYear: 2, activeOffboardings: 0 },
       });
       const { result } = renderHook(() => usePlanGate());
       expect(result.current.canStartOffboarding()).toEqual({ allowed: true });
     });
 
-    it("free plan is blocked at the three-per-year cap", () => {
+    it("basic plan is blocked at the three-per-year cap", () => {
       setCompany({
-        plan: "free",
+        plan: "basic",
         usageCount: { offboardingsThisYear: 3, activeOffboardings: 0 },
       });
       const { result } = renderHook(() => usePlanGate());
       expect(result.current.canStartOffboarding()).toEqual({
         allowed: false,
-        reason: "free_limit",
+        reason: "basic_limit",
       });
     });
 
@@ -112,7 +112,7 @@ describe("usePlanGate", () => {
     });
 
     it("allows AI gap detection on growth+ with the flag enabled", () => {
-      setCompany({ plan: "business" });
+      setCompany({ plan: "growth" });
       const { result } = renderHook(() => usePlanGate());
       expect(result.current.canUseAiGapDetection()).toBe(true);
     });

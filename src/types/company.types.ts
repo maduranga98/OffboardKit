@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type CompanyPlan = "free" | "starter" | "growth" | "business" | "enterprise";
+export type CompanyPlan = "basic" | "starter" | "growth" | "business" | "enterprise";
 export type CompanySize = "10-50" | "50-200" | "200-500" | "500+";
 
 export interface CompanySettings {
@@ -35,7 +35,7 @@ export interface Company {
   timezone: string;
   plan: CompanyPlan;
   // Stripe billing identifiers; populated by createCheckoutSession +
-  // stripeWebhook. Optional because companies start on the free plan.
+  // stripeWebhook. Optional because companies start on the basic plan.
   stripeCustomerId?: string;
   stripeSubscriptionId?: string | null;
   stripeSubscriptionStatus?: string;

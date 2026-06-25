@@ -211,7 +211,7 @@ export default function SetupWizard() {
         industry,
         country,
         timezone,
-        plan: "free",
+        plan: "basic",
         stripeCustomerId: "",
         settings: {
           brandColor: "#0D9E8A",
