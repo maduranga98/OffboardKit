@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
@@ -716,7 +716,7 @@ export default function BillingSettings() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 items-stretch">
           {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((plan) => {
             const cfg = PLAN_CONFIG[plan];
             const isCurrentPlan = currentPlan === plan;
@@ -778,7 +778,9 @@ export default function BillingSettings() {
             return (
               <Card
                 key={plan}
-                className={`relative ${cfg.popular ? "border-teal" : "border-navy/10"} rounded-xl`}
+                className={`relative flex h-full flex-col ${
+                  cfg.popular ? "border-teal ring-1 ring-teal/20" : "border-navy/10"
+                } rounded-xl`}
               >
                 {cfg.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -787,7 +789,7 @@ export default function BillingSettings() {
                     </Badge>
                   </div>
                 )}
-                <div className="space-y-5 pt-2">
+                <div className="flex flex-1 flex-col gap-5 pt-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{cfg.emoji}</span>
@@ -823,27 +825,31 @@ export default function BillingSettings() {
                     ))}
                   </ul>
 
-                  {isCurrentPlan ? (
-                    <Button fullWidth variant="outline" disabled>
-                      Current Plan
-                    </Button>
-                  ) : plan === "enterprise" ? (
-                    <a href="mailto:hello@offboardkit.com">
-                      <Button fullWidth variant="outline">
-                        Contact Sales
+                  {/* mt-auto keeps every CTA on the same baseline regardless of
+                      how many highlights a plan lists */}
+                  <div className="mt-auto pt-1">
+                    {isCurrentPlan ? (
+                      <Button fullWidth variant="outline" disabled>
+                        Current Plan
                       </Button>
-                    </a>
-                  ) : (
-                    <Button
-                      fullWidth
-                      variant={cfg.popular ? "primary" : "outline"}
-                      onClick={() => handleSubscribe(plan)}
-                      loading={subscribingPlan === plan}
-                      disabled={subscribingPlan !== null}
-                    >
-                      {subscribingPlan === plan ? "Redirecting..." : "Subscribe"}
-                    </Button>
-                  )}
+                    ) : plan === "enterprise" ? (
+                      <a href="mailto:hello@offboardkit.com" className="block">
+                        <Button fullWidth variant="outline">
+                          Contact Sales
+                        </Button>
+                      </a>
+                    ) : (
+                      <Button
+                        fullWidth
+                        variant={cfg.popular ? "primary" : "outline"}
+                        onClick={() => handleSubscribe(plan)}
+                        loading={subscribingPlan === plan}
+                        disabled={subscribingPlan !== null}
+                      >
+                        {subscribingPlan === plan ? "Redirecting..." : "Subscribe"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             );
@@ -851,9 +857,12 @@ export default function BillingSettings() {
         </div>
 
         {/* Feature comparison table */}
-        <Card className="overflow-x-auto">
+        <Card>
           <h3 className="text-base font-semibold text-navy mb-5">Full Feature Comparison</h3>
-          <table className="w-full text-sm">
+          {/* Table scrolls inside its own container so the page body never
+              scrolls horizontally on small screens */}
+          <div className="-mx-6 overflow-x-auto px-6">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-navy/10">
                 <th className="pb-3 text-left font-medium text-mist w-52">Feature</th>
@@ -874,8 +883,8 @@ export default function BillingSettings() {
             </thead>
             <tbody>
               {FEATURE_ROW_GROUPS.map((group) => (
-                <>
-                  <tr key={`group-${group.group}`}>
+                <Fragment key={group.group}>
+                  <tr>
                     <td
                       colSpan={6}
                       className="pt-5 pb-1 text-xs font-semibold text-mist uppercase tracking-wider"
@@ -900,10 +909,11 @@ export default function BillingSettings() {
                       )}
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       </div>
 
