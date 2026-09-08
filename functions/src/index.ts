@@ -13,6 +13,7 @@ export { onExpertThreadCreated, onExpertThreadUpdated } from "./alumni/expertThr
 // Firestore triggers
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
 export { onAlumniOptedIn } from "./triggers/onAlumniOptedIn";
+export { syncAlumniDirectory, backfillAlumniDirectory } from "./alumni/syncAlumniDirectory";
 
 // Audit log triggers — record every state change in
 // offboardFlows/{flowId}/auditLog for compliance reporting.
@@ -42,8 +43,11 @@ export {
 } from "./triggers/fireIntegrationWebhooks";
 
 // Callable functions
+export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
+export { claimCompany, acceptInvite, setMemberRole, removeMember } from "./triggers/membership";
+export { syncStaffClaims, refreshMyClaims } from "./triggers/staffClaims";
 export { sendAlumniInvite } from "./triggers/sendAlumniInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";
 export { testSlackWebhook } from "./triggers/testSlackWebhook";

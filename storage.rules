@@ -1,23 +1,85 @@
 rules_version = '2';
+
+// OffboardKit Cloud Storage rules.
+//
+// Previously the exit-portal task path was `allow read: if true` with an
+// unauthenticated write, so every uploaded offboarding document was public to
+// anyone who could guess the path, and anyone at all could write into (or
+// overwrite) any company's folder. Portal visitors now arrive with a
+// flow-scoped custom token (see functions/portal/redeemPortalToken.ts), so
+// both sides can be tied to a specific flow.
+//
+// Default posture is deny — the catch-all at the bottom is explicit.
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // Portal task file uploads — unauthenticated employees upload via the exit portal.
-    // Size limited to 25 MB; content-type check is best-effort (some browsers report
-    // application/octet-stream for valid document types, so it is included).
-    match /companies/{companyId}/offboardings/{flowId}/tasks/{taskId}/{fileName} {
-      allow read: if true;
-      allow write: if request.resource.size < 25 * 1024 * 1024
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Staff tenancy comes from a custom claim mirrored off users/{uid} by the
+    // syncStaffClaims trigger. Cross-service firestore.get() would also work in
+    // production but costs a document read on every object operation and is
+    // unavailable in the emulator, so it cannot be covered by tests.
+    function isStaffOf(companyId) {
+      return isSignedIn()
+        && companyId != null
+        && companyId != ''
+        // Portal/survey identities carry their own namespaced company claim,
+        // so they can never satisfy the staff check.
+        && request.auth.token.get('portal', false) != true
+        && request.auth.token.get('survey', false) != true
+        && request.auth.token.get('companyId', '') == companyId;
+    }
+
+    function isPortalFor(companyId, flowId) {
+      return isSignedIn()
+        && request.auth.token.portal == true
+        && request.auth.token.portalCompanyId == companyId
+        && request.auth.token.flowId == flowId;
+    }
+
+    // Deliberately excludes application/octet-stream: it matches anything, so
+    // allowing it made the content-type check decorative. The client derives a
+    // real type from the file extension before uploading.
+    function isAllowedDocument() {
+      return request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches(
-          'image/.*|application/pdf|application/msword|'
+          'image/png|image/jpeg|image/gif|image/webp|'
+          + 'application/pdf|application/msword|'
+          + 'application/vnd\\.ms-excel|application/vnd\\.ms-powerpoint|'
           + 'application/vnd\\.openxmlformats-officedocument\\..*|'
-          + 'text/plain|image/png|image/jpeg|image/gif|image/webp|'
-          + 'application/octet-stream'
+          + 'text/plain'
         );
     }
 
-    // All other paths require authentication
+    // Task attachments and e-signatures uploaded from the exit portal.
+    match /companies/{companyId}/offboardings/{flowId}/tasks/{taskId}/{fileName} {
+      allow read: if isStaffOf(companyId) || isPortalFor(companyId, flowId);
+      allow write: if isAllowedDocument()
+        && (isStaffOf(companyId) || isPortalFor(companyId, flowId));
+      allow delete: if isStaffOf(companyId);
+    }
+
+    // Knowledge-transfer attachments. This path previously fell through to the
+    // authenticated catch-all, so portal uploads here failed outright.
+    match /companies/{companyId}/knowledge/{flowId}/{fileName} {
+      allow read: if isStaffOf(companyId) || isPortalFor(companyId, flowId);
+      allow write: if isAllowedDocument()
+        && (isStaffOf(companyId) || isPortalFor(companyId, flowId));
+      allow delete: if isStaffOf(companyId);
+    }
+
+    // Everything else a company stores (generated letters, analytics PDFs,
+    // logos). Scoped to that company's own staff rather than any signed-in
+    // user in the project.
+    match /companies/{companyId}/{allPaths=**} {
+      allow read, write: if isStaffOf(companyId);
+    }
+
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

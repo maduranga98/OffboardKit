@@ -19,7 +19,7 @@ import { Input } from "../../components/ui/Input";
 import { Card } from "../../components/ui/Card";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-import { setDocument, updateDocument } from "../../lib/firestore";
+import { setDocument } from "../../lib/firestore";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase";
 import { useAuthStore } from "../../store/authStore";
@@ -204,6 +204,9 @@ export default function SetupWizard() {
 
       const companyDoc: Company = {
         id: newCompanyId,
+        // Recorded so claimCompany can verify this caller actually created the
+        // company before attaching them to it.
+        ownerUid: user.uid,
         name: companyName,
         domain,
         size: companySize,
@@ -233,10 +236,16 @@ export default function SetupWizard() {
 
       await setDocument("companies", newCompanyId, companyDoc);
 
-      await updateDocument("users", user.uid, {
-        companyId: newCompanyId,
-        role: "super_admin",
-      });
+      // Tenant membership is server-owned — the client cannot write
+      // users.companyId / users.role (see functions/triggers/membership.ts).
+      const claimCompanyFn = httpsCallable<{ companyId: string }, unknown>(
+        functions,
+        "claimCompany"
+      );
+      await claimCompanyFn({ companyId: newCompanyId });
+      // Pick up the companyId claim immediately — storage uploads and the
+      // rest of the wizard depend on it.
+      await user.getIdToken(true);
 
       await seedDefaultTemplates(newCompanyId, selectedTemplate);
 

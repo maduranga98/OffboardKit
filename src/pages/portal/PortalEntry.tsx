@@ -24,11 +24,13 @@ import { Progress } from "../../components/ui/Progress";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import {
+  getDocument,
   queryDocuments,
   updateDocument,
   serverTimestamp,
 } from "../../lib/firestore";
-import { storage } from "../../lib/firebase";
+import { portalDb, portalStorage } from "../../lib/firebase";
+import { usePortalSession } from "../../hooks/usePortalSession";
 import type { OffboardFlow, FlowTask } from "../../types/offboarding.types";
 import type { Asset } from "../../types/asset.types";
 import ExitInterviewPortal from "./ExitInterviewPortal";
@@ -217,11 +219,14 @@ function TasksList({
   useEffect(() => {
     async function load() {
       try {
-        const data = await queryDocuments<FlowTask>("flowTasks", [
-          where("flowId", "==", flow.id),
-          where("portalToken", "==", flow.portalToken),
-          where("assigneeRole", "==", "employee"),
-        ]);
+        const data = await queryDocuments<FlowTask>(
+          "flowTasks",
+          [
+            where("flowId", "==", flow.id),
+            where("assigneeRole", "==", "employee"),
+          ],
+          portalDb
+        );
         setTasks(data);
         const completed = data.filter((t) => t.status === "completed").length;
         onProgressChange(completed, data.length);
@@ -238,10 +243,11 @@ function TasksList({
   async function syncFlowProgress(updatedTasks: FlowTask[]) {
     try {
       // Fetch ALL tasks (not just employee tasks) for overall progress
-      const allTasks = await queryDocuments<FlowTask>("flowTasks", [
-        where("flowId", "==", flow.id),
-        where("portalToken", "==", flow.portalToken),
-      ]);
+      const allTasks = await queryDocuments<FlowTask>(
+        "flowTasks",
+        [where("flowId", "==", flow.id)],
+        portalDb
+      );
       // Merge optimistic employee-task updates into the full set
       const taskMap = new Map(updatedTasks.map((t) => [t.id, t]));
       const merged = allTasks.map((t) => taskMap.get(t.id) ?? t);
@@ -250,11 +256,16 @@ function TasksList({
       const progressPercent =
         totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-      await updateDocument("offboardFlows", flow.id, {
-        progressPercent,
-        "completionScores.tasks": progressPercent,
-        ...(flow.status === "not_started" ? { status: "in_progress" } : {}),
-      });
+      await updateDocument(
+        "offboardFlows",
+        flow.id,
+        {
+          progressPercent,
+          "completionScores.tasks": progressPercent,
+          ...(flow.status === "not_started" ? { status: "in_progress" } : {}),
+        },
+        portalDb
+      );
     } catch {
       // Silent fail — progress sync is best-effort
     }
@@ -284,11 +295,16 @@ function TasksList({
 
     try {
       setSaveError(null);
-      await updateDocument("flowTasks", task.id, {
-        status: newStatus,
-        completedAt: newStatus === "completed" ? serverTimestamp() : null,
-        completedBy: newStatus === "completed" ? "employee" : "",
-      });
+      await updateDocument(
+        "flowTasks",
+        task.id,
+        {
+          status: newStatus,
+          completedAt: newStatus === "completed" ? serverTimestamp() : null,
+          completedBy: newStatus === "completed" ? "employee" : "",
+        },
+        portalDb
+      );
       await syncFlowProgress(updatedTasks);
     } catch {
       setTasks(prevTasks);
@@ -307,7 +323,7 @@ function TasksList({
     try {
       const fileName = `${task.id}-signature-${Date.now()}.png`;
       const filePath = `companies/${flow.companyId}/offboardings/${flow.id}/tasks/${task.id}/${fileName}`;
-      const storageRef = ref(storage, filePath);
+      const storageRef = ref(portalStorage, filePath);
 
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
@@ -315,12 +331,17 @@ function TasksList({
         contentType: "image/png",
       });
       const downloadURL = await getDownloadURL(snapshot.ref);
-      await updateDocument("flowTasks", task.id, {
-        status: "completed",
-        completedAt: serverTimestamp(),
-        completedBy: "employee",
-        uploadedFileUrl: downloadURL,
-      });
+      await updateDocument(
+        "flowTasks",
+        task.id,
+        {
+          status: "completed",
+          completedAt: serverTimestamp(),
+          completedBy: "employee",
+          uploadedFileUrl: downloadURL,
+        },
+        portalDb
+      );
       const updatedTasks = tasks.map((t) =>
         t.id === task.id
           ? {
@@ -368,7 +389,7 @@ function TasksList({
       const contentType = file.type || MIME_FALLBACKS[ext] || "application/octet-stream";
 
       const filePath = `companies/${flow.companyId}/offboardings/${flow.id}/tasks/${task.id}/${file.name}`;
-      const storageRef = ref(storage, filePath);
+      const storageRef = ref(portalStorage, filePath);
       const uploadTask = uploadBytesResumable(storageRef, file, {
         contentType,
       });
@@ -388,12 +409,17 @@ function TasksList({
               const downloadURL = await getDownloadURL(
                 uploadTask.snapshot.ref
               );
-              await updateDocument("flowTasks", task.id, {
-                status: "completed",
-                completedAt: serverTimestamp(),
-                completedBy: "employee",
-                uploadedFileUrl: downloadURL,
-              });
+              await updateDocument(
+                "flowTasks",
+                task.id,
+                {
+                  status: "completed",
+                  completedAt: serverTimestamp(),
+                  completedBy: "employee",
+                  uploadedFileUrl: downloadURL,
+                },
+                portalDb
+              );
               const updatedTasks = tasks.map((t) =>
                 t.id === task.id
                   ? {
@@ -748,7 +774,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
   const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)])
+    queryDocuments<Asset>("assets", [where("flowId", "==", flow.id)], portalDb)
       .then((data) => setAssets(data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -758,11 +784,16 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
     setUpdatingId(asset.id);
     const note = pendingNotes[asset.id]?.trim() || "";
     try {
-      await updateDocument("assets", asset.id, {
-        status: "returned",
-        returnedAt: serverTimestamp(),
-        ...(note ? { notes: note } : {}),
-      });
+      await updateDocument(
+        "assets",
+        asset.id,
+        {
+          status: "returned",
+          returnedAt: serverTimestamp(),
+          ...(note ? { notes: note } : {}),
+        },
+        portalDb
+      );
       setAssets((prev) =>
         prev.map((a) =>
           a.id === asset.id
@@ -921,55 +952,65 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
 
 export default function PortalEntry() {
   const { token } = useParams<{ token: string }>();
+  // The link token is redeemed server-side for a flow-scoped auth session.
+  // Until that resolves the portal holds no Firestore access at all.
+  const portalSession = usePortalSession(token);
   const [flow, setFlow] = useState<OffboardFlow | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [flowLoading, setFlowLoading] = useState(true);
+  const [flowError, setFlowError] = useState("");
   const [portalTab, setPortalTab] = useState<PortalTab>("tasks");
   const [completedTasks, setCompletedTasks] = useState(0);
   const [totalTasks, setTotalTasks] = useState(0);
   const [knowledgeItemCount, setKnowledgeItemCount] = useState(0);
   const [interviewCompleted, setInterviewCompleted] = useState(false);
 
+  const flowId = portalSession.session?.flowId;
+
   useEffect(() => {
-    if (!token) {
-      setError("No portal token provided.");
-      setLoading(false);
-      return;
-    }
+    if (!flowId) return;
+    let cancelled = false;
     const load = async () => {
       try {
-        const flows = await queryDocuments<OffboardFlow>("offboardFlows", [
-          where("portalToken", "==", token),
-          firestoreLimit(1),
-        ]);
-        if (flows.length === 0) {
-          setError("This portal link is invalid or has expired.");
+        const found = await getDocument<OffboardFlow>(
+          "offboardFlows",
+          flowId,
+          portalDb
+        );
+        if (cancelled) return;
+        if (!found) {
+          setFlowError("This portal link is invalid or has expired.");
         } else {
-          setFlow(flows[0]);
+          setFlow(found);
         }
       } catch {
-        setError("Something went wrong. Please try again later.");
+        if (!cancelled) {
+          setFlowError("Something went wrong. Please try again later.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setFlowLoading(false);
       }
     };
     load();
-  }, [token]);
+    return () => {
+      cancelled = true;
+    };
+  }, [flowId]);
 
   useEffect(() => {
     if (!flow) return;
     const loadCompletionStatus = async () => {
       try {
         const [knowledgeItems, interviews] = await Promise.all([
-          queryDocuments("knowledgeItems", [
-            where("flowId", "==", flow.id),
-            where("portalToken", "==", flow.portalToken),
-          ]),
-          queryDocuments("exitInterviewResponses", [
-            where("flowId", "==", flow.id),
-            where("portalToken", "==", flow.portalToken),
-            firestoreLimit(1),
-          ]),
+          queryDocuments(
+            "knowledgeItems",
+            [where("flowId", "==", flow.id)],
+            portalDb
+          ),
+          queryDocuments(
+            "exitInterviewResponses",
+            [where("flowId", "==", flow.id), firestoreLimit(1)],
+            portalDb
+          ),
         ]);
         setKnowledgeItemCount(knowledgeItems.length);
         setInterviewCompleted(interviews.length > 0);
@@ -980,7 +1021,7 @@ export default function PortalEntry() {
     loadCompletionStatus();
   }, [flow]);
 
-  if (loading) {
+  if (portalSession.status === "loading" || (flowLoading && !flowError)) {
     return (
       <div className="min-h-screen bg-warm/30 flex items-center justify-center">
         <div className="text-sm text-mist">Loading portal…</div>
@@ -988,13 +1029,16 @@ export default function PortalEntry() {
     );
   }
 
-  if (error || !flow) {
+  const fatalError =
+    portalSession.status === "error" ? portalSession.error : flowError;
+
+  if (fatalError || !flow) {
     return (
       <div className="min-h-screen bg-warm/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
           <EmptyState
             title="Portal Unavailable"
-            description={error || "This portal link is invalid."}
+            description={fatalError || "This portal link is invalid."}
           />
         </Card>
       </div>

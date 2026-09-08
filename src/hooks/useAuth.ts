@@ -7,8 +7,9 @@ import { useEffect } from "react";import {
   updateProfile,
 } from "firebase/auth";
 import { Timestamp } from "firebase/firestore";
-import { auth, googleProvider } from "../lib/firebase";
-import { getDocument, setDocument, queryDocuments, updateDocument, where } from "../lib/firestore";
+import { httpsCallable } from "firebase/functions";
+import { auth, functions, googleProvider } from "../lib/firebase";
+import { getDocument, setDocument, queryDocuments, where } from "../lib/firestore";
 import { useAuthStore } from "../store/authStore";
 import { useCompanyStore } from "../store/companyStore";
 import type { AppUser } from "../types/user.types";
@@ -34,6 +35,30 @@ export function useAuth() {
         let existingUser = await getDocument<AppUser>("users", firebaseUser.uid);
 
         if (!existingUser) {
+          // Before creating a company user doc, verify this isn't an alumni
+          // account. Alumni share the same Firebase Auth project but have
+          // profiles in alumniProfiles, not users. If we find one, sign them
+          // out and surface a redirect rather than creating a phantom company doc.
+          if (firebaseUser.email) {
+            try {
+              const alumniMatches = await queryDocuments<{ id: string }>(
+                "alumniProfiles",
+                [where("email", "==", firebaseUser.email)]
+              );
+              if (alumniMatches.length > 0) {
+                await firebaseSignOut(auth);
+                setAlumniLoginRequired(true);
+                setLoading(false);
+                return;
+              }
+            } catch {
+              // Non-blocking: proceed with normal company user creation
+            }
+          }
+
+          // companyId and role are intentionally omitted here — security rules
+          // reject any client write to those fields. Membership is granted
+          // server-side by claimCompany (setup wizard) or acceptInvite below.
           const newUser: AppUser = {
             id: firebaseUser.uid,
             companyId: "",
@@ -46,73 +71,46 @@ export function useAuth() {
             lastLoginAt: Timestamp.now(),
             createdAt: Timestamp.now(),
           };
+          await setDocument("users", firebaseUser.uid, newUser);
+          existingUser = newUser;
+        }
 
-          // Check for a pending invite matching this email
-          if (firebaseUser.email) {
-            try {
-              const invites = await queryDocuments<{
-                id: string;
-                companyId: string;
-                role: AppUser["role"];
-                status: string;
-                expiresAt: Timestamp;
-              }>("invites", [
-                where("email", "==", firebaseUser.email.toLowerCase()),
-                where("status", "==", "pending"),
-              ]);
-              const validInvite = invites.find(
-                (inv) => inv.expiresAt.toDate() > new Date()
-              );
-              if (validInvite) {
-                // Create the user doc first so the invite is only marked
-                // accepted once the user actually exists. If marking the
-                // invite fails we still log it instead of silently dropping
-                // the error.
-                newUser.companyId = validInvite.companyId;
-                newUser.role = validInvite.role;
-                await setDocument("users", firebaseUser.uid, newUser);
-                existingUser = newUser;
-                try {
-                  await updateDocument("invites", validInvite.id, {
-                    status: "accepted",
-                  });
-                } catch (inviteErr) {
-                  console.error(
-                    "Failed to mark invite accepted",
-                    validInvite.id,
-                    inviteErr
-                  );
-                }
-              }
-            } catch (inviteLookupErr) {
-              console.error("Invite lookup failed", inviteLookupErr);
+        // If a pending invite is waiting for this email, the server validates
+        // it and writes the membership, then we re-read the user document.
+        if (!existingUser.companyId) {
+          try {
+            const acceptInvite = httpsCallable<
+              Record<string, never>,
+              { accepted: boolean; companyId?: string; role?: AppUser["role"] }
+            >(functions, "acceptInvite");
+            const { data } = await acceptInvite({});
+            if (data.accepted && data.companyId) {
+              existingUser = {
+                ...existingUser,
+                companyId: data.companyId,
+                role: data.role ?? existingUser.role,
+              };
             }
+          } catch (inviteErr) {
+            console.error("Invite acceptance failed", inviteErr);
           }
+        }
 
-          if (!existingUser) {
-            // Before creating a company user doc, verify this isn't an alumni
-            // account. Alumni share the same Firebase Auth project but have
-            // profiles in alumniProfiles, not users. If we find one, sign them
-            // out and surface a redirect rather than creating a phantom company doc.
-            if (firebaseUser.email) {
-              try {
-                const alumniMatches = await queryDocuments<{ id: string }>(
-                  "alumniProfiles",
-                  [where("email", "==", firebaseUser.email)]
-                );
-                if (alumniMatches.length > 0) {
-                  await firebaseSignOut(auth);
-                  setAlumniLoginRequired(true);
-                  setLoading(false);
-                  return;
-                }
-              } catch {
-                // Non-blocking: proceed with normal company user creation
-              }
-            }
-            await setDocument("users", firebaseUser.uid, newUser);
-            existingUser = newUser;
+        // Storage rules authorize from the companyId custom claim. Existing
+        // accounts (and tokens issued mid-membership-change) may not carry it
+        // yet, so re-sync and force a token refresh when it drifts.
+        try {
+          const tokenResult = await firebaseUser.getIdTokenResult();
+          if (tokenResult.claims.companyId !== (existingUser.companyId || "")) {
+            const refreshClaims = httpsCallable<Record<string, never>, unknown>(
+              functions,
+              "refreshMyClaims"
+            );
+            await refreshClaims({});
+            await firebaseUser.getIdToken(true);
           }
+        } catch (claimErr) {
+          console.error("Claim refresh failed", claimErr);
         }
 
         setAppUser(existingUser);
@@ -133,7 +131,7 @@ export function useAuth() {
     });
 
     return () => unsubscribe();
-  }, [setUser, setAppUser, setCompanyId, setLoading, setCompany, logout]);
+  }, [setUser, setAppUser, setCompanyId, setLoading, setCompany, setAlumniLoginRequired, logout]);
 
   const signInWithGoogle = async () => {
     try {

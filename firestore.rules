@@ -1,316 +1,580 @@
 rules_version = '2';
+
+// OffboardKit Firestore security rules.
+//
+// Three kinds of caller exist, and every rule below is written in terms of
+// exactly one of them:
+//
+//   1. Company staff — signed in AND has a /users document. Their tenant is
+//      users/{uid}.companyId. That field (and .role) is written ONLY by Cloud
+//      Functions (claimCompany / acceptInvite / setMemberRole / removeMember);
+//      clients are denied, otherwise anyone could point their own user doc at
+//      another tenant as super_admin and inherit the whole company.
+//
+//   2. Alumni — signed in, no /users document. Their tenant is resolved via
+//      alumniDirectory/{uid}, an index maintained by the syncAlumniDirectory
+//      trigger. Rules cannot look a profile up by email alone, which is why
+//      the alumni collections used to be readable by every signed-in user.
+//
+//   3. Exit portal / survey visitors — no account. They exchange the link
+//      token for a custom token via redeemPortalToken / redeemSurveyToken and
+//      arrive carrying `portal`/`flowId` (or `survey`/`responseId`) claims.
+//      The raw link token is NEVER compared in rules: a token-bearing document
+//      is not the same as a caller who holds that token, and treating it as
+//      such let anyone enumerate whole collections.
+//
+// Default posture is deny. Anything not matched below is inaccessible.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuth() {
+
+    // ── Identity helpers ────────────────────────────────────────────────
+
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function currentUserPath() {
+    function userPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    function hasUserProfile() {
-      return isAuth() && exists(currentUserPath());
+    // A portal/survey identity is never staff, even though it is signed in.
+    function isScopedGuest() {
+      return request.auth.token.get('portal', false) == true
+        || request.auth.token.get('survey', false) == true;
     }
 
-    function currentUser() {
-      return get(currentUserPath()).data;
+    function isStaff() {
+      return isSignedIn() && !isScopedGuest() && exists(userPath());
     }
 
-    function currentCompanyId() {
-      return hasUserProfile() ? currentUser().companyId : null;
+    function staff() {
+      return get(userPath()).data;
     }
 
-    function currentRole() {
-      return hasUserProfile() ? currentUser().role : null;
+    // Never null-safe by accident: callers must guard with isStaff() first.
+    function myCompany() {
+      return staff().companyId;
     }
 
-    function getFlow(flowId) {
-      return get(/databases/$(database)/documents/offboardFlows/$(flowId)).data;
+    function myRole() {
+      return staff().role;
     }
 
-    function isValidPortalFlow(flowId) {
-      return flowId is string
-        && getFlow(flowId).portalToken != null
-        && (!('portalExpiresAt' in getFlow(flowId))
-            || getFlow(flowId).portalExpiresAt == null
-            || request.time < getFlow(flowId).portalExpiresAt);
+    function inCompany(companyId) {
+      return isStaff()
+        && companyId != null
+        && myCompany() != null
+        && myCompany() != ''
+        && myCompany() == companyId;
     }
 
-    function isCompanyMember(companyId) {
-      return isAuth() && currentCompanyId() == companyId;
+    function isTeamAdmin(companyId) {
+      return inCompany(companyId) && myRole() in ['super_admin', 'hr_admin'];
     }
 
-    function isTeamAdmin() {
-      return isAuth() && currentRole() in ['super_admin', 'hr_admin'];
+    // Documents are tenant-scoped by a companyId field.
+    function ownsExisting() {
+      return inCompany(resource.data.companyId);
     }
+
+    function ownsIncoming() {
+      return inCompany(request.resource.data.companyId);
+    }
+
+    // Company staff writing a document must keep it in their own tenant.
+    function staffWrite() {
+      return ownsExisting() && ownsIncoming();
+    }
+
+    // ── Alumni helpers ──────────────────────────────────────────────────
+
+    function alumniPath() {
+      return /databases/$(database)/documents/alumniDirectory/$(request.auth.uid);
+    }
+
+    function isAlumni() {
+      return isSignedIn() && exists(alumniPath());
+    }
+
+    function alumniCompany() {
+      return get(alumniPath()).data.companyId;
+    }
+
+    function isAlumniOf(companyId) {
+      return isAlumni() && alumniCompany() == companyId;
+    }
+
+    function alumniProfileId() {
+      return get(alumniPath()).data.profileId;
+    }
+
+    // Alumni-owned rows carry the profile id (not the auth uid), so ownership
+    // is checked through the directory's profileId mapping.
+    function isAlumniRecord(companyId, alumniId) {
+      return isAlumniOf(companyId) && alumniProfileId() == alumniId;
+    }
+
+    function myEmail() {
+      return request.auth.token.email;
+    }
+
+    // ── Portal helpers ──────────────────────────────────────────────────
+
+    function isPortal() {
+      return isSignedIn() && request.auth.token.portal == true;
+    }
+
+    function isPortalFor(flowId) {
+      return isPortal() && flowId != null && request.auth.token.flowId == flowId;
+    }
+
+    function portalCompany() {
+      return request.auth.token.portalCompanyId;
+    }
+
+    function isSurvey() {
+      return isSignedIn() && request.auth.token.survey == true;
+    }
+
+    // NOTE ON WILDCARDS: the trailing {docId} wildcard is NOT bound during a
+    // list/query operation — only during single-document reads. Comparing it
+    // unguarded raises "Null value error" and fails the whole rule, taking any
+    // sibling condition down with it. So every wildcard comparison below is
+    // null-guarded, and where a scoped caller genuinely needs to run a query
+    // the check is made against a document field instead.
+
+    // ── Field-level guards ──────────────────────────────────────────────
+
+    function changed(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+
+    function onlyChanged(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    function tenantUnchanged() {
+      return request.resource.data.companyId == resource.data.companyId;
+    }
+
+    // ── users ───────────────────────────────────────────────────────────
+    // companyId and role are server-owned. See functions/triggers/membership.ts.
 
     match /users/{userId} {
-      allow read: if isAuth() && (
-        request.auth.uid == userId ||
-        resource.data.companyId == currentCompanyId()
+      allow read: if isSignedIn() && (
+        (userId != null && request.auth.uid == userId) ||
+        (isStaff() && resource.data.companyId == myCompany() && myCompany() != '')
       );
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && (
-        request.auth.uid == userId ||
-        (
-          isTeamAdmin() &&
-          resource.data.companyId == currentCompanyId() &&
-          resource.data.role != 'super_admin' &&
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['role', 'companyId', 'isActive', 'updatedAt'])
-        )
-      );
+
+      // A brand new account may only create itself with NO tenant. Membership
+      // arrives afterwards from claimCompany / acceptInvite.
+      allow create: if isSignedIn()
+        && userId != null
+        && request.auth.uid == userId
+        && request.resource.data.companyId == ''
+        && request.resource.data.email == request.auth.token.email;
+
+      // Self-service profile edits only — never companyId, never role.
+      allow update: if isSignedIn()
+        && userId != null
+        && request.auth.uid == userId
+        && onlyChanged(['displayName', 'photoURL', 'department',
+                        'lastLoginAt', 'updatedAt']);
+
+      allow delete: if false;
     }
+
+    // ── alumniDirectory ─────────────────────────────────────────────────
+    // uid -> tenant index, written only by the syncAlumniDirectory trigger.
+
+    match /alumniDirectory/{uid} {
+      allow read: if isSignedIn() && uid != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ── companies ───────────────────────────────────────────────────────
 
     match /companies/{companyId} {
-      // Company members (HR/staff) OR any authenticated user who has an
-      // alumniProfile belonging to this company can read basic company info.
-      allow read: if isCompanyMember(companyId) || isAuth();
-      allow create: if isAuth();
-      // Billing-sensitive fields can only be mutated by team admins, and
-      // only from the server (Cloud Functions use admin SDK and bypass
-      // rules anyway). Regular company members can still update profile
-      // settings, feature toggles, usage counters, etc.
-      allow update: if isCompanyMember(companyId) && (
-        isTeamAdmin() ||
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['plan', 'stripeCustomerId', 'stripeSubscriptionId', 'stripeSubscriptionStatus'])
-      );
+      // Staff of the company, its alumni, and an active exit portal for it.
+      // Note this is the whole document, billing identifiers included — it is
+      // deliberately NOT readable by every signed-in user any more.
+      allow read: if inCompany(companyId)
+        || (companyId != null && isAlumniOf(companyId))
+        || (companyId != null && isPortal() && portalCompany() == companyId);
+
+      // The creator must stamp themselves as owner; claimCompany verifies this
+      // before attaching anyone to the tenant.
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+
+      // Billing state is Stripe's to set (via the webhook, which uses the
+      // admin SDK and bypasses rules). Ownership can never be reassigned.
+      allow update: if inCompany(companyId)
+        // Companies created before ownerUid existed simply have no owner;
+        // the check is that nobody can introduce or change one.
+        && request.resource.data.get('ownerUid', null) == resource.data.get('ownerUid', null)
+        && !changed(['plan', 'stripeCustomerId', 'stripeSubscriptionId',
+                     'stripeSubscriptionStatus', 'usageCount'])
+        && (isTeamAdmin(companyId) || !changed(['features', 'settings']));
+
+      allow delete: if false;
     }
 
-    match /offboardTemplates/{templateId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-    }
+    // ── offboardFlows ───────────────────────────────────────────────────
 
-    // Portal (unauthenticated) reads a flow only if it carries a portalToken
-    // and the link hasn't expired. Updates must echo the stored portalToken
-    // unchanged AND be confined to safe progress fields.
     match /offboardFlows/{flowId} {
-      allow read, write: if isAuth();
-      allow read: if resource.data.portalToken != null
-        && (!('portalExpiresAt' in resource.data)
-            || resource.data.portalExpiresAt == null
-            || request.time < resource.data.portalExpiresAt);
-      allow update: if request.resource.data.portalToken == resource.data.portalToken
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['progressPercent', 'completionScores', 'status', 'portalLastAccessed']);
+      allow read: if ownsExisting() || isPortalFor(flowId);
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        || (
+          isPortalFor(flowId)
+          && tenantUnchanged()
+          && onlyChanged(['progressPercent', 'completionScores', 'status',
+                          'portalLastAccessed', 'updatedAt'])
+        );
+      allow delete: if isTeamAdmin(resource.data.companyId);
 
-      // Audit log is read-only for company members and write-only via
-      // Cloud Functions (admin SDK bypasses rules). Deny all client writes
-      // so entries are tamper-evident.
+      // Compliance trail: readable by the owning company, written only by the
+      // audit Cloud Functions so entries stay tamper-evident.
       match /auditLog/{entryId} {
-        allow read: if isAuth()
-          && get(/databases/$(database)/documents/offboardFlows/$(flowId)).data.companyId == currentCompanyId();
+        allow read: if isStaff()
+          && get(/databases/$(database)/documents/offboardFlows/$(flowId)).data.companyId == myCompany();
         allow write: if false;
       }
     }
 
-    // Portal updates a task only if the task carries the same portalToken as
-    // its parent flow (denormalized at creation time) and only completion-
-    // related fields are touched.
+    // ── flowTasks ───────────────────────────────────────────────────────
+
     match /flowTasks/{taskId} {
-      allow read, write: if isAuth();
-      allow read: if resource.data.portalToken != null;
-      allow update: if isValidPortalFlow(resource.data.flowId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'completedAt', 'completedBy', 'uploadedFileUrl']);
+      allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        || (
+          isPortalFor(resource.data.flowId)
+          && tenantUnchanged()
+          && request.resource.data.flowId == resource.data.flowId
+          && onlyChanged(['status', 'completedAt', 'completedBy',
+                          'uploadedFileUrl', 'updatedAt'])
+        );
+      allow delete: if ownsExisting();
     }
 
-    match /notifications/{notificationId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
+    // ── assets ──────────────────────────────────────────────────────────
+
+    match /assets/{assetId} {
+      allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        || (
+          isPortalFor(resource.data.flowId)
+          && tenantUnchanged()
+          && onlyChanged(['status', 'returnedAt', 'notes', 'updatedAt'])
+        );
+      allow delete: if ownsExisting();
+    }
+
+    // ── exitInterviewTemplates ──────────────────────────────────────────
+    // Was `allow read: if true`. Templates name internal processes, so they
+    // are now limited to the owning tenant and its active portals.
+
+    match /exitInterviewTemplates/{templateId} {
+      allow read: if ownsExisting()
+        || (isPortal() && portalCompany() == resource.data.companyId);
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
+    }
+
+    // ── exitInterviewResponses ──────────────────────────────────────────
+    // Free-text grievances. Company staff, or the one portal that owns them.
+
+    match /exitInterviewResponses/{responseId} {
+      allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
+      allow create: if ownsIncoming()
+        || (
+          isPortalFor(request.resource.data.flowId)
+          && request.resource.data.companyId == portalCompany()
+        );
+      allow update: if staffWrite();
+      allow delete: if isTeamAdmin(resource.data.companyId);
+    }
+
+    // ── knowledgeItems ──────────────────────────────────────────────────
+
+    match /knowledgeItems/{itemId} {
+      allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
+      allow create: if ownsIncoming()
+        || (
+          isPortalFor(request.resource.data.flowId)
+          && request.resource.data.companyId == portalCompany()
+        );
+      allow update: if staffWrite()
+        || (
+          isPortalFor(resource.data.flowId)
+          && tenantUnchanged()
+          && onlyChanged(['title', 'type', 'description', 'url', 'successor',
+                          'status', 'managerVerificationStatus',
+                          'managerVerified', 'managerVerifiedBy',
+                          'managerVerifiedAt', 'updatedAt'])
+        );
+      allow delete: if ownsExisting();
+    }
+
+    // ── offboardTemplates / systemCatalog ───────────────────────────────
+
+    match /offboardTemplates/{templateId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
     }
 
     match /systemCatalog/{catalogId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
 
       match /systems/{systemId} {
-        allow read: if isAuth();
-        allow write: if isAuth();
+        allow read: if isStaff()
+          && get(/databases/$(database)/documents/systemCatalog/$(catalogId)).data.companyId == myCompany();
+        allow write: if isStaff()
+          && get(/databases/$(database)/documents/systemCatalog/$(catalogId)).data.companyId == myCompany();
       }
     }
 
     match /accessRevocations/{revocationId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
     }
 
-    match /assets/{assetId} {
-      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
-      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
-      allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
-      // Portal: employee can read/update assets for their flow. Verified via
-      // the parent flow's portalToken so no denormalization is required on the
-      // asset document itself.
-      allow read: if isValidPortalFlow(resource.data.flowId);
-      allow update: if isValidPortalFlow(resource.data.flowId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'returnedAt', 'updatedAt']);
+    // ── notifications ───────────────────────────────────────────────────
+
+    match /notifications/{notificationId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
     }
 
-    // Portal reads interview templates (not sensitive) and submits responses.
-    match /exitInterviewTemplates/{templateId} {
-      allow read, write: if isAuth();
-      allow read: if true;
-    }
-
-    // Portal submits and reads its own responses to check completion status.
-    // Anonymous creates require a flowId + matching portalToken so attackers
-    // can't spam arbitrary companies / trigger AI sentiment analysis.
-    match /exitInterviewResponses/{responseId} {
-      allow read, write: if isAuth();
-      allow read: if resource.data.portalToken != null;
-      allow create: if request.resource.data.flowId is string
-        && request.resource.data.companyId is string
-        && request.resource.data.portalToken is string
-        && request.resource.data.portalToken ==
-           get(/databases/$(database)/documents/offboardFlows/$(request.resource.data.flowId)).data.portalToken;
-    }
-
-    // Portal submits knowledge items; same guardrails as exit interview.
-    match /knowledgeItems/{itemId} {
-      allow read, write: if isAuth();
-      allow read: if resource.data.portalToken != null;
-      allow create: if request.resource.data.flowId is string
-        && request.resource.data.companyId is string
-        && request.resource.data.portalToken is string
-        && request.resource.data.portalToken ==
-           get(/databases/$(database)/documents/offboardFlows/$(request.resource.data.flowId)).data.portalToken;
-      // Portal resubmit: employee can edit their own item while the flow is active.
-      allow update: if isValidPortalFlow(resource.data.flowId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['title', 'type', 'description', 'url', 'successor', 'status',
-                    'managerVerificationStatus', 'managerVerified', 'managerVerifiedBy',
-                    'managerVerifiedAt', 'updatedAt']);
-    }
+    // ── Alumni-facing collections ───────────────────────────────────────
 
     match /alumniProfiles/{profileId} {
-      // Any authenticated user can create an alumni profile
-      allow create: if isAuth();
-      // Any authenticated user can read (needed for email-based list queries)
-      allow read: if isAuth();
-      // Company members and the alumni themselves can update
-      allow update: if isAuth() && (
-        resource.data.companyId == currentCompanyId() ||
-        (request.auth.token.email != null && resource.data.email == request.auth.token.email)
-      );
-      // Only company members can delete
-      allow delete: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow read: if ownsExisting()
+        // First login: the alumni looks itself up by email before authUid is
+        // linked. Per-document evaluation keeps this to their own row.
+        || (isSignedIn() && resource.data.get('email', '') == myEmail())
+        || (isSignedIn() && resource.data.get('authUid', '') == request.auth.uid);
+
+      allow create: if ownsIncoming();
+
+      allow update: if staffWrite()
+        // Alumni may maintain their own profile, but not move it between
+        // tenants or re-point it at a different auth account.
+        || (
+          isSignedIn()
+          && resource.data.get('authUid', '') == request.auth.uid
+          && tenantUnchanged()
+          && request.resource.data.get('authUid', '') == resource.data.get('authUid', '')
+          && request.resource.data.email == resource.data.email
+        )
+        // Bootstrap: link authUid on first sign-in, nothing else.
+        || (
+          isSignedIn()
+          && resource.data.get('email', '') == myEmail()
+          && onlyChanged(['authUid'])
+          && request.resource.data.authUid == request.auth.uid
+        );
+
+      allow delete: if isTeamAdmin(resource.data.companyId);
     }
 
     match /alumniJobs/{jobId} {
-      // HR (company staff with a /users doc) can fully manage their company's jobs
-      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
-      allow read, update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
-      // Alumni (authenticated via Firebase Auth, no /users doc) can read any open job.
-      // Client-side filters by companyId and audience keep the visible set correct.
-      allow read: if isAuth() && resource.data.status == 'open';
-      // Alumni can increment referralCount on open jobs when submitting a referral.
-      allow update: if isAuth() && resource.data.status == 'open'
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['referralCount', 'updatedAt']);
+      allow read: if ownsExisting()
+        || (isAlumniOf(resource.data.companyId) && resource.data.status == 'open');
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        // Referral counter is derived data; alumni may only increment it by
+        // one on an open job in their own company.
+        || (
+          isAlumniOf(resource.data.companyId)
+          && resource.data.status == 'open'
+          && tenantUnchanged()
+          && onlyChanged(['referralCount', 'updatedAt'])
+          && request.resource.data.referralCount == resource.data.get('referralCount', 0) + 1
+        );
+      allow delete: if ownsExisting();
     }
 
     match /alumniApplications/{applicationId} {
-      allow read, write: if isAuth();
+      allow read: if ownsExisting()
+        || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
+      allow create: if ownsIncoming()
+        || isAlumniRecord(request.resource.data.companyId,
+                          request.resource.data.get('alumniId', ''));
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
     }
 
-    // Alumni Engagement Log
     match /alumniEngagementLog/{logId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null;
-    }
-
-    // Alumni announcements — HR creates/manages, alumni read published ones
-    match /alumniAnnouncements/{announcementId} {
-      // HR (company members) can read and write all announcements for their company
-      allow read, write: if isAuth() && (
-        (resource == null && request.resource.data.companyId == currentCompanyId()) ||
-        resource.data.companyId == currentCompanyId()
-      );
-      // Alumni can read published announcements for their company
-      // Alumni are authenticated via Firebase Auth but don't have a /users doc —
-      // so we allow any authenticated user to read published docs and filter company-side.
-      allow read: if isAuth() && resource.data.status == 'published';
-    }
-
-    // Alumni announcement read receipts — alumni write their own, HR can read
-    match /alumniAnnouncementReads/{readId} {
-      // Any authenticated user can create a read receipt for themselves
-      allow create: if isAuth() && request.resource.data.alumniId != null;
-      // Readers can only read their own receipts (keyed by alumniId)
-      allow read: if isAuth();
-      // No updates or deletes needed
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming()
+        || isAlumniOf(request.resource.data.companyId)
+        || (isSurvey() && request.resource.data.companyId == request.auth.token.surveyCompanyId);
       allow update, delete: if false;
     }
 
-    // Outbound HRIS / identity-provider webhooks. Read/write limited to
-    // team admins because secrets live here.
-    match /integrations/{integrationId} {
-      allow read: if isAuth() && resource.data.companyId == currentCompanyId();
-      allow create: if isTeamAdmin()
-        && request.resource.data.companyId == currentCompanyId();
-      allow update, delete: if isTeamAdmin()
-        && resource.data.companyId == currentCompanyId();
+    match /alumniAnnouncements/{announcementId} {
+      allow read: if ownsExisting()
+        || (
+          isAlumniOf(resource.data.companyId)
+          && resource.data.status == 'published'
+        );
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        // Read tracking: alumni may only bump the counter on a published
+        // announcement from their own company.
+        || (
+          isAlumniOf(resource.data.companyId)
+          && resource.data.status == 'published'
+          && tenantUnchanged()
+          && onlyChanged(['readCount', 'updatedAt'])
+        );
+      allow delete: if ownsExisting();
     }
 
-    // Compliance report archive. Only generated server-side; clients are
-    // read-only.
-    match /complianceReports/{reportId} {
-      allow read: if isTeamAdmin()
-        && resource.data.companyId == currentCompanyId();
-      allow write: if false;
+    match /alumniAnnouncementReads/{readId} {
+      // A receipt is private to the alumni who left it, plus the company.
+      allow read: if ownsExisting()
+        || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
+      allow create: if isAlumniRecord(request.resource.data.companyId,
+                                      request.resource.data.get('alumniId', ''));
+      allow update, delete: if false;
     }
 
     match /docRequests/{requestId} {
-      allow read, write: if isAuth();
+      allow read: if ownsExisting()
+        || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
+      allow create: if ownsIncoming()
+        || isAlumniRecord(request.resource.data.companyId,
+                          request.resource.data.get('alumniId', ''));
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
     }
 
     match /gigRequests/{requestId} {
-      allow read, write: if isAuth();
-    }
-
-    match /pulseSurveys/{surveyId} {
-      allow read, write: if isAuth();
-    }
-
-    match /pulseResponses/{responseId} {
-      allow read, write: if isAuth();
-      // Alumni access pulse survey links via token without a /users doc
-      allow read, update: if resource.data.token != null;
-    }
-
-    match /letterTemplates/{templateId} {
-      allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.companyId == currentCompanyId();
-      allow update, delete: if isAuth() && resource.data.companyId == currentCompanyId();
+      allow read: if ownsExisting()
+        || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
+      allow create: if ownsIncoming();
+      // Alumni answer a gig addressed to them; they don't rewrite its terms.
+      allow update: if staffWrite()
+        || (
+          isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''))
+          && tenantUnchanged()
+          && onlyChanged(['status', 'alumniNote', 'respondedAt', 'updatedAt'])
+        );
+      allow delete: if ownsExisting();
     }
 
     match /knowledgeThreads/{threadId} {
-      allow read, write: if isAuth();
+      allow read: if ownsExisting()
+        || isAlumniOf(resource.data.companyId);
+      allow create: if ownsIncoming()
+        || isAlumniOf(request.resource.data.companyId);
+      allow update: if staffWrite()
+        || (isAlumniOf(resource.data.companyId) && tenantUnchanged());
+      allow delete: if isTeamAdmin(resource.data.companyId);
+
+      function threadCompany() {
+        return get(/databases/$(database)/documents/knowledgeThreads/$(threadId)).data.companyId;
+      }
 
       match /messages/{messageId} {
-        allow read, write: if isAuth();
+        allow read: if inCompany(threadCompany()) || isAlumniOf(threadCompany());
+        allow create: if inCompany(threadCompany()) || isAlumniOf(threadCompany());
+        allow update, delete: if false;
       }
     }
 
+    // ── Pulse surveys ───────────────────────────────────────────────────
+
+    match /pulseSurveys/{surveyId} {
+      allow read: if ownsExisting()
+        // Field-based: the client looks the survey up with a query, where the
+        // {surveyId} wildcard would not be bound.
+        || (isSurvey() && request.auth.token.surveyId == resource.data.get('id', ''));
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        // A survey respondent may only bump the response tally.
+        || (
+          isSurvey()
+          && surveyId != null
+          && request.auth.token.surveyId == surveyId
+          && tenantUnchanged()
+          && onlyChanged(['totalResponded', 'updatedAt'])
+          && request.resource.data.totalResponded == resource.data.get('totalResponded', 0) + 1
+        );
+      allow delete: if ownsExisting();
+    }
+
+    match /pulseResponses/{responseId} {
+      allow read: if ownsExisting()
+        || (isSurvey() && responseId != null
+            && request.auth.token.responseId == responseId);
+      allow create: if ownsIncoming();
+      allow update: if staffWrite()
+        || (
+          isSurvey()
+          && responseId != null
+          && request.auth.token.responseId == responseId
+          && tenantUnchanged()
+          && onlyChanged(['status', 'completedAt', 'responses',
+                          'satisfactionScore', 'wouldReturn', 'wouldRefer',
+                          'updatedAt'])
+        );
+      allow delete: if ownsExisting();
+    }
+
+    // ── letterTemplates ─────────────────────────────────────────────────
+
+    match /letterTemplates/{templateId} {
+      allow read: if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if staffWrite();
+      allow delete: if ownsExisting();
+    }
+
+    // ── integrations (holds webhook secrets) ────────────────────────────
+
+    match /integrations/{integrationId} {
+      allow read: if isTeamAdmin(resource.data.companyId);
+      allow create: if isTeamAdmin(request.resource.data.companyId);
+      allow update: if isTeamAdmin(resource.data.companyId)
+        && isTeamAdmin(request.resource.data.companyId);
+      allow delete: if isTeamAdmin(resource.data.companyId);
+    }
+
+    // ── complianceReports (generated server-side) ───────────────────────
+
+    match /complianceReports/{reportId} {
+      allow read: if isTeamAdmin(resource.data.companyId);
+      allow write: if false;
+    }
+
+    // ── invites ─────────────────────────────────────────────────────────
+    // Previously world-readable, which leaked every pending invitee's email,
+    // company and role. Acceptance now runs server-side (acceptInvite), so
+    // invitees never need to read this collection at all.
+
     match /invites/{inviteId} {
-      allow read: if !isAuth() || (
-        resource.data.email == request.auth.token.email ||
-        resource.data.companyId == currentCompanyId()
-      );
-      allow create: if isTeamAdmin() && request.resource.data.companyId == currentCompanyId();
-      allow update: if isAuth() && (
-        resource.data.email == request.auth.token.email ||
-        resource.data.companyId == currentCompanyId()
-      );
-      allow delete: if isAuth() && (
-        (isTeamAdmin() && resource.data.companyId == currentCompanyId()) ||
-        resource.data.invitedBy == request.auth.uid
-      );
+      allow read: if isTeamAdmin(resource.data.companyId);
+      allow create: if isTeamAdmin(request.resource.data.companyId);
+      allow update: if isTeamAdmin(resource.data.companyId)
+        && tenantUnchanged();
+      allow delete: if isTeamAdmin(resource.data.companyId);
     }
   }
 }

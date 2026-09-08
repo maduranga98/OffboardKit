@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { portalDb } from "../../lib/firebase";
 import {
+  getDocument,
   queryDocuments,
   updateDocument,
   serverTimestamp,
   where,
 } from "../../lib/firestore";
+import { useSurveySession } from "../../hooks/usePortalSession";
 import type { PulseSurvey, PulseResponse, QuestionType } from "../../types/pulseSurveys.types";
 
 type PageState = "loading" | "invalid" | "already_submitted" | "survey" | "thankyou";
@@ -21,32 +23,46 @@ export default function SurveyPage() {
   const [answers, setAnswers] = useState<Record<string, number | string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // The link token is redeemed server-side for a response-scoped auth session;
+  // no Firestore read happens until it resolves.
+  const surveySession = useSurveySession(token);
+  const responseId = surveySession.session?.responseId;
+  const sessionFailed = surveySession.status === "error";
+
   useEffect(() => {
-    if (!token) { setPageState("invalid"); return; }
+    if (sessionFailed) { setPageState("invalid"); return; }
+    if (!responseId) return;
+    let cancelled = false;
 
     async function load() {
       try {
-        const responses = await queryDocuments<PulseResponse>("pulseResponses", [
-          where("token", "==", token),
-        ]);
-        if (responses.length === 0) { setPageState("invalid"); return; }
-        const resp = responses[0];
+        const resp = await getDocument<PulseResponse>(
+          "pulseResponses",
+          responseId!,
+          portalDb
+        );
+        if (cancelled) return;
+        if (!resp) { setPageState("invalid"); return; }
         setResponse(resp);
 
         if (resp.status === "completed") { setPageState("already_submitted"); return; }
 
-        const surveys = await queryDocuments<PulseSurvey>("pulseSurveys", [
-          where("id", "==", resp.surveyId),
-        ]);
+        const surveys = await queryDocuments<PulseSurvey>(
+          "pulseSurveys",
+          [where("id", "==", resp.surveyId)],
+          portalDb
+        );
+        if (cancelled) return;
         if (surveys.length === 0) { setPageState("invalid"); return; }
         setSurvey(surveys[0]);
         setPageState("survey");
       } catch {
-        setPageState("invalid");
+        if (!cancelled) setPageState("invalid");
       }
     }
     load();
-  }, [token]);
+    return () => { cancelled = true; };
+  }, [responseId, sessionFailed]);
 
   const questions = survey
     ? [...survey.questions].sort((a, b) => a.order - b.order)
@@ -91,24 +107,34 @@ export default function SurveyPage() {
         }
       }
 
-      await updateDocument("pulseResponses", response.id, {
-        status: "completed",
-        completedAt: serverTimestamp(),
-        responses: answers,
-        satisfactionScore,
-        wouldReturn,
-        wouldRefer,
-        updatedAt: serverTimestamp(),
-      });
+      await updateDocument(
+        "pulseResponses",
+        response.id,
+        {
+          status: "completed",
+          completedAt: serverTimestamp(),
+          responses: answers,
+          satisfactionScore,
+          wouldReturn,
+          wouldRefer,
+          updatedAt: serverTimestamp(),
+        },
+        portalDb
+      );
 
       // These are best-effort — don't block thank-you on permission failures
-      updateDocument("pulseSurveys", survey.id, {
-        totalResponded: (survey.totalResponded || 0) + 1,
-        updatedAt: serverTimestamp(),
-      }).catch(console.error);
+      updateDocument(
+        "pulseSurveys",
+        survey.id,
+        {
+          totalResponded: (survey.totalResponded || 0) + 1,
+          updatedAt: serverTimestamp(),
+        },
+        portalDb
+      ).catch(console.error);
 
       const engLogId = crypto.randomUUID();
-      setDoc(doc(collection(db, 'alumniEngagementLog'), engLogId), {
+      setDoc(doc(collection(portalDb, 'alumniEngagementLog'), engLogId), {
         id: engLogId,
         companyId: response.companyId,
         alumniId: response.alumniId,

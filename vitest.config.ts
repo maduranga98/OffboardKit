@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    // The security-rules suites drive the Firebase emulators, not happy-dom.
+    // They run separately: cd security-tests && npm test
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
     environment: "happy-dom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
