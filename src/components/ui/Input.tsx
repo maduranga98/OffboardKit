@@ -1,4 +1,4 @@
-import { forwardRef, useState, type InputHTMLAttributes } from "react";
+import { forwardRef, useId, useState, type InputHTMLAttributes } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import clsx from "clsx";
 
@@ -10,7 +10,10 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, className, id, type, ...props }, ref) => {
-    const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
+    const reactId = useId();
+    const inputId = id || label?.toLowerCase().replace(/\s+/g, "-") || reactId;
+    const errorId = `${inputId}-error`;
+    const hintId = `${inputId}-hint`;
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === "password";
 
@@ -29,13 +32,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             type={isPassword ? (showPassword ? "text" : "password") : type}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={
+              error ? errorId : hint ? hintId : undefined
+            }
             className={clsx(
-              "block w-full rounded-md border px-3 py-2 text-sm text-navy placeholder:text-mist transition-colors",
+              // text-base on small screens keeps iOS Safari from zooming the
+              // viewport on focus; desktop keeps the original 14px scale.
+              "block w-full rounded-md border px-3 py-2.5 sm:py-2 text-base sm:text-sm",
+              "text-navy placeholder:text-mist transition-colors",
               "focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal",
               error
                 ? "border-ember focus:ring-ember/50 focus:border-ember"
                 : "border-navy/20",
-              isPassword && "pr-10",
+              isPassword && "pr-11",
               className
             )}
             {...props}
@@ -45,14 +55,23 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               tabIndex={-1}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-mist hover:text-navy transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-mist hover:text-navy transition-colors"
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           )}
         </div>
-        {error && <p className="text-sm text-ember">{error}</p>}
-        {hint && !error && <p className="text-sm text-mist">{hint}</p>}
+        {error && (
+          <p id={errorId} className="text-sm text-ember">
+            {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p id={hintId} className="text-sm text-mist">
+            {hint}
+          </p>
+        )}
       </div>
     );
   }
