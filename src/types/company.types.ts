@@ -26,6 +26,8 @@ export interface UsageCount {
 
 export interface Company {
   id: string;
+  /** UID of the user who created the company; verified by claimCompany. */
+  ownerUid?: string;
   name: string;
   domain: string;
   size: CompanySize;

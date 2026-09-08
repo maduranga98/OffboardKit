@@ -19,6 +19,7 @@ import {
   updateDocument,
   serverTimestamp,
 } from "../../lib/firestore";
+import { portalDb } from "../../lib/firebase";
 import type { OffboardFlow } from "../../types/offboarding.types";
 import type {
   ExitInterviewTemplate,
@@ -75,7 +76,8 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
         // Check for existing response
         const existing = await queryDocuments<ExitInterviewResponse>(
           "exitInterviewResponses",
-          [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken), firestoreLimit(1)]
+          [where("flowId", "==", flow.id), firestoreLimit(1)],
+          portalDb
         );
         if (existing.length > 0) {
           setSubmitted(true);
@@ -88,6 +90,7 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
           const chosen = await getDocument<ExitInterviewTemplate>(
             "exitInterviewTemplates",
             flow.interviewTemplateId,
+            portalDb
           );
           if (chosen) {
             setTemplate(chosen);
@@ -103,7 +106,8 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
             where("companyId", "==", flow.companyId),
             where("isDefault", "==", true),
             firestoreLimit(1),
-          ]
+          ],
+          portalDb
         );
 
         if (templates.length > 0) {
@@ -115,7 +119,8 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
             [
               where("companyId", "==", flow.companyId),
               firestoreLimit(1),
-            ]
+            ],
+            portalDb
           );
           if (anyTemplates.length > 0) {
             setTemplate(anyTemplates[0]);
@@ -165,10 +170,12 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
       const sentiment = calculateSentiment(interviewAnswers, questions);
       const responseId = crypto.randomUUID();
 
-      await setDocument("exitInterviewResponses", responseId, {
+      await setDocument(
+        "exitInterviewResponses",
+        responseId,
+        {
         companyId: flow.companyId,
         flowId: flow.id,
-        portalToken: flow.portalToken,
         employeeId: flow.employeeId,
         employeeName: flow.employeeName,
         employeeEmail: flow.employeeEmail,
@@ -179,12 +186,17 @@ export default function ExitInterviewPortal({ flow }: ExitInterviewPortalProps) 
         sentiment,
         submittedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
-      });
+        },
+        portalDb
+      );
 
       // Update flow completion scores
-      await updateDocument("offboardFlows", flow.id, {
-        "completionScores.exitInterview": 100,
-      });
+      await updateDocument(
+        "offboardFlows",
+        flow.id,
+        { "completionScores.exitInterview": 100 },
+        portalDb
+      );
 
       setSubmitted(true);
     } catch (err) {

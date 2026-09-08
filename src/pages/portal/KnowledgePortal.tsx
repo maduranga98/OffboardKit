@@ -28,7 +28,7 @@ import {
   serverTimestamp,
   where,
 } from "../../lib/firestore";
-import { storage } from "../../lib/firebase";
+import { portalDb, portalStorage } from "../../lib/firebase";
 import type {
   KnowledgeItem,
   KnowledgeItemType,
@@ -117,7 +117,7 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
     if (!flow.id) return;
     const unsub = subscribeToCollection<KnowledgeItem>(
       "knowledgeItems",
-      [where("flowId", "==", flow.id), where("portalToken", "==", flow.portalToken)],
+      [where("flowId", "==", flow.id)],
       (data) => {
         setItems(data.sort((a, b) => {
           const aMs = (a.createdAt as unknown as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
@@ -125,7 +125,8 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           return bMs - aMs;
         }));
         setLoading(false);
-      }
+      },
+      portalDb
     );
     return unsub;
   }, [flow.id]);
@@ -149,7 +150,7 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
     setErrorMsg(null);
     try {
       const filePath = `companies/${flow.companyId}/knowledge/${flow.id}/${Date.now()}-${file.name}`;
-      const storageRef = ref(storage, filePath);
+      const storageRef = ref(portalStorage, filePath);
       const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type || "application/octet-stream" });
 
       await new Promise<void>((resolve, reject) => {
@@ -187,7 +188,10 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
 
     try {
       if (formMode === "resubmit" && editForm.id) {
-        await updateDocument("knowledgeItems", editForm.id, {
+        await updateDocument(
+          "knowledgeItems",
+          editForm.id,
+          {
           title: editForm.title.trim(),
           type: editForm.type,
           description: editForm.description.trim(),
@@ -199,15 +203,19 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           managerVerifiedBy: null,
           managerVerifiedAt: null,
           updatedAt: serverTimestamp(),
-        });
+          },
+          portalDb
+        );
         setSuccessMsg("Item resubmitted for review");
       } else {
         const id = crypto.randomUUID();
-        await setDocument("knowledgeItems", id, {
+        await setDocument(
+          "knowledgeItems",
+          id,
+          {
           id,
           companyId: flow.companyId,
           flowId: flow.id,
-          portalToken: flow.portalToken,
           employeeName: flow.employeeName,
           employeeDepartment: flow.employeeDepartment,
           title: editForm.title.trim(),
@@ -223,7 +231,9 @@ export default function KnowledgePortal({ flow }: KnowledgePortalProps) {
           managerVerified: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        });
+          },
+          portalDb
+        );
         setSuccessMsg("Item submitted successfully");
       }
 

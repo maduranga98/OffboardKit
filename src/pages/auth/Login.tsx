@@ -6,6 +6,7 @@ import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
 import logo from "../../assets/logo.png";
+
 const features = [
   "Structured offboarding checklists",
   "Knowledge capture before the last day",
@@ -58,45 +59,52 @@ export default function Login() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="hidden lg:flex lg:w-[60%] bg-navy flex-col justify-center px-16 xl:px-24">
-        <h1 className="font-display text-4xl xl:text-5xl text-white leading-tight">
+    <div className="min-h-dvh flex flex-col lg:flex-row bg-warm">
+      {/* Brand panel — full column on desktop, condensed banner on mobile */}
+      <aside className="hidden lg:flex lg:w-[52%] xl:w-[58%] bg-navy flex-col justify-center px-10 xl:px-24 py-12 lg:sticky lg:top-0 lg:h-dvh">
+        <h1 className="font-display text-4xl xl:text-5xl text-white leading-tight text-balance">
           Exit with intention.
         </h1>
-        <p className="mt-4 text-mist text-lg max-w-md">
+        <p className="mt-4 text-mist text-base xl:text-lg max-w-md">
           OffboardSet gives HR teams a structured, humane way to manage every
           employee departure — from checklist to alumni.
         </p>
         <ul className="mt-10 space-y-4">
           {features.map((feature) => (
             <li key={feature} className="flex items-center gap-3 text-white/90">
-              <CheckCircle size={20} className="text-teal flex-shrink-0" />
+              <CheckCircle size={20} className="text-teal shrink-0" aria-hidden="true" />
               <span>{feature}</span>
             </li>
           ))}
         </ul>
-      </div>
+      </aside>
 
-      <div className="flex-1 flex flex-col items-center justify-center bg-warm px-6 overflow-y-auto py-8">
-        <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+        <div className="w-full max-w-sm sm:max-w-md lg:max-w-sm">
+          <div className="flex items-center gap-2 mb-6 sm:mb-8">
             <img
               src={logo}
-              alt="OffboardSet Logo"
-              className="w-10 h-10 object-contain"
+              alt=""
+              aria-hidden="true"
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain"
             />
-            <span className="font-display text-xl text-navy">OffboardSet</span>
+            <span className="font-display text-lg sm:text-xl text-navy">
+              OffboardSet
+            </span>
           </div>
 
-          <h2 className="text-2xl font-semibold text-navy mb-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-navy mb-1">
             Sign in to your workspace
-          </h2>
-          <p className="text-sm text-mist mb-8">
+          </h1>
+          <p className="text-sm text-mist mb-6 sm:mb-8">
             Welcome back. Let&apos;s pick up where you left off.
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
+            <div
+              role="alert"
+              className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember break-words"
+            >
               {error}
             </div>
           )}
@@ -108,7 +116,12 @@ export default function Login() {
             onClick={handleGoogleSignIn}
             disabled={submitting}
           >
-            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+            <svg
+              className="mr-2 h-5 w-5 shrink-0"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                 fill="#4285F4"
@@ -126,10 +139,10 @@ export default function Login() {
                 fill="#EA4335"
               />
             </svg>
-            Continue with Google
+            <span className="truncate">Continue with Google</span>
           </Button>
 
-          <div className="flex items-center gap-3 my-6">
+          <div className="flex items-center gap-3 my-5 sm:my-6">
             <div className="flex-1 h-px bg-navy/10" />
             <span className="text-xs text-mist">or</span>
             <div className="flex-1 h-px bg-navy/10" />
@@ -139,6 +152,11 @@ export default function Login() {
             <Input
               label="Email"
               type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="you@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -147,6 +165,7 @@ export default function Login() {
             <Input
               label="Password"
               type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -168,11 +187,11 @@ export default function Login() {
           </p>
 
           <div className="mt-6 p-3 bg-navy/5 rounded-lg text-center">
-            <p className="text-xs text-mist">
+            <p className="text-xs text-mist text-pretty">
               Are you an alumni member?{" "}
               <Link
                 to="/alumni-login"
-                className="text-teal hover:text-teal-light font-medium"
+                className="text-teal hover:text-teal-light font-medium whitespace-nowrap"
               >
                 Sign in to the alumni portal →
               </Link>
@@ -195,7 +214,7 @@ export default function Login() {
             </a>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

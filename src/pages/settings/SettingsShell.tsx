@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { Building, Users, CreditCard, Plug, Webhook } from "lucide-react";
 import clsx from "clsx";
-import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
@@ -12,7 +11,7 @@ const navItems = [
   { label: "HRIS Webhooks", href: "/settings/webhooks", icon: Webhook, roles: ["super_admin"] },
 ];
 
-function SettingsSidebar() {
+function SettingsTabs() {
   const { appUser } = useAuth();
   const role = appUser?.role ?? "";
 
@@ -21,26 +20,52 @@ function SettingsSidebar() {
   );
 
   return (
-    <nav className="space-y-1">
-      {visibleItems.map(({ label, href, icon: Icon }) => (
-        <NavLink
-          key={href}
-          to={href}
-          end={href === "/settings"}
-          className={({ isActive }) =>
-            clsx(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              isActive
-                ? "bg-teal/10 text-teal"
-                : "text-mist hover:text-navy hover:bg-navy/5"
-            )
-          }
-        >
-          <Icon size={16} />
-          {label}
-        </NavLink>
-      ))}
-    </nav>
+    // Full-bleed rail: the underline runs edge to edge while the tabs stay
+    // aligned with the page content.
+    <div className="sticky top-0 z-10 -mx-4 lg:-mx-6 bg-white/85 backdrop-blur-sm border-b border-navy/10">
+      <nav
+        aria-label="Settings sections"
+        className="flex gap-1 overflow-x-auto scrollbar-hide px-4 lg:px-6"
+      >
+        {visibleItems.map(({ label, href, icon: Icon }) => (
+          <NavLink
+            key={href}
+            to={href}
+            end={href === "/settings"}
+            className={({ isActive }) =>
+              clsx(
+                "group relative flex shrink-0 items-center gap-2 whitespace-nowrap",
+                "px-3 py-3 text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal/50 rounded-t-md",
+                isActive ? "text-teal" : "text-mist hover:text-navy"
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Icon
+                  size={16}
+                  className={clsx(
+                    "shrink-0 transition-colors",
+                    isActive ? "text-teal" : "text-mist group-hover:text-navy"
+                  )}
+                  aria-hidden="true"
+                />
+                {label}
+                {/* Underline indicator sits on the rail's border */}
+                <span
+                  aria-hidden="true"
+                  className={clsx(
+                    "absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-colors",
+                    isActive ? "bg-teal" : "bg-transparent group-hover:bg-navy/15"
+                  )}
+                />
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   );
 }
 
@@ -52,22 +77,15 @@ interface SettingsShellProps {
 
 export function SettingsShell({ title, description, children }: SettingsShellProps) {
   return (
-    <div className="space-y-6">
-      <div>
+    <div>
+      <div className="mb-4">
         <h1 className="text-2xl font-display text-navy">{title}</h1>
-        {description && (
-          <p className="text-sm text-mist mt-1">{description}</p>
-        )}
+        {description && <p className="text-sm text-mist mt-1">{description}</p>}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="lg:w-52 flex-shrink-0">
-          <Card padding="sm">
-            <SettingsSidebar />
-          </Card>
-        </div>
-        <div className="flex-1 space-y-6 min-w-0">{children}</div>
-      </div>
+      <SettingsTabs />
+
+      <div className="mt-6 space-y-6 min-w-0">{children}</div>
     </div>
   );
 }

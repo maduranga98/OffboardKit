@@ -1,0 +1,13 @@
+{
+  "name": "offboardkit-security-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "cd .. && firebase emulators:exec --only firestore,storage --project offboardkit-rules-test \"node security-tests/firestore-rules.test.mjs && node security-tests/storage-rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.10.0",
+    "firebase-tools": "^14.0.0"
+  }
+}

@@ -19,7 +19,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { functions } from "../../lib/firebase";
 import {
   queryDocuments,
-  updateDocument,
   getDocument,
   setDocument,
   deleteDocument,
@@ -113,7 +112,12 @@ export default function TeamSettings() {
 
   const handleChangeRole = async (userId: string, newRole: UserRole) => {
     try {
-      await updateDocument("users", userId, { role: newRole });
+      // Role changes are server-owned; rules reject client writes to users.role
+      const setRole = httpsCallable<{ userId: string; role: UserRole }, unknown>(
+        functions,
+        "setMemberRole"
+      );
+      await setRole({ userId, role: newRole });
       setMembers((prev) =>
         prev.map((m) => (m.id === userId ? { ...m, role: newRole } : m))
       );
@@ -127,10 +131,11 @@ export default function TeamSettings() {
     if (!removeTarget) return;
     setRemoving(true);
     try {
-      await updateDocument("users", removeTarget.id, {
-        companyId: "",
-        isActive: false,
-      });
+      const removeMemberFn = httpsCallable<{ userId: string }, unknown>(
+        functions,
+        "removeMember"
+      );
+      await removeMemberFn({ userId: removeTarget.id });
       setMembers((prev) => prev.filter((m) => m.id !== removeTarget.id));
       showToast("success", "Member removed");
       setRemoveTarget(null);
