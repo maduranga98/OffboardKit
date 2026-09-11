@@ -152,6 +152,8 @@ export const stripeWebhook = functions
               stripeSubscriptionId: session.subscription ?? null,
               stripeCustomerId: session.customer ?? null,
               stripeSubscriptionStatus: "active",
+              // The card-free trial is over on its own terms once they pay.
+              trialStatus: "converted",
               ...(session.metadata?.billingCycle
                 ? { billingCycle: session.metadata.billingCycle }
                 : {}),
@@ -196,6 +198,9 @@ export const stripeWebhook = functions
               stripeSubscriptionId: subscription.id,
               stripeSubscriptionStatus: status,
               ...(cycle ? { billingCycle: cycle } : {}),
+              // Paying supersedes the free trial; recording it stops
+              // expireTrials from touching this company's plan again.
+              ...(entitled ? { trialStatus: "converted" } : {}),
             })
           );
           functions.logger.info(

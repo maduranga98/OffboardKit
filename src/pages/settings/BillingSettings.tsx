@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
@@ -26,6 +26,7 @@ import { Badge } from "../../components/ui/Badge";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
+import { getTrialState } from "../../lib/trial";
 import { getDocument } from "../../lib/firestore";
 import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
@@ -422,6 +423,10 @@ export default function BillingSettings() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [subscribingPlan, setSubscribingPlan] = useState<PlanKey | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  // Read by the post-checkout poller without becoming a dependency of it —
+  // the poller calls setCompany, so depending on `company` would tear the
+  // interval down and restart it on its own first result.
+  const latestCompany = useRef<Company | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -440,6 +445,10 @@ export default function BillingSettings() {
   }, [companyId]);
 
   useEffect(() => {
+    latestCompany.current = company;
+  }, [company]);
+
+  useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (checkout === "success") {
       showToast("success", "Payment successful! Refreshing your plan…");
@@ -448,7 +457,10 @@ export default function BillingSettings() {
       // every 2s for up to 30s so the UI reflects the new plan without
       // a manual refresh. Stop as soon as the plan changes.
       if (companyId) {
-        const startedPlan = company?.plan;
+        // Keyed on the subscription, not the plan: a trial company already
+        // reads "starter", so buying Starter would never flip a plan check.
+        const startedSubscription =
+          latestCompany.current?.stripeSubscriptionId ?? null;
         let attempts = 0;
         const interval = window.setInterval(async () => {
           attempts++;
@@ -456,7 +468,7 @@ export default function BillingSettings() {
             const data = await getDocument<Company>("companies", companyId);
             if (data) {
               setCompany(data);
-              if (data.plan !== startedPlan) {
+              if ((data.stripeSubscriptionId ?? null) !== startedSubscription) {
                 window.clearInterval(interval);
                 showToast("success", `You're now on the ${data.plan} plan.`);
               }
@@ -474,7 +486,7 @@ export default function BillingSettings() {
       showToast("info", "Checkout canceled. No changes were made.");
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams, companyId, company?.plan]);
+  }, [searchParams, setSearchParams, companyId]);
 
   if (loading) {
     return (
@@ -507,7 +519,16 @@ export default function BillingSettings() {
     );
   }
 
-  const currentPlan = (company.plan || "basic") as PlanKey;
+  const trial = getTrialState(company);
+  // While the trial runs the company sits on Starter without having paid, and
+  // an expired one still reads "starter" until the hourly sweep lands — so
+  // the page shows Basic rather than a plan they no longer have.
+  const currentPlan = (
+    trial.hasExpired && company.trialStatus === "active"
+      ? "basic"
+      : company.plan || "basic"
+  ) as PlanKey;
+  const onTrial = trial.isActive;
   const planConfig = PLAN_CONFIG[currentPlan] || PLAN_CONFIG.basic;
   const usageCount = company.usageCount || { offboardingsThisYear: 0, activeOffboardings: 0 };
   const memberSince = company.createdAt?.toDate?.()
@@ -569,6 +590,7 @@ export default function BillingSettings() {
                   Current Plan
                 </span>
                 <Badge variant={planConfig.color}>{planConfig.label}</Badge>
+                {onTrial && <Badge variant="amber">Free trial</Badge>}
               </div>
               <div>
                 <h2 className="text-3xl font-display text-navy">
@@ -585,6 +607,22 @@ export default function BillingSettings() {
                   </p>
                 )}
               </div>
+              {onTrial ? (
+                <p className="text-sm text-navy">
+                  <strong className="font-semibold">
+                    {trial.daysRemaining}{" "}
+                    {trial.daysRemaining === 1 ? "day" : "days"} left
+                  </strong>{" "}
+                  &middot; no card on file. Choose a plan to keep these
+                  features{trial.endsAt ? ` after ${format(trial.endsAt, "d MMM")}` : ""}.
+                </p>
+              ) : (
+                trial.hasExpired && (
+                  <p className="text-sm text-ember">
+                    Your free Starter trial has ended.
+                  </p>
+                )
+              )}
               <p className="text-sm text-mist">Member since {memberSince}</p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal/10">

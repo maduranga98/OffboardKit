@@ -19,6 +19,12 @@ export interface CompanyFeatures {
   apiAccess: boolean;
 }
 
+/**
+ * Card-free Starter trial. Granted by claimCompany at signup and closed by
+ * the expireTrials sweep; every field is server-owned (see firestore.rules).
+ */
+export type TrialStatus = "active" | "expired" | "converted";
+
 export interface UsageCount {
   offboardingsThisYear: number;
   activeOffboardings: number;
@@ -41,6 +47,13 @@ export interface Company {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string | null;
   stripeSubscriptionStatus?: string;
+  // Trial state. Absent on companies created before trials existed, which
+  // reads the same as "never had one".
+  trialPlan?: CompanyPlan;
+  trialStatus?: TrialStatus;
+  trialStartedAt?: Timestamp;
+  trialEndsAt?: Timestamp;
+  billingCycle?: "monthly" | "annual";
   settings: CompanySettings;
   features: CompanyFeatures;
   usageCount?: UsageCount;

@@ -78,6 +78,13 @@ await check('attacker: then self-escalate role', () => updateDoc(doc(attacker,'u
 await check('attacker: edit own profile fields (legit)', () => updateDoc(doc(attacker,'users/attackerUid'), { displayName:'Bob', department:'Eng' }), 'ALLOWED');
 await check('attacker: create company owned by someone else', () => setDoc(doc(attacker,'companies/evilco'), { name:'Evil', ownerUid:'victimAdmin' }), 'DENIED');
 await check('attacker: create own company (legit setup)', () => setDoc(doc(attacker,'companies/evilco'), { name:'Evil', ownerUid:'attackerUid' }), 'ALLOWED');
+// Company creation is the one write a brand-new user can make, so it must not
+// be a way to mint a paid plan, a self-granted trial, or a customer mapping.
+await check('attacker: create company on a paid plan', () => setDoc(doc(attacker,'companies/evilco2'), { name:'Evil', ownerUid:'attackerUid', plan:'enterprise' }), 'DENIED');
+await check('attacker: create company with a self-granted trial', () => setDoc(doc(attacker,'companies/evilco3'), { name:'Evil', ownerUid:'attackerUid', trialStatus:'active', trialEndsAt:new Date(Date.now()+1e11) }), 'DENIED');
+await check('attacker: create company claiming a victim stripe customer', () => setDoc(doc(attacker,'companies/evilco4'), { name:'Evil', ownerUid:'attackerUid', stripeCustomerId:'cus_VICTIM' }), 'DENIED');
+await check('attacker: create company with pre-set usage', () => setDoc(doc(attacker,'companies/evilco5'), { name:'Evil', ownerUid:'attackerUid', usageCount:{ offboardingsThisYear:-999 } }), 'DENIED');
+await check('attacker: create company on basic (the legit shape)', () => setDoc(doc(attacker,'companies/evilco6'), { name:'Evil', ownerUid:'attackerUid', plan:'basic' }), 'ALLOWED');
 
 console.log('\n═══ C. CROSS-TENANT (§3) — signed-in user of another company ═══');
 for (const [label, path] of [['notifications','notifications/notifA'],['docRequests','docRequests/drA'],['knowledgeThreads','knowledgeThreads/ktA'],['accessRevocations','accessRevocations/arA'],['alumniApplications','alumniApplications/aaA'],['alumniProfiles','alumniProfiles/alumA'],['letterTemplates','letterTemplates/ltA'],['companies (billing)','companies/companyA'],['offboardFlows','offboardFlows/flowA'],['gigRequests','gigRequests/grA'],['pulseSurveys','pulseSurveys/psA'],['complianceReports','complianceReports/crA'],['offboardTemplates','offboardTemplates/otA']]) {
@@ -134,6 +141,11 @@ await check('staff: CANNOT self-serve a plan upgrade', () => updateDoc(doc(staff
 // to write these from the browser, which silently broke flow creation.
 await check('staff: CANNOT increment own usage counter', () => updateDoc(doc(staff,'companies/companyA'), { 'usageCount.offboardingsThisYear': increment(1) }), 'DENIED');
 await check('staff: CANNOT reset active offboardings', () => updateDoc(doc(staff,'companies/companyA'), { 'usageCount.activeOffboardings': 0 }), 'DENIED');
+// Trial state decides which features are unlocked, so extending it from the
+// client would be a permanent free Starter plan.
+await check('staff: CANNOT extend own trial', () => updateDoc(doc(staff,'companies/companyA'), { trialEndsAt:new Date(Date.now()+1e11) }), 'DENIED');
+await check('staff: CANNOT re-activate an expired trial', () => updateDoc(doc(staff,'companies/companyA'), { trialStatus:'active' }), 'DENIED');
+await check('staff: CANNOT point company at another stripe customer', () => updateDoc(doc(staff,'companies/companyA'), { stripeCustomerId:'cus_SOMEONE_ELSE' }), 'DENIED');
 await check('staff: LIST company members (users query)', () => getDocs(query(collection(staff,'users'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: read own user doc by id', () => getDoc(doc(staff,'users/victimAdmin')), 'ALLOWED');
 await check('staff: LIST all users unscoped', () => getDocs(collection(staff,'users')), 'DENIED');

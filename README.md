@@ -108,6 +108,27 @@ npm run build
 firebase deploy
 ```
 
+### Free trial
+
+Every new company starts on a **7-day Starter trial** — no card, no Stripe
+object, nothing to cancel. It simply lapses.
+
+| Where | What happens |
+|---|---|
+| `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan: starter`, `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
+| `expireTrials` | Hourly sweep; lapsed trials go back to `basic` and `trialStatus: expired`. A company that subscribed meanwhile is marked `converted` and left alone. |
+| `stripeWebhook` | Marks `trialStatus: converted` as soon as a subscription becomes active, so the sweep never touches a paying company's plan. |
+| `getEffectivePlan` (client) | Re-derives the cut-off from `trialEndsAt`, so features stop at the deadline rather than whenever the sweep next runs. |
+
+Every `trial*` field is server-owned: `firestore.rules` refuses both a client
+write to them and a company created with them pre-set, so a trial can be
+neither self-granted nor self-extended.
+
+To change the length or the plan offered, edit `TRIAL_DAYS` / `TRIAL_PLAN` in
+`functions/src/billing/trial.ts` (and `TRIAL_DAYS` in `src/lib/trial.ts`).
+Companies created before trials existed have no `trial*` fields and stay on
+whatever plan they hold; they are not retroactively given one.
+
 ### Going live with Stripe
 
 Switching from test to live mode is entirely a configuration change — no code

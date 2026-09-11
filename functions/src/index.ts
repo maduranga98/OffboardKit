@@ -35,6 +35,7 @@ export { sendKnowledgeReminders } from "./triggers/knowledgeReminder";
 export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifications";
 export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
 export { resetAnnualUsage } from "./triggers/resetAnnualUsage";
+export { expireTrials } from "./triggers/expireTrials";
 
 // Usage counters — maintained server-side; firestore.rules bars clients from
 // touching usageCount, since the Basic-plan cap is judged on it.

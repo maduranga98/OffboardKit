@@ -3,6 +3,7 @@ import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
+import { TrialBanner } from "../shared/TrialBanner";
 import { useAuth } from "../../hooks/useAuth";
 import { useNotifications } from "../../hooks/useNotifications";
 
@@ -57,6 +58,7 @@ export default function AppLayout() {
           title={title}
           onMenuClick={() => setSidebarOpen(true)}
         />
+        <TrialBanner />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>

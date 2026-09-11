@@ -205,17 +205,36 @@ service cloud.firestore {
 
       // The creator must stamp themselves as owner; claimCompany verifies this
       // before attaching anyone to the tenant.
+      //
+      // A new company must also start on the entry plan with no trial and no
+      // billing identifiers. Without this, signup could mint itself a company
+      // on 'enterprise', or hand itself a fresh trial window, simply by
+      // choosing what to write — create was previously unchecked beyond
+      // ownership. claimCompany grants the real trial server-side.
+      //
+      // stripeCustomerId is refused for a sharper reason: the webhook maps a
+      // Stripe customer back to a company through it, so a signup that could
+      // name someone else's cus_ would receive their subscription events.
       allow create: if isSignedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.get('plan', 'basic') == 'basic'
+        && !request.resource.data.keys().hasAny(
+             ['trialPlan', 'trialStatus', 'trialStartedAt', 'trialEndsAt',
+              'stripeCustomerId', 'stripeSubscriptionId',
+              'stripeSubscriptionStatus', 'usageCount']);
 
       // Billing state is Stripe's to set (via the webhook, which uses the
-      // admin SDK and bypasses rules). Ownership can never be reassigned.
+      // admin SDK and bypasses rules). Trial state belongs to claimCompany
+      // and expireTrials for the same reason: it decides which features are
+      // unlocked, so a client that could extend trialEndsAt would have a
+      // permanent free Starter plan. Ownership can never be reassigned.
       allow update: if inCompany(companyId)
         // Companies created before ownerUid existed simply have no owner;
         // the check is that nobody can introduce or change one.
         && request.resource.data.get('ownerUid', null) == resource.data.get('ownerUid', null)
         && !changed(['plan', 'stripeCustomerId', 'stripeSubscriptionId',
-                     'stripeSubscriptionStatus', 'usageCount'])
+                     'stripeSubscriptionStatus', 'usageCount',
+                     'trialPlan', 'trialStatus', 'trialStartedAt', 'trialEndsAt'])
         && (isTeamAdmin(companyId) || !changed(['features', 'settings']));
 
       allow delete: if false;

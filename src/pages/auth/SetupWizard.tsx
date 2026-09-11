@@ -214,8 +214,10 @@ export default function SetupWizard() {
         industry,
         country,
         timezone,
+        // Plan and billing identifiers are server-owned; firestore.rules
+        // refuses a create that sets them. claimCompany puts this company on
+        // its 7-day Starter trial immediately after.
         plan: "basic",
-        stripeCustomerId: "",
         settings: {
           brandColor: "#0D9E8A",
           logoUrl: "",
