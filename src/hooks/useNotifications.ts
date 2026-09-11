@@ -12,18 +12,34 @@ import { useAuth } from "./useAuth";
 import { useNotificationStore, type AppNotification } from "../store/notificationStore";
 
 export function useNotifications() {
-  const { user } = useAuth();
+  const { user, companyId } = useAuth();
   const { setNotifications } = useNotificationStore();
 
+  const uid = user?.uid;
+
   useEffect(() => {
-    if (!user?.uid) {
+    // Wait for the membership, not just the sign-in.
+    //
+    // onAuthStateChanged sets the Firebase user immediately, but the
+    // companyId only lands after the users/{uid} read (and, for an invited
+    // teammate, the acceptInvite callable) resolves. Attaching in that window
+    // asks Firestore to read notifications before the rules can see a company
+    // for this account, which they refuse — and an onSnapshot error tears the
+    // listener down for good, so notifications stayed empty for the rest of
+    // the session. Keying the effect on companyId attaches once, after the
+    // membership is known, and re-attaches if it ever changes.
+    if (!uid || !companyId) {
       setNotifications([]);
       return;
     }
 
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid),
+      // Matches the tenant check in firestore.rules exactly: a query that can
+      // reach another company's document is rejected wholesale rather than
+      // filtered, so the constraint belongs here and not only in the rules.
+      where("companyId", "==", companyId),
+      where("userId", "==", uid),
       orderBy("createdAt", "desc"),
       limit(30)
     );
@@ -49,12 +65,15 @@ export function useNotifications() {
         setNotifications(notifications);
       },
       (error) => {
+        // The listener is dead once this fires; leave the bell empty rather
+        // than showing a stale list from a previous membership.
+        setNotifications([]);
         console.error("Notification listener error:", error);
       }
     );
 
     return () => unsubscribe();
-  }, [user?.uid, setNotifications]);
+  }, [uid, companyId, setNotifications]);
 }
 
 function mapTypeToIcon(type: string): string {
