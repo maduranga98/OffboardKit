@@ -27,9 +27,10 @@ const BILLING_ROLES = ["super_admin", "hr_admin"];
  * The company document must name them as ownerUid, and the caller must not
  * already belong to a company.
  *
- * `plan` is the package chosen in the wizard's plan step — the company is
- * never put on one it did not pick. It starts the card-free trial on that
- * package; it does not subscribe to anything and cannot be charged.
+ * It starts the card-free trial. `plan` is optional — signup does not ask for
+ * a package, so it normally defaults to Starter and the company picks one
+ * later from Billing. Passing one is still honoured and validated; either way
+ * this subscribes to nothing and cannot charge anyone.
  */
 export const claimCompany = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -91,7 +92,7 @@ export const claimCompany = functions.https.onCall(async (data, context) => {
       { merge: true }
     );
 
-    // Start the card-free Starter trial. It is granted here, inside the same
+    // Start the card-free trial. It is granted here, inside the same
     // transaction that establishes ownership, because this is the one server
     // call every signup passes through — and because the client cannot write
     // `plan` itself. `isEligibleForTrial` keeps a retried or replayed claim

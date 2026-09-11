@@ -2,9 +2,15 @@ import { Link } from "react-router-dom";
 import { Clock, Sparkles } from "lucide-react";
 import { useCompanyStore } from "../../store/companyStore";
 import { getTrialState } from "../../lib/trial";
+import { PLAN_CONFIG, type PlanKey } from "../../lib/plans";
 
 /**
- * Thin status strip for the card-free Starter trial.
+ * Thin status strip for the card-free trial.
+ *
+ * No package is picked at signup — every new company simply gets the trial —
+ * so this is the running prompt to subscribe: it names the package currently
+ * being tried, how long is left, and links straight to Billing where the
+ * company can switch packages for free or buy one.
  *
  * Shown only while a trial is running or in the window after it lapsed, so it
  * stays out of the way for paying companies and for anyone who never had one.
@@ -27,13 +33,15 @@ export function TrialBanner() {
           to="/settings/billing#available-plans"
           className="font-medium text-ember underline underline-offset-2 hover:no-underline"
         >
-          Choose a plan
+          Subscribe now
         </Link>
       </div>
     );
   }
 
   const urgent = daysRemaining <= 2;
+  const trialPlan = (company?.trialPlan ?? company?.plan ?? "starter") as PlanKey;
+  const planLabel = PLAN_CONFIG[trialPlan]?.label ?? PLAN_CONFIG.starter.label;
 
   return (
     <div
@@ -46,7 +54,7 @@ export function TrialBanner() {
         <strong className="font-semibold">
           {daysRemaining} {daysRemaining === 1 ? "day" : "days"} left
         </strong>{" "}
-        on your free Starter trial
+        on your free trial &middot; trying {planLabel}
         {endsAt && (
           <span className="text-mist">
             {" "}
@@ -60,7 +68,7 @@ export function TrialBanner() {
           urgent ? "text-amber" : "text-teal"
         }`}
       >
-        Choose a plan
+        {urgent ? "Subscribe now" : "View plans & subscribe"}
       </Link>
     </div>
   );

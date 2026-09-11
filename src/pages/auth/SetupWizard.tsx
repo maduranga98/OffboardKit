@@ -6,8 +6,8 @@ import {
   Users,
   Wrench,
   FileText,
-  CreditCard,
   Check,
+  Sparkles,
   Plus,
   X,
   ChevronRight,
@@ -27,12 +27,6 @@ import { useAuthStore } from "../../store/authStore";
 import { useCompanyStore } from "../../store/companyStore";
 import { seedDefaultTemplates } from "../../lib/seedData";
 import { TRIAL_DAYS } from "../../lib/trial";
-import {
-  PLAN_CONFIG,
-  TRIALABLE_PLANS,
-  type BillingCycle,
-  type TrialablePlan,
-} from "../../lib/plans";
 import type { Company, CompanySize } from "../../types/company.types";
 import type { UserRole } from "../../types/user.types";
 
@@ -41,18 +35,9 @@ const steps = [
   { label: "Team", icon: Users },
   { label: "Tech Stack", icon: Wrench },
   { label: "Template", icon: FileText },
-  { label: "Plan", icon: CreditCard },
 ];
 
 const LAST_STEP = steps.length - 1;
-
-/** One line per package, so the choice can be made without leaving setup. */
-const planSummaries: Record<TrialablePlan, string> = {
-  basic: "3 exits a year, 1 user — for very small teams.",
-  starter: "Unlimited exits, knowledge capture, assets and exit interviews.",
-  growth: "Adds AI gap detection, the alumni portal, job board and analytics.",
-  business: "Adds pulse surveys, consulting pool and compliance exports.",
-};
 
 const companySizes: { value: CompanySize; label: string }[] = [
   { value: "10-50", label: "10–50 employees" },
@@ -185,12 +170,6 @@ export default function SetupWizard() {
   // Step 4
   const [selectedTemplate, setSelectedTemplate] = useState("general");
 
-  // Step 5 — the package the trial runs on. Nothing is charged for it: the
-  // choice only decides which features are unlocked for the free week, and
-  // the company is never put on a plan it did not pick.
-  const [selectedPlan, setSelectedPlan] = useState<TrialablePlan>("starter");
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-
   if (loading) return <LoadingSpinner fullScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (companyId) return <Navigate to="/dashboard" replace />;
@@ -240,8 +219,9 @@ export default function SetupWizard() {
         country,
         timezone,
         // Plan and billing identifiers are server-owned; firestore.rules
-        // refuses a create that sets them. claimCompany starts the trial on
-        // the package chosen in the last step, immediately after this write.
+        // refuses a create that sets them. claimCompany starts the card-free
+        // trial immediately after this write; no package is chosen here —
+        // the company picks one from Billing whenever it is ready.
         plan: "basic",
         settings: {
           brandColor: "#0D9E8A",
@@ -265,11 +245,11 @@ export default function SetupWizard() {
 
       // Tenant membership is server-owned — the client cannot write
       // users.companyId / users.role (see functions/triggers/membership.ts).
-      const claimCompanyFn = httpsCallable<
-        { companyId: string; plan: TrialablePlan },
-        unknown
-      >(functions, "claimCompany");
-      await claimCompanyFn({ companyId: newCompanyId, plan: selectedPlan });
+      const claimCompanyFn = httpsCallable<{ companyId: string }, unknown>(
+        functions,
+        "claimCompany"
+      );
+      await claimCompanyFn({ companyId: newCompanyId });
       // Pick up the companyId claim immediately — storage uploads and the
       // rest of the wizard depend on it.
       await user.getIdToken(true);
@@ -622,103 +602,20 @@ export default function SetupWizard() {
                 </button>
               ))}
             </div>
-          </div>
-        )}
 
-
-        {/* Step 5: Plan */}
-        {currentStep === 4 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-navy">
-                Choose your plan
-              </h2>
-              <p className="text-sm text-mist mt-1">
-                Try it free for {TRIAL_DAYS} days — no card, and nothing is
-                charged. Pick the package you want to try; you can switch or
-                subscribe any time from Billing.
+            {/* No package is picked here — the trial is card-free and every
+                plan stays available from Billing once they are inside. */}
+            <div className="flex items-start gap-3 rounded-md border border-teal/20 bg-teal/5 p-4">
+              <Sparkles size={16} className="mt-0.5 flex-shrink-0 text-teal" aria-hidden />
+              <p className="text-xs leading-relaxed text-navy">
+                <strong className="font-semibold">
+                  Your {TRIAL_DAYS}-day free trial starts now.
+                </strong>{" "}
+                No card required and nothing is charged. Start offboarding
+                right away — you can try any package and subscribe from
+                Billing whenever you are ready.
               </p>
             </div>
-
-            <div className="inline-flex rounded-lg border border-navy/10 p-0.5">
-              {(["monthly", "annual"] as BillingCycle[]).map((cycle) => (
-                <button
-                  key={cycle}
-                  type="button"
-                  onClick={() => setBillingCycle(cycle)}
-                  className={clsx(
-                    "px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize",
-                    billingCycle === cycle
-                      ? "bg-teal text-white"
-                      : "text-mist hover:text-navy"
-                  )}
-                >
-                  {cycle}
-                  {cycle === "annual" && " · save 16%"}
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              {TRIALABLE_PLANS.map((plan) => {
-                const cfg = PLAN_CONFIG[plan];
-                const price = billingCycle === "annual" ? cfg.annual : cfg.monthly;
-                const chosen = selectedPlan === plan;
-
-                return (
-                  <button
-                    key={plan}
-                    type="button"
-                    onClick={() => setSelectedPlan(plan)}
-                    className={clsx(
-                      "w-full text-left p-4 rounded-md border transition-colors",
-                      chosen
-                        ? "border-teal bg-teal/5"
-                        : "border-navy/10 hover:border-teal/50"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-navy">
-                            {cfg.label}
-                          </p>
-                          {cfg.popular && (
-                            <span className="text-[10px] font-medium bg-teal/10 text-teal px-1.5 py-0.5 rounded">
-                              Most popular
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-mist mt-1">
-                          {planSummaries[plan]}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-navy">
-                            ${price}
-                            <span className="text-xs font-normal text-mist">/mo</span>
-                          </p>
-                          <p className="text-[11px] text-mist">after trial</p>
-                        </div>
-                        {chosen && <Check size={18} className="text-teal" />}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <p className="text-xs text-mist">
-              Need SSO, white-labelling or a custom contract?{" "}
-              <a
-                href="mailto:hello@offboardkit.com"
-                className="text-teal hover:underline"
-              >
-                Talk to us about Enterprise
-              </a>
-              .
-            </p>
           </div>
         )}
 
