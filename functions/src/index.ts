@@ -48,7 +48,13 @@ export {
 export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
-export { claimCompany, acceptInvite, setMemberRole, removeMember } from "./triggers/membership";
+export {
+  claimCompany,
+  acceptInvite,
+  setMemberRole,
+  removeMember,
+  selectTrialPlan,
+} from "./triggers/membership";
 export { syncStaffClaims, refreshMyClaims } from "./triggers/staffClaims";
 export { sendAlumniInvite } from "./triggers/sendAlumniInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit, increment } from 'firebase/firestore';
 
 const testEnv = await initializeTestEnvironment({
   projectId: 'offboardkit-sec-test',
@@ -48,6 +48,26 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'letterTemplates/ltA'), { companyId:'companyA', body:'x' });
   await setDoc(doc(db, 'offboardTemplates/otA'), { companyId:'companyA', name:'Standard' });
   await setDoc(doc(db, 'complianceReports/crA'), { companyId:'companyA' });
+
+  // ── Subscription lock fixtures ──
+  // companyLocked: trial ran out, nothing bought. companyTrial: still inside
+  // its seven days. companyPastDue: card failing, Stripe still retrying.
+  const day = 86400000;
+  await setDoc(doc(db, 'companies/companyLocked'), { name:'Lapsed Ltd', ownerUid:'lockedAdmin', plan:'basic', trialPlan:'starter', trialStatus:'expired', trialStartedAt:new Date(Date.now()-8*day), trialEndsAt:new Date(Date.now()-day), features:{}, settings:{} });
+  await setDoc(doc(db, 'users/lockedAdmin'), { companyId:'companyLocked', role:'super_admin', email:'admin@lapsed.com', isActive:true });
+  await setDoc(doc(db, 'offboardFlows/flowLocked'), { companyId:'companyLocked', employeeName:'Sam', status:'in_progress' });
+  await setDoc(doc(db, 'alumniProfiles/alumLocked'), { companyId:'companyLocked', email:'sam@lapsed.com', authUid:'alumniLockedUid', optedIn:true });
+  await setDoc(doc(db, 'alumniDirectory/alumniLockedUid'), { companyId:'companyLocked', profileId:'alumLocked', email:'sam@lapsed.com', optedIn:true });
+
+  await setDoc(doc(db, 'companies/companyTrial'), { name:'Fresh Inc', ownerUid:'trialAdmin', plan:'starter', trialPlan:'starter', trialStatus:'active', trialStartedAt:new Date(), trialEndsAt:new Date(Date.now()+5*day), features:{}, settings:{} });
+  await setDoc(doc(db, 'users/trialAdmin'), { companyId:'companyTrial', role:'super_admin', email:'admin@fresh.com', isActive:true });
+
+  await setDoc(doc(db, 'companies/companyPastDue'), { name:'Retry Co', ownerUid:'pastDueAdmin', plan:'growth', trialStatus:'converted', trialEndsAt:new Date(Date.now()-30*day), stripeSubscriptionId:'sub_1', stripeSubscriptionStatus:'past_due', features:{}, settings:{} });
+  await setDoc(doc(db, 'users/pastDueAdmin'), { companyId:'companyPastDue', role:'super_admin', email:'admin@retry.com', isActive:true });
+
+  // Trial over, subscription cancelled afterwards — locked for a different reason.
+  await setDoc(doc(db, 'companies/companyCanceled'), { name:'Gone Ltd', ownerUid:'canceledAdmin', plan:'basic', trialStatus:'converted', stripeSubscriptionId:null, stripeSubscriptionStatus:'canceled', features:{}, settings:{} });
+  await setDoc(doc(db, 'users/canceledAdmin'), { companyId:'companyCanceled', role:'super_admin', email:'admin@gone.com', isActive:true });
 });
 
 const anon     = testEnv.unauthenticatedContext().firestore();
@@ -173,6 +193,37 @@ await check('alumni: ESCALATE — read exit interview responses', () => getDoc(d
 await check('alumni: ESCALATE — read company invites', () => getDocs(collection(alumni,'invites')), 'DENIED');
 await check('alumni: ESCALATE — read another tenant company', () => getDoc(doc(alumni,'companies/companyB')), 'DENIED');
 await check('alumni: ESCALATE — move own profile to another tenant', () => updateDoc(doc(alumni,'alumniProfiles/alumA'), { companyId:'companyB' }), 'DENIED');
+
+// ── Subscription lock ───────────────────────────────────────────────────
+// The seven-day trial is the only way to use OffboardKit without paying;
+// once it lapses the tenant keeps READ access to its own data and loses
+// every write. Same derivation as src/lib/access.ts.
+
+const locked   = testEnv.authenticatedContext('lockedAdmin',   { email:'admin@lapsed.com' }).firestore();
+const onTrial  = testEnv.authenticatedContext('trialAdmin',    { email:'admin@fresh.com' }).firestore();
+const pastDue  = testEnv.authenticatedContext('pastDueAdmin',  { email:'admin@retry.com' }).firestore();
+const canceled = testEnv.authenticatedContext('canceledAdmin', { email:'admin@gone.com' }).firestore();
+const lockedAlumni = testEnv.authenticatedContext('alumniLockedUid', { email:'sam@lapsed.com' }).firestore();
+
+console.log('\n── subscription lock ──');
+await check('locked: still reads own company', () => getDoc(doc(locked,'companies/companyLocked')), 'ALLOWED');
+await check('locked: still reads own offboarding', () => getDoc(doc(locked,'offboardFlows/flowLocked')), 'ALLOWED');
+await check('locked: CANNOT create an offboarding', () => setDoc(doc(locked,'offboardFlows/flowNew'), { companyId:'companyLocked', employeeName:'New', status:'in_progress' }), 'DENIED');
+await check('locked: CANNOT update an existing offboarding', () => updateDoc(doc(locked,'offboardFlows/flowLocked'), { status:'completed' }), 'DENIED');
+await check('locked: CANNOT create a task', () => setDoc(doc(locked,'flowTasks/taskNew'), { companyId:'companyLocked', flowId:'flowLocked', title:'x', status:'pending' }), 'DENIED');
+await check('locked: CANNOT create an asset', () => setDoc(doc(locked,'assets/assetNew'), { companyId:'companyLocked', name:'Laptop', status:'assigned' }), 'DENIED');
+await check('locked: CANNOT create a knowledge item', () => setDoc(doc(locked,'knowledgeItems/kiNew'), { companyId:'companyLocked', flowId:'flowLocked', title:'x' }), 'DENIED');
+await check('locked: CANNOT delete an offboarding', () => deleteDoc(doc(locked,'offboardFlows/flowLocked')), 'DENIED');
+await check('locked: CANNOT invite a teammate', () => setDoc(doc(locked,'invites/inviteNew'), { companyId:'companyLocked', email:'x@lapsed.com', role:'hr_admin', status:'pending', invitedBy:'lockedAdmin' }), 'DENIED');
+await check('locked: CANNOT edit company settings', () => updateDoc(doc(locked,'companies/companyLocked'), { settings:{ brandColor:'#000' } }), 'DENIED');
+await check('locked: CANNOT self-extend the trial', () => updateDoc(doc(locked,'companies/companyLocked'), { trialEndsAt:new Date(Date.now()+1e11) }), 'DENIED');
+await check('locked: CANNOT grant itself a subscription', () => updateDoc(doc(locked,'companies/companyLocked'), { stripeSubscriptionId:'sub_fake', stripeSubscriptionStatus:'active' }), 'DENIED');
+await check('locked tenant alumni: CANNOT file a doc request', () => setDoc(doc(lockedAlumni,'docRequests/drLocked'), { companyId:'companyLocked', alumniId:'alumLocked', type:'reference' }), 'DENIED');
+
+await check('trialing: creates an offboarding', () => setDoc(doc(onTrial,'offboardFlows/flowTrial'), { companyId:'companyTrial', employeeName:'Pat', status:'in_progress' }), 'ALLOWED');
+await check('trialing: invites a teammate', () => setDoc(doc(onTrial,'invites/inviteTrial'), { companyId:'companyTrial', email:'x@fresh.com', role:'hr_admin', status:'pending', invitedBy:'trialAdmin' }), 'ALLOWED');
+await check('past_due: keeps writing while Stripe retries the card', () => setDoc(doc(pastDue,'offboardFlows/flowPastDue'), { companyId:'companyPastDue', employeeName:'Alex', status:'in_progress' }), 'ALLOWED');
+await check('canceled: CANNOT write after the subscription ends', () => setDoc(doc(canceled,'offboardFlows/flowCanceled'), { companyId:'companyCanceled', employeeName:'Kim', status:'in_progress' }), 'DENIED');
 
 console.log(`\n═══════ ${passes} passed, ${fails} failed ═══════`);
 await testEnv.cleanup();

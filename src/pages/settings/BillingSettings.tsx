@@ -17,11 +17,6 @@ import {
   GitBranch,
   Shield,
   Briefcase,
-  Circle,
-  Rocket,
-  Building2,
-  Landmark,
-  type LucideIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import { httpsCallable } from "firebase/functions";
@@ -32,6 +27,14 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import { getTrialState } from "../../lib/trial";
+import { getAccessState } from "../../lib/access";
+import {
+  PLAN_CONFIG,
+  PLAN_ORDER,
+  isTrialablePlan,
+  type BillingCycle,
+  type PlanKey,
+} from "../../lib/plans";
 import { getDocument } from "../../lib/firestore";
 import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
@@ -40,54 +43,6 @@ import { SettingsShell } from "./SettingsShell";
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
-
-type PlanKey = "basic" | "starter" | "growth" | "business" | "enterprise";
-type BillingCycle = "monthly" | "annual";
-
-const PLAN_CONFIG: Record<
-  PlanKey,
-  {
-    label: string;
-    icon: LucideIcon;
-    tagline: string;
-    monthly: number | null;
-    annual: number | null;
-    annualTotal: number | null;
-    annualSaving: number | null;
-    annualSavingPct: number | null;
-    color: "mist" | "teal" | "navy" | "amber";
-    userLimit: number | null;
-    employeeLimit: number | null;
-    exitLimit: number | null;
-    popular?: boolean;
-  }
-> = {
-  basic: {
-    label: "Basic", icon: Circle, tagline: "Very small teams. 3 exits per year.",
-    monthly: 10, annual: 8, annualTotal: 100, annualSaving: 20, annualSavingPct: 17,
-    color: "mist", userLimit: 1, employeeLimit: 10, exitLimit: 3,
-  },
-  starter: {
-    label: "Starter", icon: Briefcase, tagline: "Unlimited offboarding for small businesses",
-    monthly: 29, annual: 24, annualTotal: 290, annualSaving: 58, annualSavingPct: 16,
-    color: "teal", userLimit: 3, employeeLimit: 50, exitLimit: null,
-  },
-  growth: {
-    label: "Growth", icon: Rocket, tagline: "Complete platform for growing teams",
-    monthly: 79, annual: 66, annualTotal: 790, annualSaving: 158, annualSavingPct: 16,
-    color: "teal", userLimit: 10, employeeLimit: 200, exitLimit: null, popular: true,
-  },
-  business: {
-    label: "Business", icon: Building2, tagline: "Advanced AI + full alumni tools",
-    monthly: 199, annual: 166, annualTotal: 1990, annualSaving: 398, annualSavingPct: 16,
-    color: "navy", userLimit: 25, employeeLimit: 500, exitLimit: null,
-  },
-  enterprise: {
-    label: "Enterprise", icon: Landmark, tagline: "White-label, SSO & compliance",
-    monthly: null, annual: null, annualTotal: null, annualSaving: null, annualSavingPct: null,
-    color: "amber", userLimit: null, employeeLimit: null, exitLimit: null,
-  },
-};
 
 interface PlanFeatures {
   // Core
@@ -427,6 +382,7 @@ export default function BillingSettings() {
   const [loading, setLoading] = useState(true);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [subscribingPlan, setSubscribingPlan] = useState<PlanKey | null>(null);
+  const [switchingPlan, setSwitchingPlan] = useState<PlanKey | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   // Read by the post-checkout poller without becoming a dependency of it —
   // the poller calls setCompany, so depending on `company` would tear the
@@ -534,6 +490,7 @@ export default function BillingSettings() {
       : company.plan || "basic"
   ) as PlanKey;
   const onTrial = trial.isActive;
+  const access = getAccessState(company);
   const planConfig = PLAN_CONFIG[currentPlan] || PLAN_CONFIG.basic;
   const usageCount = company.usageCount || { offboardingsThisYear: 0, activeOffboardings: 0 };
   const memberSince = company.createdAt?.toDate?.()
@@ -541,6 +498,32 @@ export default function BillingSettings() {
     : "Unknown";
 
   const annualSavingsPct = 16;
+
+  /**
+   * Moves the running trial onto a different package.
+   *
+   * Trying one plan should not force a purchase to see another. The server
+   * leaves `trialEndsAt` alone, so this changes what is unlocked for the rest
+   * of the week and nothing else — no card, no charge.
+   */
+  const handleSwitchTrialPlan = async (plan: PlanKey) => {
+    if (!company) return;
+    setSwitchingPlan(plan);
+    try {
+      const selectTrialPlan = httpsCallable<{ plan: PlanKey }, { plan: PlanKey }>(
+        functions,
+        "selectTrialPlan"
+      );
+      await selectTrialPlan({ plan });
+      const fresh = await getDocument<Company>("companies", company.id);
+      if (fresh) setCompany(fresh);
+      showToast("success", `Your trial is now on ${PLAN_CONFIG[plan].label}.`);
+    } catch (err) {
+      showToast("error", errorMessage(err, "Could not change your trial plan"));
+    } finally {
+      setSwitchingPlan(null);
+    }
+  };
 
   const handleSubscribe = async (plan: PlanKey) => {
     if (!companyId) return;
@@ -594,7 +577,9 @@ export default function BillingSettings() {
                 <span className="text-xs font-semibold text-mist uppercase tracking-wide">
                   Current Plan
                 </span>
-                <Badge variant={planConfig.color}>{planConfig.label}</Badge>
+                <Badge variant={access.isLocked ? "mist" : planConfig.color}>
+                  {access.isLocked ? "No active plan" : planConfig.label}
+                </Badge>
                 {onTrial && <Badge variant="amber">Free trial</Badge>}
               </div>
               <div>
@@ -622,9 +607,11 @@ export default function BillingSettings() {
                   features{trial.endsAt ? ` after ${format(trial.endsAt, "d MMM")}` : ""}.
                 </p>
               ) : (
-                trial.hasExpired && (
+                access.isLocked && (
                   <p className="text-sm text-ember">
-                    Your free Starter trial has ended.
+                    {access.lockedAfterTrial
+                      ? "Your free trial has ended. OffboardKit is locked until you choose a plan."
+                      : "Your subscription is no longer active. OffboardKit is locked until you renew."}
                   </p>
                 )
               )}
@@ -635,7 +622,7 @@ export default function BillingSettings() {
             </div>
           </div>
 
-          {currentPlan === "basic" && (
+          {currentPlan === "basic" && !access.isLocked && (
             <div className="mt-6 space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -800,7 +787,7 @@ export default function BillingSettings() {
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 items-stretch">
-          {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((plan) => {
+          {PLAN_ORDER.map((plan) => {
             const cfg = PLAN_CONFIG[plan];
             const isCurrentPlan = currentPlan === plan;
             const price = billingCycle === "annual" ? cfg.annual : cfg.monthly;
@@ -907,10 +894,10 @@ export default function BillingSettings() {
 
                   {/* mt-auto keeps every CTA on the same baseline regardless of
                       how many highlights a plan lists */}
-                  <div className="mt-auto pt-1">
+                  <div className="mt-auto pt-1 space-y-2">
                     {isCurrentPlan ? (
                       <Button fullWidth variant="outline" disabled>
-                        Current Plan
+                        {onTrial ? "Trialing this plan" : "Current Plan"}
                       </Button>
                     ) : plan === "enterprise" ? (
                       <a href="mailto:hello@offboardkit.com" className="block">
@@ -919,15 +906,30 @@ export default function BillingSettings() {
                         </Button>
                       </a>
                     ) : (
-                      <Button
-                        fullWidth
-                        variant={cfg.popular ? "primary" : "outline"}
-                        onClick={() => handleSubscribe(plan)}
-                        loading={subscribingPlan === plan}
-                        disabled={subscribingPlan !== null}
-                      >
-                        {subscribingPlan === plan ? "Redirecting..." : "Subscribe"}
-                      </Button>
+                      <>
+                        <Button
+                          fullWidth
+                          variant={cfg.popular ? "primary" : "outline"}
+                          onClick={() => handleSubscribe(plan)}
+                          loading={subscribingPlan === plan}
+                          disabled={subscribingPlan !== null || switchingPlan !== null}
+                        >
+                          {subscribingPlan === plan ? "Redirecting..." : "Subscribe"}
+                        </Button>
+                        {/* Mid-trial, a company can move its remaining days to
+                            another package instead of paying to evaluate it. */}
+                        {onTrial && isTrialablePlan(plan) && (
+                          <Button
+                            fullWidth
+                            variant="ghost"
+                            onClick={() => handleSwitchTrialPlan(plan)}
+                            loading={switchingPlan === plan}
+                            disabled={subscribingPlan !== null || switchingPlan !== null}
+                          >
+                            Try it instead
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -946,7 +948,7 @@ export default function BillingSettings() {
             <thead>
               <tr className="border-b border-navy/10">
                 <th className="pb-3 text-left font-medium text-mist w-52">Feature</th>
-                {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map((p) => (
+                {PLAN_ORDER.map((p) => (
                   <th
                     key={p}
                     className={`pb-3 text-center font-medium ${
@@ -980,7 +982,7 @@ export default function BillingSettings() {
                           {row.label}
                         </div>
                       </td>
-                      {(["basic", "starter", "growth", "business", "enterprise"] as PlanKey[]).map(
+                      {PLAN_ORDER.map(
                         (p) => (
                           <td key={p} className="py-2.5 text-center">
                             <FeatureCell value={PLAN_FEATURES[p][row.key]} />
