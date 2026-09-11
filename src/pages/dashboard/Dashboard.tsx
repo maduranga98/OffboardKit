@@ -25,6 +25,7 @@ import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { Progress } from "../../components/ui/Progress";
 import { EmptyState } from "../../components/shared/EmptyState";
+import { TrialUpgradeCard } from "../../components/shared/TrialUpgradeCard";
 import { useAuth } from "../../hooks/useAuth";
 import { subscribeToCollection, queryDocuments } from "../../lib/firestore";
 import { showToast } from "../../components/ui/Toast";
@@ -314,6 +315,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Card-free trial running: the prompt to pick a package lives here,
+          since signup no longer asks for one. */}
+      <TrialUpgradeCard />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -3,11 +3,12 @@ import * as admin from "firebase-admin";
 /**
  * Card-free product trial.
  *
- * A new company picks the package it wants to try in the setup wizard and
- * gets seven days on it — no payment details, and no Stripe object existing:
- * there is no subscription, no customer, and nothing to cancel. Nobody is put
- * on a plan they did not choose, and choosing one here is not subscribing to
- * it; the week ends with no charge unless they buy through checkout.
+ * A new company gets seven days as soon as it finishes setup — no payment
+ * details, and no Stripe object existing: there is no subscription, no
+ * customer, and nothing to cancel. Signup asks for no package, so the trial
+ * runs on TRIAL_PLAN until the company moves it from Billing
+ * (`selectTrialPlan`); the week ends with no charge unless they buy through
+ * checkout.
  *
  * The trial simply expires. Every plan is paid, so expiry is a lock rather
  * than a downgrade: `expireTrials` closes the window, and the client and
@@ -46,9 +47,9 @@ export function isTrialablePlan(value: unknown): value is TrialablePlan {
 /**
  * Fields that start a fresh trial, for merging into a company document.
  *
- * The package is the caller's choice — nobody is put on a plan they did not
- * ask for — and is validated here rather than trusted, since it decides which
- * features unlock for the week.
+ * The package defaults to TRIAL_PLAN, since signup no longer asks for one. A
+ * caller may still name one, and it is validated here rather than trusted:
+ * it decides which features unlock for the week.
  */
 export function newTrialGrant(
   plan: unknown = TRIAL_PLAN,

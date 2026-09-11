@@ -110,13 +110,15 @@ firebase deploy
 
 ### Free trial and the subscription lock
 
-The last step of the setup wizard asks which package the company wants, and
-it gets **7 days on that package** — no card, no Stripe object, nothing to
-cancel. Choosing a plan there is not subscribing to it: no charge can happen
-until someone goes through Stripe checkout, and nobody is ever put on a plan
-they did not pick. Mid-trial they can move the remaining days to a different
-package (`selectTrialPlan`) rather than paying to evaluate it. Enterprise is
-not offered — it is quoted, not self-served.
+Signup does not ask for a package. A new company finishes the setup wizard and
+lands straight in the product on **7 card-free days** on Starter — no Stripe
+object, nothing to cancel, and no charge possible until someone goes through
+Stripe checkout. Subscribing is prompted rather than gated: a strip in the app
+chrome (`TrialBanner`) and a dismissible card on the dashboard
+(`TrialUpgradeCard`) both link to Billing, where the company can subscribe or
+move its remaining days to a different package (`selectTrialPlan`) rather than
+paying to evaluate it. Enterprise is not offered — it is quoted, not
+self-served.
 
 Every plan in the price list is paid (Basic is $10/month), so there is no free
 tier to fall back to. When the trial ends with nothing bought, the company is
@@ -126,7 +128,7 @@ render.
 
 | Where | What happens |
 |---|---|
-| `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan` is the package named by the wizard (validated against `TRIALABLE_PLANS`; an unknown one is refused, not silently swapped), plus `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
+| `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan` is optional and defaults to Starter (when passed it is validated against `TRIALABLE_PLANS`; an unknown one is refused, not silently swapped), plus `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
 | `selectTrialPlan` | Moves a running trial to another package. Never touches `trialEndsAt`, so it cannot stretch the week, and refuses once the trial is over or a subscription exists. |
 | `expireTrials` | Hourly sweep; lapsed trials get `trialStatus: expired` (and `plan: basic`, purely so the billing page has something coherent to show — it grants nothing). A company that subscribed meanwhile is marked `converted` and left alone. It also backfills a trial onto companies that predate trials. |
 | `stripeWebhook` | Marks `trialStatus: converted` as soon as a subscription becomes active, so the sweep never touches a paying company's plan. |
