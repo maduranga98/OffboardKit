@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getStripe } from "./stripeClient";
-import { STRIPE_SECRETS, getAppUrl } from "./stripeConfig";
+import { STRIPE_SECRETS, resolveReturnUrl } from "./stripeConfig";
 
 const BILLING_ROLES = ["super_admin", "hr_admin"];
 
@@ -14,7 +14,7 @@ const BILLING_ROLES = ["super_admin", "hr_admin"];
  */
 export const createBillingPortalSession = functions
   .runWith({ secrets: [...STRIPE_SECRETS] })
-  .https.onCall(async (_data, context) => {
+  .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
     }
@@ -48,9 +48,13 @@ export const createBillingPortalSession = functions
       );
     }
 
+    // Same as checkout: come back to the origin the request came from, once
+    // it has been checked against the allowlist.
+    const { returnOrigin } = (data ?? {}) as { returnOrigin?: unknown };
+
     let appUrl: string;
     try {
-      appUrl = getAppUrl();
+      appUrl = resolveReturnUrl(returnOrigin);
     } catch (err) {
       functions.logger.error("Stripe billing is misconfigured.", err);
       throw new functions.https.HttpsError(

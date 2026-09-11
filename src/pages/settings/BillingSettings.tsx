@@ -530,7 +530,14 @@ export default function BillingSettings() {
     setSubscribingPlan(plan);
     try {
       const createSession = httpsCallable(functions, "createCheckoutSession");
-      const result = await createSession({ plan, billingCycle });
+      // Tell the server where this app is actually running, so Stripe returns
+      // the customer here rather than to the single address APP_URL names
+      // (which is the marketing site). The server allowlists it.
+      const result = await createSession({
+        plan,
+        billingCycle,
+        returnOrigin: window.location.origin,
+      });
       const { url } = result.data as { url: string | null };
       if (url) {
         window.location.href = url;
@@ -551,7 +558,7 @@ export default function BillingSettings() {
     setOpeningPortal(true);
     try {
       const createPortal = httpsCallable(functions, "createBillingPortalSession");
-      const result = await createPortal({});
+      const result = await createPortal({ returnOrigin: window.location.origin });
       const { url } = result.data as { url: string | null };
       if (url) {
         window.location.href = url;

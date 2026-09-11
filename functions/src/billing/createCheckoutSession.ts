@@ -3,8 +3,8 @@ import * as admin from "firebase-admin";
 import { getStripe } from "./stripeClient";
 import {
   STRIPE_SECRETS,
-  getAppUrl,
   getPriceId,
+  resolveReturnUrl,
   isBillingCycle,
   isPlanKey,
 } from "./stripeConfig";
@@ -64,9 +64,10 @@ export const createCheckoutSession = functions
       throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
     }
 
-    const { plan, billingCycle = "monthly" } = (data ?? {}) as {
+    const { plan, billingCycle = "monthly", returnOrigin } = (data ?? {}) as {
       plan?: unknown;
       billingCycle?: unknown;
+      returnOrigin?: unknown;
     };
 
     if (!isPlanKey(plan)) {
@@ -125,11 +126,15 @@ export const createCheckoutSession = functions
 
     // Configuration errors (missing live price IDs, missing APP_URL) surface
     // here rather than as an opaque Stripe failure mid-checkout.
+    //
+    // The return URL follows the origin the caller is actually running on
+    // (allowlisted in resolveReturnUrl), so paying from the app comes back to
+    // the app instead of to whatever single address APP_URL names.
     let priceId: string;
     let appUrl: string;
     try {
       priceId = getPriceId(plan, billingCycle);
-      appUrl = getAppUrl();
+      appUrl = resolveReturnUrl(returnOrigin);
     } catch (err) {
       functions.logger.error("Stripe billing is misconfigured.", err);
       throw new functions.https.HttpsError(
