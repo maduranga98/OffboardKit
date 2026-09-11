@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
+import { StarRating } from "../../components/ui/StarRating";
 import { CreateSurveyModal } from "../../components/alumni/CreateSurveyModal";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -398,10 +399,10 @@ export default function PulseSurveys({ companyId }: Props) {
                         <td className="px-4 py-3">
                           {score !== null && score !== undefined ? (
                             <span className={clsx(
-                              "text-sm font-medium",
+                              "inline-flex items-center text-sm font-medium",
                               score <= 2 ? "text-ember" : score === 3 ? "text-yellow-600" : "text-teal"
                             )}>
-                              {"★".repeat(score)}{"☆".repeat(5 - score)}
+                              <StarRating score={score} />
                               <span className="ml-1 text-xs font-normal text-mist">{score}/5</span>
                             </span>
                           ) : (

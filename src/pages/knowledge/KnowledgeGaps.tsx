@@ -10,6 +10,7 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
 import {
   BarChart,
@@ -290,7 +291,12 @@ function GapRow({
               <Badge className={GAP_SEVERITY_CLASSES[severity]}>{severity}</Badge>
             )}
             {assignedName && !isResolved && (
-              <Badge variant="mist">→ {assignedName}</Badge>
+              <Badge variant="mist">
+                <span className="inline-flex items-center gap-1">
+                  <ArrowRight size={11} aria-hidden="true" />
+                  {assignedName}
+                </span>
+              </Badge>
             )}
             {isOverdue && <Badge variant="ember">Overdue</Badge>}
           </div>
@@ -393,9 +399,10 @@ function GapRow({
             {item.flowId && (
               <Link
                 to={`/offboardings/${item.flowId}`}
-                className="text-xs text-teal hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-teal hover:underline"
               >
-                View offboarding →
+                View offboarding
+                <ArrowRight size={11} aria-hidden="true" />
               </Link>
             )}
             {!isResolved && item.flowId && aiEnabled && (

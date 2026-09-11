@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import type { Timestamp } from "firebase/firestore";
 import { useExitContext } from "../../hooks/useExitContext";
@@ -200,9 +200,10 @@ export function ExitContextCard({ flowId, companyId }: ExitContextCardProps) {
             {data.riskFlags.map((flag) => (
               <span
                 key={flag}
-                className="bg-ember/10 text-ember text-xs px-2 py-0.5 rounded-full"
+                className="inline-flex items-center gap-1 bg-ember/10 text-ember text-xs px-2 py-0.5 rounded-full"
               >
-                ⚠ {flag}
+                <AlertTriangle size={11} aria-hidden="true" />
+                {flag}
               </span>
             ))}
           </div>
@@ -215,9 +216,14 @@ export function ExitContextCard({ flowId, companyId }: ExitContextCardProps) {
           <div className="border-t border-navy/5 my-3" />
           <button
             onClick={() => setSummaryOpen((v) => !v)}
-            className="text-xs text-teal cursor-pointer hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-teal cursor-pointer hover:underline"
           >
-            {summaryOpen ? "Hide AI Summary ↑" : "View AI Summary ↓"}
+            {summaryOpen ? "Hide AI Summary" : "View AI Summary"}
+            {summaryOpen ? (
+              <ChevronUp size={12} aria-hidden="true" />
+            ) : (
+              <ChevronDown size={12} aria-hidden="true" />
+            )}
           </button>
           {summaryOpen && (
             <div className="mt-2 bg-navy/[0.03] rounded-lg p-3 text-xs text-mist italic">

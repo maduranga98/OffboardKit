@@ -166,7 +166,7 @@ export default function DocRequestsPanel({ companyId }: Props) {
           prev.map((r) => (r.id === requestId ? doc : r))
         );
         if (doc.status === "delivered") {
-          showToast("success", "✓ Document generated and sent to alumni");
+          showToast("success", "Document generated and sent to alumni");
         } else if (doc.lastError) {
           showToast("error", "Document generation failed", doc.lastError);
         }

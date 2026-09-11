@@ -292,7 +292,7 @@ export function taskOverdueEmail(params: {
   `;
 
   return {
-    subject: `⚠️ Overdue tasks: ${params.employeeName}'s offboarding`,
+    subject: `Overdue tasks: ${params.employeeName}'s offboarding`,
     html: emailWrapper(body),
   };
 }
@@ -439,7 +439,7 @@ export function gapEscalationEmail(params: {
   `;
 
   return {
-    subject: `⚠️ ${params.gaps.length} unresolved knowledge gap${params.gaps.length > 1 ? "s" : ""} need attention`,
+    subject: `${params.gaps.length} unresolved knowledge gap${params.gaps.length > 1 ? "s" : ""} need attention`,
     html: emailWrapper(body),
   };
 }

@@ -13,6 +13,9 @@ import {
   TrendingUp,
   Edit2,
   FileDown,
+  Lock,
+  Lightbulb,
+  ArrowRight,
 } from "lucide-react";
 import BoomerangPipeline from "./BoomerangPipeline";
 import ConsultingPool from "./ConsultingPool";
@@ -133,7 +136,7 @@ function PlanGateBlock({ title, minPlan, children }: { title: string; minPlan: s
   if (hasAccess) return <>{children}</>;
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-      <div className="text-4xl">🔒</div>
+      <Lock size={36} className="text-mist" aria-hidden="true" />
       <h3 className="text-lg font-semibold text-navy">{title}</h3>
       <p className="text-sm text-mist max-w-sm">
         This feature requires the{" "}
@@ -144,7 +147,8 @@ function PlanGateBlock({ title, minPlan, children }: { title: string; minPlan: s
         href="/settings/billing"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-teal hover:underline"
       >
-        View plans →
+        View plans
+        <ArrowRight size={14} aria-hidden="true" />
       </a>
     </div>
   );
@@ -775,11 +779,13 @@ export default function Alumni() {
       {/* Suggestion banner */}
       {unregisteredFlows.length > 0 && !dismissedBanner && (
         <div className="bg-teal/5 border border-teal/20 rounded-lg p-4 flex items-center justify-between gap-4">
-          <p className="text-sm text-navy">
-            <span className="mr-1.5">💡</span>
-            {unregisteredFlows.length} completed offboarding
-            {unregisteredFlows.length === 1 ? " hasn't" : "s haven't"} been
-            added to the alumni network yet.
+          <p className="flex items-start gap-1.5 text-sm text-navy">
+            <Lightbulb size={16} className="text-teal flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <span>
+              {unregisteredFlows.length} completed offboarding
+              {unregisteredFlows.length === 1 ? " hasn't" : "s haven't"} been
+              added to the alumni network yet.
+            </span>
           </p>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
@@ -958,8 +964,9 @@ export default function Alumni() {
                   {/* Current company */}
                   {profile.currentCompany && (
                     <div className="hidden md:flex items-center gap-1 text-xs text-mist flex-shrink-0">
-                      <Building size={12} />
-                      → {profile.currentCompany}
+                      <Building size={12} aria-hidden="true" />
+                      <ArrowRight size={11} aria-hidden="true" />
+                      {profile.currentCompany}
                     </div>
                   )}
 

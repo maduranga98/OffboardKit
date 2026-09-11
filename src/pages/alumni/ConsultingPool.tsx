@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Clock, Plus } from "lucide-react";
+import { Clock, Plus, Check } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -349,8 +349,9 @@ export default function ConsultingPool({ companyId }: Props) {
                     </div>
 
                     {gig.status === "accepted" && (
-                      <div className="px-3 py-2 bg-teal/5 border border-teal/20 rounded-lg text-xs text-teal">
-                        ✓ {gig.alumniName} accepted
+                      <div className="flex items-center gap-1.5 px-3 py-2 bg-teal/5 border border-teal/20 rounded-lg text-xs text-teal">
+                        <Check size={12} strokeWidth={3} className="flex-shrink-0" aria-hidden="true" />
+                        {gig.alumniName} accepted
                         {gig.alumniNote && <span className="text-mist ml-1">— "{gig.alumniNote}"</span>}
                       </div>
                     )}

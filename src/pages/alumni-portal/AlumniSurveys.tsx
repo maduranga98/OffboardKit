@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Timestamp } from "firebase/firestore";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
+import { StarRating } from "../../components/ui/StarRating";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
 import { queryDocuments, where, orderBy } from "../../lib/firestore";
@@ -127,7 +128,7 @@ export default function AlumniSurveys() {
                             "text-sm font-semibold",
                             score <= 2 ? "text-ember" : score === 3 ? "text-yellow-600" : "text-teal"
                           )}>
-                            {"★".repeat(score)}{"☆".repeat(5 - score)}
+                            <StarRating score={score} className="justify-end" />
                           </p>
                         </div>
                       )}

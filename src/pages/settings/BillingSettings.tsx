@@ -17,6 +17,11 @@ import {
   GitBranch,
   Shield,
   Briefcase,
+  Circle,
+  Rocket,
+  Building2,
+  Landmark,
+  type LucideIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import { httpsCallable } from "firebase/functions";
@@ -43,7 +48,7 @@ const PLAN_CONFIG: Record<
   PlanKey,
   {
     label: string;
-    emoji: string;
+    icon: LucideIcon;
     tagline: string;
     monthly: number | null;
     annual: number | null;
@@ -58,27 +63,27 @@ const PLAN_CONFIG: Record<
   }
 > = {
   basic: {
-    label: "Basic", emoji: "🔹", tagline: "Very small teams. 3 exits per year.",
+    label: "Basic", icon: Circle, tagline: "Very small teams. 3 exits per year.",
     monthly: 10, annual: 8, annualTotal: 100, annualSaving: 20, annualSavingPct: 17,
     color: "mist", userLimit: 1, employeeLimit: 10, exitLimit: 3,
   },
   starter: {
-    label: "Starter", emoji: "💼", tagline: "Unlimited offboarding for small businesses",
+    label: "Starter", icon: Briefcase, tagline: "Unlimited offboarding for small businesses",
     monthly: 29, annual: 24, annualTotal: 290, annualSaving: 58, annualSavingPct: 16,
     color: "teal", userLimit: 3, employeeLimit: 50, exitLimit: null,
   },
   growth: {
-    label: "Growth", emoji: "🚀", tagline: "Complete platform for growing teams",
+    label: "Growth", icon: Rocket, tagline: "Complete platform for growing teams",
     monthly: 79, annual: 66, annualTotal: 790, annualSaving: 158, annualSavingPct: 16,
     color: "teal", userLimit: 10, employeeLimit: 200, exitLimit: null, popular: true,
   },
   business: {
-    label: "Business", emoji: "🏢", tagline: "Advanced AI + full alumni tools",
+    label: "Business", icon: Building2, tagline: "Advanced AI + full alumni tools",
     monthly: 199, annual: 166, annualTotal: 1990, annualSaving: 398, annualSavingPct: 16,
     color: "navy", userLimit: 25, employeeLimit: 500, exitLimit: null,
   },
   enterprise: {
-    label: "Enterprise", emoji: "🏛️", tagline: "White-label, SSO & compliance",
+    label: "Enterprise", icon: Landmark, tagline: "White-label, SSO & compliance",
     monthly: null, annual: null, annualTotal: null, annualSaving: null, annualSavingPct: null,
     color: "amber", userLimit: null, employeeLimit: null, exitLimit: null,
   },
@@ -867,7 +872,7 @@ export default function BillingSettings() {
                 <div className="flex flex-1 flex-col gap-5 pt-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{cfg.emoji}</span>
+                      <cfg.icon className="w-4 h-4 text-navy" aria-hidden="true" />
                       <h4 className="text-base font-semibold text-navy">{cfg.label}</h4>
                     </div>
                     <p className="text-xs text-mist mt-0.5">{cfg.tagline}</p>

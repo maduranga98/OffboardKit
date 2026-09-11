@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   XCircle,
+  ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { httpsCallable } from "firebase/functions";
@@ -336,15 +337,19 @@ function KnowledgeItemRow({
               </span>
             )}
             {item.successor && (
-              <span className="text-xs text-teal">→ {item.successor}</span>
+              <span className="inline-flex items-center gap-1 text-xs text-teal">
+                <ArrowRight size={11} aria-hidden="true" />
+                {item.successor}
+              </span>
             )}
             {item.flowId && (
               <Link
                 to={`/offboardings/${item.flowId}`}
-                className="text-xs text-teal hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-teal hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
-                View offboarding →
+                View offboarding
+                <ArrowRight size={11} aria-hidden="true" />
               </Link>
             )}
           </div>

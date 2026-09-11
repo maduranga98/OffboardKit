@@ -15,7 +15,7 @@ const check = async (name, fn, expect) => {
   catch (e) { outcome = 'DENIED'; err = e.message?.slice(0, 90); }
   const ok = outcome === expect;
   ok ? passes++ : fails++;
-  const tag = ok ? '  ok  ' : (expect === 'DENIED' ? '🔴VULN' : '🟠BROKE');
+  const tag = ok ? '  ok  ' : (expect === 'DENIED' ? ' VULN ' : ' BROKE');
   console.log(`${tag} ${outcome.padEnd(7)} ${name}${ok ? '' : `  << expected ${expect}${err ? ` | ${err}` : ''}`}`);
 };
 
