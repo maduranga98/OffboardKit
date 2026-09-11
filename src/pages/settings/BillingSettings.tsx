@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   CheckCircle,
@@ -17,6 +17,9 @@ import {
   GitBranch,
   Shield,
   Briefcase,
+  Download,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { httpsCallable } from "firebase/functions";
@@ -43,6 +46,53 @@ import { SettingsShell } from "./SettingsShell";
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
+
+/** One row of Stripe billing history, as the `listInvoices` callable returns it. */
+interface InvoiceSummary {
+  id: string;
+  number: string | null;
+  status: string | null;
+  created: number;
+  amountDue: number;
+  amountPaid: number;
+  currency: string;
+  description: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+  periodStart: number | null;
+  periodEnd: number | null;
+}
+
+/**
+ * Stripe reports amounts in the currency's smallest unit, and the divisor is
+ * not always 100 — zero-decimal currencies such as JPY charge whole units.
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga",
+  "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+
+function formatInvoiceAmount(amount: number, currency: string): string {
+  const code = (currency || "usd").toUpperCase();
+  const minorUnits = ZERO_DECIMAL_CURRENCIES.has(currency?.toLowerCase()) ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: minorUnits,
+    }).format(amount / 10 ** minorUnits);
+  } catch {
+    // An unknown currency code must not blank out the whole table.
+    return `${(amount / 10 ** minorUnits).toFixed(minorUnits)} ${code}`;
+  }
+}
+
+const INVOICE_STATUS: Record<string, { label: string; variant: "teal" | "amber" | "ember" | "mist" }> = {
+  paid: { label: "Paid", variant: "teal" },
+  open: { label: "Due", variant: "amber" },
+  uncollectible: { label: "Unpaid", variant: "ember" },
+  void: { label: "Void", variant: "mist" },
+};
 
 interface PlanFeatures {
   // Core
@@ -384,6 +434,10 @@ export default function BillingSettings() {
   const [subscribingPlan, setSubscribingPlan] = useState<PlanKey | null>(null);
   const [switchingPlan, setSwitchingPlan] = useState<PlanKey | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
+  const [invoicesHasMore, setInvoicesHasMore] = useState(false);
   // Read by the post-checkout poller without becoming a dependency of it —
   // the poller calls setCompany, so depending on `company` would tear the
   // interval down and restart it on its own first result.
@@ -408,6 +462,49 @@ export default function BillingSettings() {
   useEffect(() => {
     latestCompany.current = company;
   }, [company]);
+
+  /**
+   * Pulls billing history straight from Stripe.
+   *
+   * Keyed on the subscription so that finishing checkout — which the poller
+   * above detects — refetches and shows the first invoice without a reload.
+   */
+  const subscriptionKey = company?.stripeSubscriptionId ?? null;
+  const hasBillingAccount = Boolean(company?.stripeCustomerId);
+
+  const loadInvoices = useCallback(async () => {
+    if (!hasBillingAccount) {
+      setInvoices([]);
+      setInvoicesHasMore(false);
+      setInvoicesError(null);
+      setInvoicesLoading(false);
+      return;
+    }
+    setInvoicesLoading(true);
+    setInvoicesError(null);
+    try {
+      const list = httpsCallable<
+        { limit?: number },
+        { invoices: InvoiceSummary[]; hasMore: boolean }
+      >(functions, "listInvoices");
+      const result = await list({ limit: 12 });
+      setInvoices(result.data.invoices ?? []);
+      setInvoicesHasMore(Boolean(result.data.hasMore));
+    } catch (err) {
+      setInvoices([]);
+      setInvoicesHasMore(false);
+      setInvoicesError(errorMessage(err, "Could not load your invoice history"));
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, [hasBillingAccount]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    void loadInvoices();
+    // subscriptionKey is intentionally a dependency: a new subscription means
+    // a new invoice exists.
+  }, [isSuperAdmin, loadInvoices, subscriptionKey]);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -740,19 +837,148 @@ export default function BillingSettings() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-navy">Invoice History</h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!company.stripeCustomerId || openingPortal}
-            onClick={handleManageBilling}
-          >
-            <FileText size={14} className="mr-1.5" />
-            View in Stripe
-          </Button>
+          <div className="flex items-center gap-1">
+            {company.stripeCustomerId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={invoicesLoading}
+                onClick={() => void loadInvoices()}
+              >
+                <RefreshCw
+                  size={14}
+                  className={`mr-1.5 ${invoicesLoading ? "animate-spin" : ""}`}
+                />
+                Refresh
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!company.stripeCustomerId || openingPortal}
+              onClick={handleManageBilling}
+            >
+              <FileText size={14} className="mr-1.5" />
+              View in Stripe
+            </Button>
+          </div>
         </div>
-        <div className="py-8 text-center text-sm text-mist border-t border-navy/5">
-          No invoices yet. Billing starts when you upgrade to a paid plan.
-        </div>
+
+        {invoicesLoading ? (
+          <div className="flex justify-center py-8 border-t border-navy/5">
+            <LoadingSpinner />
+          </div>
+        ) : invoicesError ? (
+          <div className="py-8 text-center border-t border-navy/5">
+            <p className="text-sm text-ember">{invoicesError}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => void loadInvoices()}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="py-8 text-center text-sm text-mist border-t border-navy/5">
+            {company.stripeCustomerId
+              ? "No invoices yet. Your first one arrives at the end of this billing period."
+              : "No invoices yet. Billing starts when you upgrade to a paid plan."}
+          </div>
+        ) : (
+          <div className="border-t border-navy/5 -mx-6 -mb-6 overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-mist">
+                  <th className="text-left font-medium px-6 py-3">Invoice</th>
+                  <th className="text-left font-medium px-3 py-3">Date</th>
+                  <th className="text-left font-medium px-3 py-3">Status</th>
+                  <th className="text-right font-medium px-3 py-3">Amount</th>
+                  <th className="px-6 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => {
+                  const status =
+                    INVOICE_STATUS[invoice.status ?? ""] ??
+                    { label: invoice.status ?? "Unknown", variant: "mist" as const };
+                  return (
+                    <tr
+                      key={invoice.id}
+                      className="border-t border-navy/5 hover:bg-navy/[0.02] transition-colors"
+                    >
+                      <td className="px-6 py-3">
+                        <p className="font-medium text-navy">
+                          {invoice.number || "Invoice"}
+                        </p>
+                        {invoice.description && (
+                          <p className="text-xs text-mist mt-0.5 line-clamp-1">
+                            {invoice.description}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-mist whitespace-nowrap">
+                        {format(new Date(invoice.created * 1000), "d MMM yyyy")}
+                      </td>
+                      <td className="px-3 py-3">
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-navy whitespace-nowrap">
+                        {formatInvoiceAmount(
+                          invoice.status === "paid" ? invoice.amountPaid : invoice.amountDue,
+                          invoice.currency
+                        )}
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-end gap-3">
+                          {invoice.invoicePdf && (
+                            <a
+                              href={invoice.invoicePdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-mist hover:text-navy transition-colors"
+                              title="Download PDF"
+                              aria-label={`Download PDF for invoice ${invoice.number || invoice.id}`}
+                            >
+                              <Download size={15} />
+                            </a>
+                          )}
+                          {invoice.hostedInvoiceUrl && (
+                            <a
+                              href={invoice.hostedInvoiceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-mist hover:text-navy transition-colors"
+                              title="View invoice"
+                              aria-label={`View invoice ${invoice.number || invoice.id}`}
+                            >
+                              <ExternalLink size={15} />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {invoicesHasMore && (
+              <p className="px-6 py-3 text-xs text-mist border-t border-navy/5">
+                Showing your {invoices.length} most recent invoices —{" "}
+                <button
+                  type="button"
+                  onClick={handleManageBilling}
+                  disabled={openingPortal}
+                  className="text-teal hover:underline disabled:opacity-60"
+                >
+                  see all in Stripe
+                </button>
+                .
+              </p>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* ── Plan Comparison ── */}
