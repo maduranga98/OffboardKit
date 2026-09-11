@@ -31,6 +31,10 @@ import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
 import { SettingsShell } from "./SettingsShell";
 
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
 type PlanKey = "basic" | "starter" | "growth" | "business" | "enterprise";
 type BillingCycle = "monthly" | "annual";
 
@@ -417,6 +421,7 @@ export default function BillingSettings() {
   const [loading, setLoading] = useState(true);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [subscribingPlan, setSubscribingPlan] = useState<PlanKey | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -523,10 +528,31 @@ export default function BillingSettings() {
       } else {
         showToast("error", "Failed to start checkout");
       }
-    } catch (err: any) {
-      showToast("error", err.message || "Failed to start checkout");
+    } catch (err) {
+      showToast("error", errorMessage(err, "Failed to start checkout"));
     } finally {
       setSubscribingPlan(null);
+    }
+  };
+
+  // Plan changes, card updates, invoices, and cancellation all live in the
+  // Stripe customer portal rather than being rebuilt here.
+  const handleManageBilling = async () => {
+    if (!company.stripeCustomerId) return;
+    setOpeningPortal(true);
+    try {
+      const createPortal = httpsCallable(functions, "createBillingPortalSession");
+      const result = await createPortal({});
+      const { url } = result.data as { url: string | null };
+      if (url) {
+        window.location.href = url;
+      } else {
+        showToast("error", "Could not open the billing portal");
+      }
+    } catch (err) {
+      showToast("error", errorMessage(err, "Could not open the billing portal"));
+    } finally {
+      setOpeningPortal(false);
     }
   };
 
@@ -629,8 +655,19 @@ export default function BillingSettings() {
               </span>
             </div>
             <div className="pt-3 border-t border-navy/5">
-              <p className="text-xs text-mist">
-                Billing portal &amp; invoices coming soon
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={!company.stripeCustomerId || openingPortal}
+                onClick={handleManageBilling}
+              >
+                {openingPortal ? "Opening…" : "Manage billing"}
+              </Button>
+              <p className="text-xs text-mist mt-2">
+                {company.stripeCustomerId
+                  ? "Change plan, update your card, download invoices, or cancel."
+                  : "Available once you subscribe to a paid plan."}
               </p>
             </div>
           </div>
@@ -651,7 +688,12 @@ export default function BillingSettings() {
               </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" disabled={!company.stripeCustomerId}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!company.stripeCustomerId || openingPortal}
+            onClick={handleManageBilling}
+          >
             {company.stripeCustomerId ? "Manage in Stripe" : "Add Card"}
           </Button>
         </div>
@@ -661,9 +703,14 @@ export default function BillingSettings() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-navy">Invoice History</h3>
-          <Button variant="ghost" size="sm" disabled>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={!company.stripeCustomerId || openingPortal}
+            onClick={handleManageBilling}
+          >
             <FileText size={14} className="mr-1.5" />
-            Download All
+            View in Stripe
           </Button>
         </div>
         <div className="py-8 text-center text-sm text-mist border-t border-navy/5">

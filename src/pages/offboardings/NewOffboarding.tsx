@@ -7,7 +7,7 @@ import {
   FileText,
   CheckCircle,
 } from "lucide-react";
-import { Timestamp, writeBatch, doc, increment } from "firebase/firestore";
+import { Timestamp, writeBatch, doc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { format, differenceInDays } from "date-fns";
 import clsx from "clsx";
@@ -285,11 +285,9 @@ export default function NewOffboarding() {
         }
       }
 
-      batch.update(doc(db, "companies", companyId), {
-        "usageCount.offboardingsThisYear": increment(1),
-        "usageCount.activeOffboardings": increment(1),
-      });
-
+      // usageCount is maintained by the onFlowCreatedUpdateUsage trigger —
+      // firestore.rules bars clients from writing billing state, so including
+      // it here would have rejected this whole batch.
       await batch.commit();
       navigate(`/offboardings/${flowId}`);
     } catch (err) {

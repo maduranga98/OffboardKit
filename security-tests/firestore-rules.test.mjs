@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, increment } from 'firebase/firestore';
 
 const testEnv = await initializeTestEnvironment({
   projectId: 'offboardkit-sec-test',
@@ -129,6 +129,11 @@ await check('staff admin: read own invites', () => getDocs(query(collection(staf
 await check('staff admin: create an invite', () => setDoc(doc(staff,'invites/inv2'), { companyId:'companyA', email:'x@victim.com', role:'manager', status:'pending' }), 'ALLOWED');
 await check('staff: update company settings', () => updateDoc(doc(staff,'companies/companyA'), { settings:{ brandColor:'#000' } }), 'ALLOWED');
 await check('staff: CANNOT self-serve a plan upgrade', () => updateDoc(doc(staff,'companies/companyA'), { plan:'enterprise' }), 'DENIED');
+// usageCount decides whether the Basic-plan cap has been hit, so clients must
+// never move it — the usageCounters triggers own it server-side. The app used
+// to write these from the browser, which silently broke flow creation.
+await check('staff: CANNOT increment own usage counter', () => updateDoc(doc(staff,'companies/companyA'), { 'usageCount.offboardingsThisYear': increment(1) }), 'DENIED');
+await check('staff: CANNOT reset active offboardings', () => updateDoc(doc(staff,'companies/companyA'), { 'usageCount.activeOffboardings': 0 }), 'DENIED');
 await check('staff: LIST company members (users query)', () => getDocs(query(collection(staff,'users'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: read own user doc by id', () => getDoc(doc(staff,'users/victimAdmin')), 'ALLOWED');
 await check('staff: LIST all users unscoped', () => getDocs(collection(staff,'users')), 'DENIED');
