@@ -70,6 +70,7 @@ export { generateKnowledgePdf } from "./analytics/generateKnowledgePdf";
 // Billing Functions
 export { createCheckoutSession } from "./billing/createCheckoutSession";
 export { createBillingPortalSession } from "./billing/createBillingPortalSession";
+export { listInvoices } from "./billing/listInvoices";
 export { stripeWebhook } from "./billing/stripeWebhook";
 
 // Document generation
