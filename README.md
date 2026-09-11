@@ -132,6 +132,16 @@ render.
 | `selectTrialPlan` | Moves a running trial to another package. Never touches `trialEndsAt`, so it cannot stretch the week, and refuses once the trial is over or a subscription exists. |
 | `expireTrials` | Hourly sweep; lapsed trials get `trialStatus: expired` (and `plan: basic`, purely so the billing page has something coherent to show — it grants nothing). A company that subscribed meanwhile is marked `converted` and left alone. It also backfills a trial onto companies that predate trials. |
 | `stripeWebhook` | Marks `trialStatus: converted` as soon as a subscription becomes active, so the sweep never touches a paying company's plan. |
+
+**Where checkout returns to.** The billing page sends its own origin with the
+request, and `resolveReturnUrl` returns the customer there after Stripe —
+provided it is allowed: `APP_URL`, an https subdomain of the `APP_URL` host,
+this project's Firebase Hosting domains, or anything listed in
+`APP_RETURN_ORIGINS`. Anything else falls back to `APP_URL`. That is what keeps
+someone who paid from the app out of the marketing site, which is where a bare
+`APP_URL` redirect lands when the two are different hosts. `APP_URL` is still
+the address used in outgoing email links, so it must be a host that actually
+serves the app for those to work.
 | `src/lib/access.ts` | Derives the lock for the UI — `AppLayout` swaps the whole app for the lock screen, leaving only `/settings/billing` reachable. |
 | `firestore.rules` | `companyActive()` — the enforcement. Every staff, team-admin and alumni write runs through it. |
 | `functions/src/billing/access.ts` | `assertCompanyActive()` — callables use the admin SDK and never see security rules, so they check for themselves. |
@@ -185,6 +195,10 @@ IDs rather than failing at the customer's checkout.
 
    ```
    APP_URL=https://offboardkit.web.app
+   # Optional: extra origins Stripe may return customers to, comma-separated.
+   # Needed only when the app is served from a domain that is neither APP_URL,
+   # one of its subdomains, nor a Firebase Hosting domain of this project.
+   APP_RETURN_ORIGINS=https://app.offboardset.com
    STRIPE_PRICE_BASIC_MONTHLY=price_…
    STRIPE_PRICE_BASIC_ANNUAL=price_…
    STRIPE_PRICE_STARTER_MONTHLY=price_…

@@ -146,6 +146,106 @@ export function getAppUrl(): string {
   return "http://localhost:5173";
 }
 
+/** Origin of a URL, or null when it is not a parsable absolute http(s) URL. */
+function originOf(value: string | undefined | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Firebase project ID, as the runtime exposes it. */
+function projectId(): string | undefined {
+  if (process.env.GCLOUD_PROJECT) return process.env.GCLOUD_PROJECT;
+  if (process.env.GCP_PROJECT) return process.env.GCP_PROJECT;
+  try {
+    return JSON.parse(process.env.FIREBASE_CONFIG || "{}").projectId;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Origins Stripe may send a customer back to.
+ *
+ * `APP_URL` is shared with the email templates, where it has to be a single
+ * public address, so it is not on its own a reliable answer to "where is the
+ * app?" — pointing it at a marketing site is exactly what dropped people on
+ * the homepage after paying. The Firebase Hosting domains are always the app,
+ * and `APP_RETURN_ORIGINS` covers a custom one (comma-separated).
+ */
+export function allowedReturnOrigins(): string[] {
+  const origins = new Set<string>();
+
+  const add = (value: string | undefined | null) => {
+    const origin = originOf(value);
+    if (origin) origins.add(origin);
+  };
+
+  add(process.env.APP_URL);
+  for (const entry of (process.env.APP_RETURN_ORIGINS || "").split(",")) {
+    add(entry);
+  }
+
+  const project = projectId();
+  if (project) {
+    add(`https://${project}.web.app`);
+    add(`https://${project}.firebaseapp.com`);
+  }
+
+  if (!isLiveMode()) {
+    add("http://localhost:5173");
+    add("http://localhost:5000");
+    add("http://127.0.0.1:5173");
+  }
+
+  return [...origins];
+}
+
+/**
+ * True when Stripe may send a customer back to `origin`.
+ *
+ * Besides the explicit list, an https subdomain of the `APP_URL` host is
+ * accepted: the app commonly lives at app.example.com while APP_URL names
+ * example.com for emails, and both are the same domain under the same
+ * owner. Everything else is refused — an unchecked origin here is an open
+ * redirect carrying a Stripe session ID.
+ */
+function isAllowedReturnOrigin(origin: string): boolean {
+  if (allowedReturnOrigins().includes(origin)) return true;
+
+  const baseHost = originOf(process.env.APP_URL) ? new URL(process.env.APP_URL as string).hostname : null;
+  if (!baseHost) return false;
+
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:" && url.hostname.endsWith(`.${baseHost}`);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Base URL to return a customer to after checkout or the billing portal.
+ *
+ * The caller passes the origin it is actually running on, so someone who
+ * started from the app comes back to the app rather than to whatever single
+ * address `APP_URL` happens to name. It is checked rather than trusted.
+ */
+export function resolveReturnUrl(requestedOrigin: unknown): string {
+  const requested = typeof requestedOrigin === "string" ? originOf(requestedOrigin) : null;
+
+  if (requested && isAllowedReturnOrigin(requested)) {
+    return requested;
+  }
+
+  return getAppUrl();
+}
+
 /**
  * Reverse lookup: which plan does a Stripe price belong to?
  *
