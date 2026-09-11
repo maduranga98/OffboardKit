@@ -274,11 +274,11 @@ export default function Settings() {
                 </div>
               </Card>
 
-              {/* Notifications & Integrations */}
+              {/* Notifications */}
               <Card>
                 <div className="space-y-4">
                   <h2 className="text-base font-semibold text-navy">
-                    Notifications & Integrations
+                    Notifications
                   </h2>
                   <Input
                     label="Notification Email"

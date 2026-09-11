@@ -253,7 +253,7 @@ export default function AccessRevocationTracker({
       <EmptyState
         icon={<Settings size={48} strokeWidth={1.5} />}
         title="No systems configured"
-        description="Add your tech stack in Settings → Integrations."
+        description="No systems are tracked for this offboarding yet."
       />
     );
   }

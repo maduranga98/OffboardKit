@@ -547,16 +547,6 @@ service cloud.firestore {
       allow delete: if ownsExisting();
     }
 
-    // ── integrations (holds webhook secrets) ────────────────────────────
-
-    match /integrations/{integrationId} {
-      allow read: if isTeamAdmin(resource.data.companyId);
-      allow create: if isTeamAdmin(request.resource.data.companyId);
-      allow update: if isTeamAdmin(resource.data.companyId)
-        && isTeamAdmin(request.resource.data.companyId);
-      allow delete: if isTeamAdmin(resource.data.companyId);
-    }
-
     // ── complianceReports (generated server-side) ───────────────────────
 
     match /complianceReports/{reportId} {

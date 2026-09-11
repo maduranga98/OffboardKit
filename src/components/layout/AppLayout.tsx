@@ -18,7 +18,6 @@ const pageTitles: Record<string, string> = {
   "/settings": "Settings",
   "/settings/team": "Team Settings",
   "/settings/billing": "Billing",
-  "/settings/integrations": "Integrations",
 };
 
 export default function AppLayout() {

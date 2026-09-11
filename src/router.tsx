@@ -29,8 +29,6 @@ import AlumniSurveys from "./pages/alumni-portal/AlumniSurveys";
 import Settings from "./pages/settings/Settings";
 import TeamSettings from "./pages/settings/TeamSettings";
 import BillingSettings from "./pages/settings/BillingSettings";
-import IntegrationSettings from "./pages/settings/IntegrationSettings";
-import WebhookSettings from "./pages/settings/WebhookSettings";
 import Help from "./pages/help/Help";
 import PortalEntry from "./pages/portal/PortalEntry";
 import SurveyPage from "./pages/survey/SurveyPage";
@@ -113,8 +111,6 @@ export const router = createBrowserRouter([
       { path: "settings", element: <Settings /> },
       { path: "settings/team", element: <TeamSettings /> },
       { path: "settings/billing", element: <BillingSettings /> },
-      { path: "settings/integrations", element: <IntegrationSettings /> },
-      { path: "settings/webhooks", element: <WebhookSettings /> },
       { path: "help", element: <Help /> },
     ],
   },
