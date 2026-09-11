@@ -125,3 +125,63 @@ describe("usePlanGate", () => {
     });
   });
 });
+
+describe("usePlanGate — trial", () => {
+  beforeEach(() => {
+    useCompanyStore.setState({ company: null, loading: false });
+  });
+
+  const at = (days: number) => ({
+    toDate: () => new Date(Date.now() + days * 86_400_000),
+  });
+
+  it("unlocks Starter features while the trial runs", () => {
+    setCompany({
+      plan: "starter",
+      trialStatus: "active",
+      trialEndsAt: at(3) as never,
+    });
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.plan).toBe("starter");
+    expect(result.current.requiresPlan("starter")).toBe(true);
+    expect(result.current.requiresPlan("growth")).toBe(false);
+    expect(result.current.trial.isActive).toBe(true);
+  });
+
+  it("locks Starter features once the window closes, before the sweep runs", () => {
+    setCompany({
+      plan: "starter",
+      trialStatus: "active",
+      trialEndsAt: at(-1) as never,
+    });
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.plan).toBe("basic");
+    expect(result.current.requiresPlan("starter")).toBe(false);
+    expect(result.current.trial.hasExpired).toBe(true);
+  });
+
+  it("applies the Basic exit cap to a company whose trial lapsed", () => {
+    setCompany({
+      plan: "starter",
+      trialStatus: "active",
+      trialEndsAt: at(-1) as never,
+      usageCount: { offboardingsThisYear: 3, activeOffboardings: 0 },
+    });
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.canStartOffboarding()).toEqual({
+      allowed: false,
+      reason: "basic_limit",
+    });
+  });
+
+  it("does not cap a company still inside its trial", () => {
+    setCompany({
+      plan: "starter",
+      trialStatus: "active",
+      trialEndsAt: at(2) as never,
+      usageCount: { offboardingsThisYear: 9, activeOffboardings: 0 },
+    });
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.canStartOffboarding().allowed).toBe(true);
+  });
+});

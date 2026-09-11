@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { applyStaffClaims } from "./staffClaims";
+import { isEligibleForTrial, newTrialGrant } from "../billing/trial";
 
 /**
  * Tenant membership (users.companyId / users.role) is written ONLY here.
@@ -27,6 +28,7 @@ export const claimCompany = functions.https.onCall(async (data, context) => {
 
   const db = admin.firestore();
   const uid = context.auth.uid;
+  let trialGranted = false;
 
   await db.runTransaction(async (tx) => {
     const companyRef = db.collection("companies").doc(companyId);
@@ -62,10 +64,23 @@ export const claimCompany = functions.https.onCall(async (data, context) => {
       },
       { merge: true }
     );
+
+    // Start the card-free Starter trial. It is granted here, inside the same
+    // transaction that establishes ownership, because this is the one server
+    // call every signup passes through — and because the client cannot write
+    // `plan` itself. `isEligibleForTrial` keeps a retried or replayed claim
+    // from extending a window that already started.
+    if (isEligibleForTrial(companySnap.data())) {
+      tx.update(companyRef, {
+        ...newTrialGrant(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      trialGranted = true;
+    }
   });
 
   await applyStaffClaims(uid);
-  return { companyId, role: "super_admin" };
+  return { companyId, role: "super_admin", trialGranted };
 });
 
 /**

@@ -1,16 +1,21 @@
 import { useCompanyStore } from "../store/companyStore";
+import { getEffectivePlan, getTrialState } from "../lib/trial";
 
 export function usePlanGate() {
   const company = useCompanyStore((s) => s.company);
 
   const planOrder = ["basic", "starter", "growth", "business", "enterprise"];
 
+  // Gates run off the effective plan, not the stored one, so a trial that
+  // ran out stops unlocking Starter features the moment it expires rather
+  // than when the hourly sweep gets to it.
+  const plan = getEffectivePlan(company);
+  const trial = getTrialState(company);
+
   const requiresPlan = (
     minPlan: "starter" | "growth" | "business" | "enterprise"
   ): boolean => {
-    return (
-      planOrder.indexOf(company?.plan ?? "basic") >= planOrder.indexOf(minPlan)
-    );
+    return planOrder.indexOf(plan) >= planOrder.indexOf(minPlan);
   };
 
   // ── Core Offboarding ──────────────────────────────────────────────────────
@@ -18,7 +23,7 @@ export function usePlanGate() {
   const canStartOffboarding = (): { allowed: boolean; reason?: string } => {
     if (!company) return { allowed: false, reason: "no_company" };
     if (
-      company.plan === "basic" &&
+      plan === "basic" &&
       (company.usageCount?.offboardingsThisYear ?? 0) >= 3
     ) {
       return { allowed: false, reason: "basic_limit" };
@@ -131,7 +136,8 @@ export function usePlanGate() {
 
   return {
     // plan info
-    plan: company?.plan ?? "basic",
+    plan,
+    trial,
     features: company?.features ?? null,
     requiresPlan,
 
