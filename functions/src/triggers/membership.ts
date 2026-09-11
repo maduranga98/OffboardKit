@@ -1,7 +1,17 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { applyStaffClaims } from "./staffClaims";
-import { isEligibleForTrial, newTrialGrant } from "../billing/trial";
+import {
+  TRIALABLE_PLANS,
+  isEligibleForTrial,
+  isTrialActive,
+  isTrialablePlan,
+  newTrialGrant,
+} from "../billing/trial";
+import { hasEntitledSubscription } from "../billing/access";
+
+/** Roles allowed to choose or buy a plan — mirrors createCheckoutSession. */
+const BILLING_ROLES = ["super_admin", "hr_admin"];
 
 /**
  * Tenant membership (users.companyId / users.role) is written ONLY here.
@@ -16,14 +26,30 @@ import { isEligibleForTrial, newTrialGrant } from "../billing/trial";
  * Attaches the caller to a company they just created in the setup wizard.
  * The company document must name them as ownerUid, and the caller must not
  * already belong to a company.
+ *
+ * `plan` is the package chosen in the wizard's plan step — the company is
+ * never put on one it did not pick. It starts the card-free trial on that
+ * package; it does not subscribe to anything and cannot be charged.
  */
 export const claimCompany = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
   }
-  const { companyId } = (data ?? {}) as { companyId?: unknown };
+  const { companyId, plan } = (data ?? {}) as {
+    companyId?: unknown;
+    plan?: unknown;
+  };
   if (typeof companyId !== "string" || !companyId) {
     throw new functions.https.HttpsError("invalid-argument", "companyId required");
+  }
+  // An unknown package is refused rather than quietly swapped for the
+  // default: the caller asked for something specific and deserves to know it
+  // was not honoured. Omitting it entirely is still fine.
+  if (plan !== undefined && !isTrialablePlan(plan)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `plan must be one of ${TRIALABLE_PLANS.join(", ")}`
+    );
   }
 
   const db = admin.firestore();
@@ -72,7 +98,7 @@ export const claimCompany = functions.https.onCall(async (data, context) => {
     // from extending a window that already started.
     if (isEligibleForTrial(companySnap.data())) {
       tx.update(companyRef, {
-        ...newTrialGrant(),
+        ...newTrialGrant(plan),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       trialGranted = true;
@@ -81,6 +107,78 @@ export const claimCompany = functions.https.onCall(async (data, context) => {
 
   await applyStaffClaims(uid);
   return { companyId, role: "super_admin", trialGranted };
+});
+
+/**
+ * Switches which package a running trial is evaluating.
+ *
+ * Trying one plan should not force a purchase to see another, so the company
+ * can move its remaining days to a different package. `trialEndsAt` is never
+ * touched — only the plan changes, so this cannot be used to stretch the
+ * week. Once the trial is over (or a subscription exists) this refuses: at
+ * that point changing plans means Stripe checkout or the billing portal.
+ */
+export const selectTrialPlan = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+  }
+
+  const { plan } = (data ?? {}) as { plan?: unknown };
+  if (!isTrialablePlan(plan)) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      `plan must be one of ${TRIALABLE_PLANS.join(", ")}`
+    );
+  }
+
+  const db = admin.firestore();
+  const uid = context.auth.uid;
+
+  const userSnap = await db.collection("users").doc(uid).get();
+  const companyId = userSnap.get("companyId") as string | undefined;
+  const role = userSnap.get("role") as string | undefined;
+
+  if (!companyId) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "You do not belong to a company"
+    );
+  }
+  // Same roles that may buy a plan may choose which one is being tried.
+  if (!BILLING_ROLES.includes(role ?? "")) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only an owner or HR admin can change the plan"
+    );
+  }
+
+  const companyRef = db.collection("companies").doc(companyId);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(companyRef);
+    const company = snap.data();
+
+    if (!isTrialActive(company)) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "No trial is running — subscribe to change your plan"
+      );
+    }
+    if (hasEntitledSubscription(company)) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Manage a paid subscription from the billing portal"
+      );
+    }
+
+    tx.update(companyRef, {
+      plan,
+      trialPlan: plan,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { plan };
 });
 
 /**

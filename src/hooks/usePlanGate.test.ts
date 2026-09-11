@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { Timestamp } from "firebase/firestore";
 import { useCompanyStore } from "../store/companyStore";
 import { usePlanGate } from "./usePlanGate";
 import type { Company } from "../types/company.types";
@@ -160,17 +161,19 @@ describe("usePlanGate — trial", () => {
     expect(result.current.trial.hasExpired).toBe(true);
   });
 
-  it("applies the Basic exit cap to a company whose trial lapsed", () => {
+  // A lapsed trial no longer falls back to Basic: Basic is a paid plan, so a
+  // company that never subscribed is locked out entirely.
+  it("blocks a company whose trial lapsed, whatever its usage", () => {
     setCompany({
       plan: "starter",
       trialStatus: "active",
       trialEndsAt: at(-1) as never,
-      usageCount: { offboardingsThisYear: 3, activeOffboardings: 0 },
+      usageCount: { offboardingsThisYear: 0, activeOffboardings: 0 },
     });
     const { result } = renderHook(() => usePlanGate());
     expect(result.current.canStartOffboarding()).toEqual({
       allowed: false,
-      reason: "basic_limit",
+      reason: "subscription_required",
     });
   });
 
@@ -183,5 +186,51 @@ describe("usePlanGate — trial", () => {
     });
     const { result } = renderHook(() => usePlanGate());
     expect(result.current.canStartOffboarding().allowed).toBe(true);
+  });
+});
+
+describe("subscription lock", () => {
+  function lockedCompany() {
+    setCompany({
+      plan: "growth",
+      trialStatus: "expired",
+      trialEndsAt: Timestamp.fromDate(new Date(Date.now() - 86400000)),
+    });
+  }
+
+  it("reports the lock", () => {
+    lockedCompany();
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.isLocked).toBe(true);
+  });
+
+  it("closes every feature gate regardless of the stored plan", () => {
+    lockedCompany();
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.requiresPlan("starter")).toBe(false);
+    expect(result.current.canUseAnalytics()).toBe(false);
+    expect(result.current.canUseAssetManagement()).toBe(false);
+    expect(result.current.canUseAlumniPortal()).toBe(false);
+  });
+
+  it("blocks new offboardings with a subscription_required reason", () => {
+    lockedCompany();
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.canStartOffboarding()).toEqual({
+      allowed: false,
+      reason: "subscription_required",
+    });
+  });
+
+  it("leaves a paying company untouched", () => {
+    setCompany({
+      plan: "growth",
+      trialStatus: "converted",
+      stripeSubscriptionId: "sub_1",
+      stripeSubscriptionStatus: "active",
+    });
+    const { result } = renderHook(() => usePlanGate());
+    expect(result.current.isLocked).toBe(false);
+    expect(result.current.canUseAnalytics()).toBe(true);
   });
 });

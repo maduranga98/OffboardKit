@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import { sendSmtpEmail } from "../email/smtpClient";
+import { assertCompanyActive } from "../billing/access";
 
 const APP_URL = process.env.APP_URL || "https://offboardset.com";
 
@@ -118,6 +119,10 @@ export const sendPulseSurvey = onCall(async (request) => {
   if (survey.companyId !== companyId) {
     throw new HttpsError("permission-denied", "Not authorized");
   }
+
+  // Callables bypass firestore.rules, so the subscription lock is repeated
+  // here — a locked company cannot fire surveys at its alumni.
+  await assertCompanyActive(companyId);
 
   // Fetch company name
   let companyName = "your company";
