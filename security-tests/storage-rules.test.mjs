@@ -13,7 +13,7 @@ let fails=0, passes=0;
 const check = async (name, fn, expect) => {
   let outcome; try { await fn(); outcome='ALLOWED'; } catch { outcome='DENIED'; }
   const ok = outcome===expect; ok?passes++:fails++;
-  console.log(`${ok?'  ok  ':(expect==='DENIED'?'🔴VULN':'🟠BROKE')} ${outcome.padEnd(7)} ${name}${ok?'':`  << expected ${expect}`}`);
+  console.log(`${ok?'  ok  ':(expect==='DENIED'?' VULN ':' BROKE')} ${outcome.padEnd(7)} ${name}${ok?'':`  << expected ${expect}`}`);
 };
 
 // Storage rules read /users from Firestore, so seed it there too.

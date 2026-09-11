@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Network, RefreshCw } from "lucide-react";
+import { Network, RefreshCw, Lightbulb } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import clsx from "clsx";
 import {
@@ -493,7 +493,7 @@ function BoomerangFunnel({
     { label: "Potential", value: counts.potential, color: "bg-blue-400" },
     { label: "Contacted", value: counts.contacted, color: "bg-teal/70" },
     { label: "Interviewing", value: counts.interviewing, color: "bg-teal" },
-    { label: "Rehired ✓", value: counts.rehired, color: "bg-green-500" },
+    { label: "Rehired", value: counts.rehired, color: "bg-green-500" },
   ];
 
   const total = stages.reduce((s, st) => s + st.value, 0);
@@ -540,9 +540,12 @@ function Insight({ data }: { data: AlumniHealthData }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-navy/5">
-      <p className="text-xs text-mist">
-        <span className="text-teal font-medium">💡 Insight: </span>
-        {insight}
+      <p className="flex items-start gap-1.5 text-xs text-mist">
+        <Lightbulb size={14} className="text-teal flex-shrink-0 mt-px" aria-hidden="true" />
+        <span>
+          <span className="text-teal font-medium">Insight: </span>
+          {insight}
+        </span>
       </p>
     </div>
   );

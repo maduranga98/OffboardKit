@@ -11,6 +11,9 @@ import {
   PartyPopper,
   Package,
   PenLine,
+  Hand,
+  Check,
+  Mail,
 } from "lucide-react";
 import { where, limit as firestoreLimit } from "firebase/firestore";
 import { Timestamp } from "firebase/firestore";
@@ -90,8 +93,9 @@ function WelcomeHeader({
     <div className="bg-white border border-navy/5 rounded-xl p-6 mb-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
         <div>
-          <h1 className="text-xl font-display text-navy">
-            Welcome, {flow.employeeName} 👋
+          <h1 className="flex items-center gap-2 text-xl font-display text-navy">
+            Welcome, {flow.employeeName}
+            <Hand size={18} className="text-amber" aria-hidden="true" />
           </h1>
           {lastWorkingDay && (
             <p className="text-sm text-mist mt-0.5">
@@ -156,7 +160,7 @@ function AllDoneState({
     <div className="bg-white border border-navy/5 rounded-xl p-6 mb-6 text-center">
       <PartyPopper size={40} className="text-teal mx-auto mb-3" />
       <h2 className="text-xl font-display text-navy mb-2">
-        You're all done! 🎉
+        You're all done!
       </h2>
       <p className="text-sm text-mist mb-5">
         Thank you for completing your exit tasks. We wish you the best in your
@@ -884,7 +888,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
                     "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0",
                     !employeeStep ? "bg-teal text-white" : "bg-navy/10 text-navy"
                   )}>
-                    {!employeeStep ? "✓" : "1"}
+                    {!employeeStep ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : "1"}
                   </span>
                   You confirmed
                 </div>
@@ -898,7 +902,7 @@ function AssetsList({ flow }: { flow: OffboardFlow }) {
                     "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0",
                     done ? "bg-teal text-white" : "bg-navy/10 text-navy"
                   )}>
-                    {done ? "✓" : "2"}
+                    {done ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : "2"}
                   </span>
                   HR / IT verified
                 </div>
@@ -1056,7 +1060,8 @@ export default function PortalEntry() {
             action={
               <a href="mailto:hr@yourcompany.com">
                 <Button variant="outline" size="sm">
-                  📧 Contact HR
+                  <Mail size={14} className="mr-1.5" aria-hidden="true" />
+                  Contact HR
                 </Button>
               </a>
             }
@@ -1081,7 +1086,8 @@ export default function PortalEntry() {
               action={
                 <a href="mailto:hr@yourcompany.com">
                   <Button variant="outline" size="sm">
-                    📧 Contact HR
+                    <Mail size={14} className="mr-1.5" aria-hidden="true" />
+                    Contact HR
                   </Button>
                 </a>
               }

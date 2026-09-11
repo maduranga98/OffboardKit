@@ -9,10 +9,10 @@ const TEAL = "#0D9E8A";
 const MUTED = "#6B7280";
 
 const TYPE_LABELS: Record<string, string> = {
-  news:      "📢 Company News",
-  roles:     "💼 Open Roles",
-  milestone: "🎉 Milestone",
-  event:     "📅 Event",
+  news:      "Company News",
+  roles:     "Open Roles",
+  milestone: "Milestone",
+  event:     "Event",
 };
 
 function buildAnnouncementEmail(params: {
@@ -31,8 +31,8 @@ function buildAnnouncementEmail(params: {
     params.eventDate || params.eventLocation
       ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;background-color:#F0FEF9;border-radius:6px;">
           <tr><td style="padding:14px 16px;">
-            ${params.eventDate ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;font-weight:600;color:${NAVY};">📅 ${params.eventDate}</p>` : ""}
-            ${params.eventLocation ? `<p style="margin:0;font-family:${FONT};font-size:13px;color:${MUTED};">📍 ${params.eventLocation}</p>` : ""}
+            ${params.eventDate ? `<p style="margin:0 0 4px;font-family:${FONT};font-size:14px;font-weight:600;color:${NAVY};">${params.eventDate}</p>` : ""}
+            ${params.eventLocation ? `<p style="margin:0;font-family:${FONT};font-size:13px;color:${MUTED};">${params.eventLocation}</p>` : ""}
           </td></tr>
         </table>`
       : "";

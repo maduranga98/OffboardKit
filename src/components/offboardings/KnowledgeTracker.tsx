@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ThumbsUp,
   ThumbsDown,
+  ArrowRight,
 } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../lib/firebase";
@@ -503,8 +504,9 @@ export default function KnowledgeTracker({
                       </p>
                     )}
                     {item.successor && (
-                      <span className="text-xs text-teal mt-0.5 inline-block">
-                        → {item.successor}
+                      <span className="inline-flex items-center gap-1 text-xs text-teal mt-0.5">
+                        <ArrowRight size={11} aria-hidden="true" />
+                        {item.successor}
                       </span>
                     )}
                   </div>

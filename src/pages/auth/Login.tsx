@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { CheckCircle } from "lucide-react";
+import {
+  CheckCircle,
+  ArrowRight,
+} from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
@@ -191,9 +194,10 @@ export default function Login() {
               Are you an alumni member?{" "}
               <Link
                 to="/alumni-login"
-                className="text-teal hover:text-teal-light font-medium whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-teal hover:text-teal-light font-medium whitespace-nowrap"
               >
-                Sign in to the alumni portal →
+                Sign in to the alumni portal
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </p>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { differenceInMonths } from "date-fns";
 import { Timestamp } from "firebase/firestore";
 import clsx from "clsx";
@@ -114,7 +114,7 @@ function BoomerangCard({ profile, stageIndex, totalStages, onMove, moving }: Car
       <div className="mb-1">
         {profile.openToReturn === true ? (
           <span className="inline-flex items-center gap-1 text-xs bg-teal/10 text-teal rounded-full px-2 py-0.5">
-            ✓ Open to Return
+            <Check size={12} strokeWidth={3} aria-hidden="true" /> Open to Return
           </span>
         ) : profile.openToReturn === false ? (
           <span className="inline-flex items-center text-xs bg-navy/5 text-mist rounded-full px-2 py-0.5">
@@ -136,22 +136,22 @@ function BoomerangCard({ profile, stageIndex, totalStages, onMove, moving }: Car
           onClick={() => onMove(profile.id, "back")}
           disabled={isFirst || moving}
           className={clsx(
-            "text-xs transition-colors",
+            "inline-flex items-center gap-1 text-xs transition-colors",
             isFirst
               ? "invisible"
               : "text-mist hover:text-navy"
           )}
         >
-          ← Back
+          <ArrowLeft size={12} aria-hidden="true" /> Back
         </button>
 
         {isLast ? (
-          <span className="text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full font-medium">
-            ✓ Rehired
+          <span className="inline-flex items-center gap-1 text-xs bg-teal/10 text-teal px-2 py-0.5 rounded-full font-medium">
+            <Check size={12} strokeWidth={3} aria-hidden="true" /> Rehired
           </span>
         ) : (
           <Button size="sm" onClick={() => onMove(profile.id, "forward")} disabled={moving}>
-            {nextLabel} →
+            {nextLabel} <ArrowRight size={12} className="ml-1" aria-hidden="true" />
           </Button>
         )}
       </div>

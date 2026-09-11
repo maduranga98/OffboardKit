@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2 } from "lucide-react";
+import { Building2, Check } from "lucide-react";
 import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { Button } from "../ui/Button";
@@ -68,7 +68,10 @@ export function ReturnBanner({ alumniProfile, companyName, onUpdate }: Props) {
   if (openToReturn === true) {
     return (
       <div className="bg-teal/5 border border-teal/20 rounded-xl p-4">
-        <p className="text-sm text-teal">✓ You've expressed interest in returning. We'll be in touch.</p>
+        <p className="flex items-center gap-1.5 text-sm text-teal">
+          <Check size={14} strokeWidth={3} className="flex-shrink-0" aria-hidden="true" />
+          You've expressed interest in returning. We'll be in touch.
+        </p>
         <button
           onClick={handleReset}
           disabled={saving === "reset"}

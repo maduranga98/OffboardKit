@@ -67,6 +67,6 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   new: "New",
   reviewed: "Reviewed",
   shortlisted: "Shortlisted",
-  hired: "Hired ✓",
+  hired: "Hired",
   rejected: "Rejected",
 };

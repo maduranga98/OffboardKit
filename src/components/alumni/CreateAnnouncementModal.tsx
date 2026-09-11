@@ -8,6 +8,7 @@ import {
   updateDocument,
   serverTimestamp,
 } from "../../lib/firestore";
+import { Megaphone, Briefcase, PartyPopper, CalendarDays, type LucideIcon } from "lucide-react";
 import type { AlumniAnnouncement } from "../../types/alumniAnnouncements";
 
 interface Props {
@@ -22,11 +23,11 @@ interface Props {
 
 type AnnouncementType = AlumniAnnouncement["type"];
 
-const TYPE_OPTIONS: { value: AnnouncementType; emoji: string; label: string }[] = [
-  { value: "news",      emoji: "📢", label: "News" },
-  { value: "roles",     emoji: "💼", label: "Roles" },
-  { value: "milestone", emoji: "🎉", label: "Milestone" },
-  { value: "event",     emoji: "📅", label: "Event" },
+const TYPE_OPTIONS: { value: AnnouncementType; icon: LucideIcon; label: string }[] = [
+  { value: "news",      icon: Megaphone,    label: "News" },
+  { value: "roles",     icon: Briefcase,    label: "Roles" },
+  { value: "milestone", icon: PartyPopper,  label: "Milestone" },
+  { value: "event",     icon: CalendarDays, label: "Event" },
 ];
 
 const EMPTY_FORM = {
@@ -197,7 +198,8 @@ export function CreateAnnouncementModal({
                     : "bg-white text-navy border-navy/20 hover:border-navy/40"
                 }`}
               >
-                {opt.emoji} {opt.label}
+                <opt.icon className="w-4 h-4" aria-hidden="true" />
+                {opt.label}
               </button>
             ))}
           </div>

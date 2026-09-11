@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Check } from "lucide-react";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -114,7 +114,10 @@ function GigCard({
       {/* Status banners */}
       {gig.status === "accepted" && (
         <div className="px-3 py-2.5 bg-teal/5 border border-teal/20 rounded-lg text-sm text-teal">
-          ✓ You accepted this request. {gig.createdByName} will reach out to coordinate.
+          <span className="flex items-start gap-1.5">
+            <Check size={14} strokeWidth={3} className="flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <span>You accepted this request. {gig.createdByName} will reach out to coordinate.</span>
+          </span>
           {gig.alumniNote && (
             <p className="mt-1 text-xs text-mist">Your note: "{gig.alumniNote}"</p>
           )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { doc, setDoc, serverTimestamp as fbServerTimestamp, collection } from "firebase/firestore";
 import { portalDb } from "../../lib/firebase";
 import {
@@ -202,9 +203,10 @@ export default function SurveyPage() {
         </p>
         <Link
           to="/alumni-login"
-          className="mt-6 text-xs text-teal hover:underline"
+          className="mt-6 inline-flex items-center gap-1 text-xs text-teal hover:underline"
         >
-          Log in to your alumni portal →
+          Log in to your alumni portal
+          <ArrowRight size={12} aria-hidden="true" />
         </Link>
       </div>
     );

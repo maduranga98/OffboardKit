@@ -859,7 +859,7 @@ export default function BillingSettings() {
                 <div className="flex flex-1 flex-col gap-5 pt-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{cfg.emoji}</span>
+                      <cfg.icon className="w-4 h-4 text-navy" aria-hidden="true" />
                       <h4 className="text-base font-semibold text-navy">{cfg.label}</h4>
                     </div>
                     <p className="text-xs text-mist mt-0.5">{cfg.tagline}</p>
