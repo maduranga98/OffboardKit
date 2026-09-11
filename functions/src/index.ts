@@ -36,6 +36,13 @@ export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifica
 export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
 export { resetAnnualUsage } from "./triggers/resetAnnualUsage";
 
+// Usage counters — maintained server-side; firestore.rules bars clients from
+// touching usageCount, since the Basic-plan cap is judged on it.
+export {
+  onFlowCreatedUpdateUsage,
+  onFlowStatusChangedUpdateUsage,
+} from "./triggers/usageCounters";
+
 // Callable functions
 export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
@@ -55,6 +62,7 @@ export { generateKnowledgePdf } from "./analytics/generateKnowledgePdf";
 
 // Billing Functions
 export { createCheckoutSession } from "./billing/createCheckoutSession";
+export { createBillingPortalSession } from "./billing/createBillingPortalSession";
 export { stripeWebhook } from "./billing/stripeWebhook";
 
 // Document generation

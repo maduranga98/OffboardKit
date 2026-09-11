@@ -1,115 +1,181 @@
 import * as functions from "firebase-functions";
-import { getStripe } from "./stripeClient";
 import * as admin from "firebase-admin";
+import { getStripe } from "./stripeClient";
+import {
+  STRIPE_SECRETS,
+  getAppUrl,
+  getPriceId,
+  isBillingCycle,
+  isPlanKey,
+} from "./stripeConfig";
 
-const PLAN_PRICES: Record<
-  string,
-  { monthly: string; annual: string; label: string }
-> = {
-  basic: {
-    monthly: "price_1Tm6PaQQchLsdaEfMTDq3GSV",
-    annual: "price_1Tm6PaQQchLsdaEf5CNoFQJQ",
-    label: "Basic",
-  },
-  starter: {
-    monthly: "price_1TllKHQQchLsdaEfrxFB6Iz8",
-    annual: "price_1TllKHQQchLsdaEfD50Ubg8o",
-    label: "Starter",
-  },
-  growth: {
-    monthly: "price_1TllLmQQchLsdaEfO4ugtag8",
-    annual: "price_1TllLmQQchLsdaEf1UsLtdt6",
-    label: "Growth",
-  },
-  business: {
-    monthly: "price_1TllMlQQchLsdaEfrL9XcFYD",
-    annual: "price_1TllMlQQchLsdaEfWCpBmhgU",
-    label: "Business",
-  },
-};
+const BILLING_ROLES = ["super_admin", "hr_admin"];
 
-export const createCheckoutSession = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
-  }
-
-  const { plan, billingCycle = "monthly" } = data as {
-    plan: string;
-    billingCycle?: "monthly" | "annual";
-  };
-
-  if (!["basic", "starter", "growth", "business"].includes(plan)) {
-    throw new functions.https.HttpsError("invalid-argument", "Invalid plan selected.");
-  }
-
-  const db = admin.firestore();
-  const userDoc = await db.collection("users").doc(context.auth.uid).get();
-  const userData = userDoc.data();
-
-  if (!userData?.companyId) {
-    throw new functions.https.HttpsError("failed-precondition", "No company associated with this user.");
-  }
-
-  // Billing changes are restricted to team admins so a regular HR or IT
-  // user can't start an unauthorized paid subscription on the company.
-  if (!["super_admin", "hr_admin"].includes(userData.role as string)) {
-    throw new functions.https.HttpsError(
-      "permission-denied",
-      "Only team admins can change the subscription."
-    );
-  }
-
-  const companyId = userData.companyId;
-  const companyDoc = await db.collection("companies").doc(companyId).get();
-  const companyData = companyDoc.data();
-
-  if (!companyData) {
-    throw new functions.https.HttpsError("not-found", "Company not found.");
-  }
-
-  const appUrl = process.env.APP_URL || "http://localhost:5173";
-  const priceConfig = PLAN_PRICES[plan];
-  const priceId = billingCycle === "annual" ? priceConfig.annual : priceConfig.monthly;
-
-  let customerId = companyData.stripeCustomerId as string | undefined;
-
-  if (!customerId) {
-    const stripe = getStripe();
-    const customer = await stripe.customers.create({
-      name: companyData.name,
-      email: userData.email,
-      metadata: { companyId, firebaseUserId: context.auth.uid },
-    });
-    customerId = customer.id;
-    await companyDoc.ref.update({ stripeCustomerId: customerId });
-  }
-
+/**
+ * Returns the company's Stripe customer ID, creating one if needed.
+ *
+ * A customer ID recorded while the project ran on test keys does not exist
+ * under live keys, so a stored ID is verified before it is reused and
+ * transparently replaced when it belongs to another mode or was deleted.
+ */
+async function resolveCustomerId(
+  companyRef: admin.firestore.DocumentReference,
+  companyId: string,
+  companyName: string,
+  email: string | undefined,
+  uid: string
+): Promise<string> {
   const stripe = getStripe();
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: "subscription",
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ],
-    metadata: {
-      companyId,
-      plan,
-      billingCycle,
-      firebaseUserId: context.auth.uid,
+  const stored = (await companyRef.get()).get("stripeCustomerId") as
+    | string
+    | undefined;
+
+  if (stored) {
+    try {
+      const existing = await stripe.customers.retrieve(stored);
+      if (!existing.deleted) return stored;
+    } catch (err) {
+      functions.logger.warn(
+        `Stored stripeCustomerId ${stored} for company ${companyId} is not ` +
+          "usable with the current Stripe keys; creating a new customer.",
+        err
+      );
+    }
+  }
+
+  const customer = await stripe.customers.create(
+    {
+      name: companyName,
+      email,
+      metadata: { companyId, firebaseUserId: uid },
     },
-    subscription_data: {
+    // Keeps a retried call from leaving duplicate customers behind.
+    { idempotencyKey: `customer:${companyId}` }
+  );
+
+  await companyRef.update({ stripeCustomerId: customer.id });
+  return customer.id;
+}
+
+export const createCheckoutSession = functions
+  .runWith({ secrets: [...STRIPE_SECRETS] })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "You must be logged in.");
+    }
+
+    const { plan, billingCycle = "monthly" } = (data ?? {}) as {
+      plan?: unknown;
+      billingCycle?: unknown;
+    };
+
+    if (!isPlanKey(plan)) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid plan selected.");
+    }
+    if (!isBillingCycle(billingCycle)) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Billing cycle must be 'monthly' or 'annual'."
+      );
+    }
+
+    const db = admin.firestore();
+    const userDoc = await db.collection("users").doc(context.auth.uid).get();
+    const userData = userDoc.data();
+
+    if (!userData?.companyId) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "No company associated with this user."
+      );
+    }
+
+    // Billing changes are restricted to team admins so a regular HR or IT
+    // user can't start an unauthorized paid subscription on the company.
+    if (!BILLING_ROLES.includes(userData.role as string)) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only team admins can change the subscription."
+      );
+    }
+
+    const companyId = userData.companyId as string;
+    const companyRef = db.collection("companies").doc(companyId);
+    const companyDoc = await companyRef.get();
+    const companyData = companyDoc.data();
+
+    if (!companyData) {
+      throw new functions.https.HttpsError("not-found", "Company not found.");
+    }
+
+    // An existing subscription is changed through the billing portal. Sending
+    // the customer through checkout again would bill them for a second
+    // concurrent subscription.
+    const activeStatuses = ["active", "trialing", "past_due"];
+    if (
+      companyData.stripeSubscriptionId &&
+      activeStatuses.includes(companyData.stripeSubscriptionStatus as string)
+    ) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "This company already has a subscription. Use “Manage billing” to " +
+          "change or cancel your plan."
+      );
+    }
+
+    // Configuration errors (missing live price IDs, missing APP_URL) surface
+    // here rather than as an opaque Stripe failure mid-checkout.
+    let priceId: string;
+    let appUrl: string;
+    try {
+      priceId = getPriceId(plan, billingCycle);
+      appUrl = getAppUrl();
+    } catch (err) {
+      functions.logger.error("Stripe billing is misconfigured.", err);
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Billing is not fully configured. Please contact support."
+      );
+    }
+
+    const customerId = await resolveCustomerId(
+      companyRef,
+      companyId,
+      companyData.name as string,
+      userData.email as string | undefined,
+      context.auth.uid
+    );
+
+    const automaticTax = process.env.STRIPE_AUTOMATIC_TAX === "true";
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: companyId,
+      allow_promotion_codes: true,
+      billing_address_collection: "required",
+      // Stripe Tax must be activated on the account before this can be
+      // turned on, so it is opt-in: enabling it blindly makes every
+      // checkout creation fail on accounts without Tax.
+      ...(automaticTax
+        ? {
+            automatic_tax: { enabled: true as const },
+            customer_update: { address: "auto" as const, name: "auto" as const },
+          }
+        : {}),
       metadata: {
         companyId,
         plan,
         billingCycle,
+        firebaseUserId: context.auth.uid,
       },
-    },
-    success_url: `${appUrl}/settings/billing?checkout=success`,
-    cancel_url: `${appUrl}/settings/billing?checkout=canceled`,
-  });
+      subscription_data: {
+        metadata: { companyId, plan, billingCycle },
+      },
+      success_url: `${appUrl}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/settings/billing?checkout=canceled`,
+    });
 
-  return { url: session.url };
-});
+    return { url: session.url };
+  });

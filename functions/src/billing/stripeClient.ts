@@ -1,24 +1,27 @@
 import Stripe from "stripe";
+import { getSecretKey } from "./stripeConfig";
 
 type StripeInstance = InstanceType<typeof Stripe>;
 
 let _stripe: StripeInstance | null = null;
+let _stripeKey: string | null = null;
 
 export function getStripe(): StripeInstance {
-  if (_stripe) return _stripe;
+  const secretKey = getSecretKey();
 
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error(
-      "STRIPE_SECRET_KEY is not set. " +
-        "If running locally, make sure functions/.env exists and restart the Firebase emulator. " +
-        "If deployed, set it via firebase functions:config:set stripe.secret_key=... or use a .env file."
-    );
-  }
+  // Cache per key: a warm instance that outlives a secret rotation must not
+  // keep talking to Stripe with the retired key.
+  if (_stripe && _stripeKey === secretKey) return _stripe;
 
   _stripe = new Stripe(secretKey, {
     apiVersion: "2026-04-22.dahlia",
+    // Stripe recommends retrying idempotent requests; checkout and customer
+    // creation both carry idempotency keys, so this is safe.
+    maxNetworkRetries: 2,
+    timeout: 20_000,
+    appInfo: { name: "OffboardKit", url: "https://offboardkit.web.app" },
   });
+  _stripeKey = secretKey;
 
   return _stripe;
 }

@@ -554,6 +554,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── stripeEvents (webhook idempotency ledger) ───────────────────────
+    // Written only by the Stripe webhook via the admin SDK. Nothing in the
+    // client ever needs it, and it records billing activity, so it is
+    // closed to every client.
+
+    match /stripeEvents/{eventId} {
+      allow read, write: if false;
+    }
+
     // ── invites ─────────────────────────────────────────────────────────
     // Previously world-readable, which leaked every pending invitee's email,
     // company and role. Acceptance now runs server-side (acceptInvite), so

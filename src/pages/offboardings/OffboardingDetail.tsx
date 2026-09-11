@@ -34,7 +34,6 @@ import { Badge } from "../../components/ui/Badge";
 import { Progress } from "../../components/ui/Progress";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAuth } from "../../hooks/useAuth";
-import { useCompanyStore } from "../../store/companyStore";
 import {
   getDocument,
   queryDocuments,
@@ -123,7 +122,6 @@ export default function OffboardingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { appUser, companyId } = useAuth();
-  const company = useCompanyStore((s) => s.company);
 
   const [flow, setFlow] = useState<OffboardFlow | null>(null);
   const [tasks, setTasks] = useState<FlowTask[]>([]);
@@ -227,13 +225,9 @@ export default function OffboardingDetail() {
         lastUpdatedBy: appUser?.id ?? null,
       });
 
-      // 2. Decrement active offboardings on company
-      await updateDocument("companies", companyId, {
-        "usageCount.activeOffboardings": Math.max(
-          0,
-          (company?.usageCount?.activeOffboardings ?? 1) - 1
-        ),
-      });
+      // 2. The active-offboarding counter is decremented by the
+      // onFlowStatusChangedUpdateUsage trigger; clients cannot write
+      // usageCount, and a read-modify-write here would race anyway.
 
       // 3. If alumni opt-in, create alumni record
       if (addToAlumni) {

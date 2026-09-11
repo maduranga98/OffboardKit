@@ -108,6 +108,72 @@ npm run build
 firebase deploy
 ```
 
+### Going live with Stripe
+
+Switching from test to live mode is entirely a configuration change — no code
+edits are needed, and the app refuses to run live keys against test-mode price
+IDs rather than failing at the customer's checkout.
+
+1. **Recreate the products and prices in live mode.** Toggle the Stripe
+   dashboard out of test mode and create Basic, Starter, Growth and Business,
+   each with a monthly and an annual recurring price. Live price IDs are
+   different from the test ones — copy all eight.
+
+2. **Set the live secrets** (Secret Manager, never committed):
+
+   ```bash
+   firebase functions:secrets:set STRIPE_SECRET_KEY      # sk_live_…
+   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET  # whsec_… (step 4)
+   ```
+
+3. **Set the live price IDs and app URL** in `functions/.env` (or via your
+   deploy pipeline). With a live secret key these are mandatory:
+
+   ```
+   APP_URL=https://offboardkit.web.app
+   STRIPE_PRICE_BASIC_MONTHLY=price_…
+   STRIPE_PRICE_BASIC_ANNUAL=price_…
+   STRIPE_PRICE_STARTER_MONTHLY=price_…
+   STRIPE_PRICE_STARTER_ANNUAL=price_…
+   STRIPE_PRICE_GROWTH_MONTHLY=price_…
+   STRIPE_PRICE_GROWTH_ANNUAL=price_…
+   STRIPE_PRICE_BUSINESS_MONTHLY=price_…
+   STRIPE_PRICE_BUSINESS_ANNUAL=price_…
+   ```
+
+4. **Register the live webhook.** Deploy functions first, then in Stripe →
+   Developers → Webhooks add an endpoint for the deployed `stripeWebhook` URL
+   subscribed to:
+
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `invoice.payment_succeeded`, `invoice.payment_failed`
+
+   Copy its signing secret into `STRIPE_WEBHOOK_SECRET` and redeploy.
+
+5. **Enable the customer portal** at Stripe → Settings → Billing → Customer
+   portal, allowing plan changes, cancellation and invoice history. The
+   "Manage billing" button in Settings → Billing opens it; without this the
+   portal session call fails.
+
+6. **Clear stale test-mode customer IDs.** Companies that went through test
+   checkout hold a test `stripeCustomerId`. The checkout function detects an
+   ID that is unusable under the current keys and creates a fresh customer,
+   but clearing them keeps the data honest:
+
+   ```
+   companies/*  →  delete stripeCustomerId, stripeSubscriptionId,
+                   stripeSubscriptionStatus; set plan back to "basic"
+   ```
+
+7. **Verify with one real charge.** Subscribe on a live card, confirm the
+   company document flips to the paid plan, then cancel from the portal and
+   confirm it returns to `basic`.
+
+`VITE_STRIPE_PUBLIC_KEY` is only needed if the app ever moves to embedded
+Stripe Elements; checkout today is Stripe-hosted and never loads Stripe.js in
+the browser.
+
 ## Project Structure
 
 ```
