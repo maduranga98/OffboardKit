@@ -7,7 +7,6 @@ import {
   Package,
   GitBranch,
   TrendingUp,
-  Webhook,
   Bell,
   CreditCard,
   FileText,
@@ -246,39 +245,6 @@ const SECTIONS: Section[] = [
           within 3 days, it auto-escalates to every super admin (email +
           in-app) and is tagged <Badge variant="ember">Escalated</Badge>.
         </p>
-      </>
-    ),
-  },
-  {
-    id: "webhooks",
-    title: "HRIS webhooks",
-    icon: Webhook,
-    body: (
-      <>
-        <p>
-          Configure outbound webhooks at{" "}
-          <code>Settings → HRIS Webhooks</code> to push offboarding events
-          into your HRIS or identity provider.
-        </p>
-        <ul className="list-disc list-inside space-y-1 mt-3 text-sm">
-          <li>
-            Each delivery is a JSON POST:{" "}
-            <code>{`{ event, occurredAt, data }`}</code>.
-          </li>
-          <li>
-            If you set a shared secret, the request body is signed and the
-            signature arrives in the <code>X-OffboardSet-Signature</code>{" "}
-            header (HMAC-SHA256).
-          </li>
-          <li>
-            Events: <code>flow_completed</code>, <code>flow_cancelled</code>,{" "}
-            <code>approval_completed</code>, <code>asset_wiped</code>.
-          </li>
-          <li>
-            Last delivery status and error are shown on each webhook so you
-            can debug from the UI without checking logs.
-          </li>
-        </ul>
       </>
     ),
   },
@@ -618,19 +584,7 @@ const SECTIONS: Section[] = [
           </dt>
           <dd className="text-mist mt-1">
             It still counts toward the asset return score, but you can flag
-            its condition as "missing" so the audit log records it. Combine
-            with an HRIS webhook on <code>flow_completed</code> to trigger
-            downstream loss-prevention.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-navy">
-            How do I rotate the webhook secret?
-          </dt>
-          <dd className="text-mist mt-1">
-            Edit the webhook entry under <code>Settings → HRIS Webhooks</code>
-            , paste a new secret, and rotate it on the receiving end. There's
-            no overlap window — coordinate the change.
+            its condition as "missing" so the audit log records it.
           </dd>
         </div>
         <div>

@@ -35,11 +35,6 @@ export type {
   AlumniProfile,
 } from "./alumni.types";
 export type {
-  IntegrationProvider,
-  IntegrationEvent,
-  Integration,
-} from "./integration.types";
-export type {
   DocRequest,
   DocRequestType,
   RequestPurpose,

@@ -48,7 +48,6 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'letterTemplates/ltA'), { companyId:'companyA', body:'x' });
   await setDoc(doc(db, 'offboardTemplates/otA'), { companyId:'companyA', name:'Standard' });
   await setDoc(doc(db, 'complianceReports/crA'), { companyId:'companyA' });
-  await setDoc(doc(db, 'integrations/intA'), { companyId:'companyA', secret:'shhh' });
 });
 
 const anon     = testEnv.unauthenticatedContext().firestore();
@@ -81,7 +80,7 @@ await check('attacker: create company owned by someone else', () => setDoc(doc(a
 await check('attacker: create own company (legit setup)', () => setDoc(doc(attacker,'companies/evilco'), { name:'Evil', ownerUid:'attackerUid' }), 'ALLOWED');
 
 console.log('\n═══ C. CROSS-TENANT (§3) — signed-in user of another company ═══');
-for (const [label, path] of [['notifications','notifications/notifA'],['docRequests','docRequests/drA'],['knowledgeThreads','knowledgeThreads/ktA'],['accessRevocations','accessRevocations/arA'],['alumniApplications','alumniApplications/aaA'],['alumniProfiles','alumniProfiles/alumA'],['letterTemplates','letterTemplates/ltA'],['companies (billing)','companies/companyA'],['offboardFlows','offboardFlows/flowA'],['gigRequests','gigRequests/grA'],['pulseSurveys','pulseSurveys/psA'],['integrations (secrets)','integrations/intA'],['complianceReports','complianceReports/crA'],['offboardTemplates','offboardTemplates/otA']]) {
+for (const [label, path] of [['notifications','notifications/notifA'],['docRequests','docRequests/drA'],['knowledgeThreads','knowledgeThreads/ktA'],['accessRevocations','accessRevocations/arA'],['alumniApplications','alumniApplications/aaA'],['alumniProfiles','alumniProfiles/alumA'],['letterTemplates','letterTemplates/ltA'],['companies (billing)','companies/companyA'],['offboardFlows','offboardFlows/flowA'],['gigRequests','gigRequests/grA'],['pulseSurveys','pulseSurveys/psA'],['complianceReports','complianceReports/crA'],['offboardTemplates','offboardTemplates/otA']]) {
   await check(`companyB admin: read ${label}`, () => getDoc(doc(other, path)), 'DENIED');
 }
 await check('companyB admin: WRITE victim notifications', () => setDoc(doc(other,'notifications/evil'), { companyId:'companyA', body:'phish' }), 'DENIED');
@@ -128,7 +127,6 @@ await check('staff: read own notifications', () => getDocs(query(collection(staf
 await check('staff: read own alumni', () => getDocs(query(collection(staff,'alumniProfiles'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff admin: read own invites', () => getDocs(query(collection(staff,'invites'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff admin: create an invite', () => setDoc(doc(staff,'invites/inv2'), { companyId:'companyA', email:'x@victim.com', role:'manager', status:'pending' }), 'ALLOWED');
-await check('staff admin: read integrations', () => getDoc(doc(staff,'integrations/intA')), 'ALLOWED');
 await check('staff: update company settings', () => updateDoc(doc(staff,'companies/companyA'), { settings:{ brandColor:'#000' } }), 'ALLOWED');
 await check('staff: CANNOT self-serve a plan upgrade', () => updateDoc(doc(staff,'companies/companyA'), { plan:'enterprise' }), 'DENIED');
 await check('staff: LIST company members (users query)', () => getDocs(query(collection(staff,'users'), where('companyId','==','companyA'))), 'ALLOWED');

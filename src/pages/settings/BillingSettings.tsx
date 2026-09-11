@@ -119,7 +119,6 @@ interface PlanFeatures {
   auditExport: boolean;
   scheduledReports: boolean;
   // Admin
-  webhooks: string;
   sso: boolean;
   sla: boolean;
   dedicatedManager: boolean;
@@ -160,7 +159,6 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     csvExport: false,
     auditExport: false,
     scheduledReports: false,
-    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -181,7 +179,7 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiGapDetection: false,
     assetManagement: "Assigned → Returned",
     dataWiping: false,
-    accessRevocation: "10 integrations",
+    accessRevocation: "10 systems",
     complianceExport: false,
     exitInterviews: "Fixed template",
     aiSentiment: false,
@@ -198,7 +196,6 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     csvExport: false,
     auditExport: false,
     scheduledReports: false,
-    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -219,7 +216,7 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiGapDetection: true,
     assetManagement: "Full lifecycle",
     dataWiping: true,
-    accessRevocation: "22+ integrations",
+    accessRevocation: "Unlimited systems",
     complianceExport: false,
     exitInterviews: "Custom builder",
     aiSentiment: true,
@@ -236,7 +233,6 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     csvExport: true,
     auditExport: false,
     scheduledReports: false,
-    webhooks: "—",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -257,7 +253,7 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiGapDetection: true,
     assetManagement: "Full lifecycle",
     dataWiping: true,
-    accessRevocation: "22+ integrations",
+    accessRevocation: "Unlimited systems",
     complianceExport: true,
     exitInterviews: "Advanced builder",
     aiSentiment: true,
@@ -274,7 +270,6 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     csvExport: true,
     auditExport: true,
     scheduledReports: true,
-    webhooks: "Generic",
     sso: false,
     sla: false,
     dedicatedManager: false,
@@ -295,7 +290,7 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     aiGapDetection: true,
     assetManagement: "Full lifecycle",
     dataWiping: true,
-    accessRevocation: "22+ + HRIS sync",
+    accessRevocation: "Unlimited systems",
     complianceExport: true,
     exitInterviews: "Advanced builder",
     aiSentiment: true,
@@ -312,7 +307,6 @@ const PLAN_FEATURES: Record<PlanKey, PlanFeatures> = {
     csvExport: true,
     auditExport: true,
     scheduledReports: true,
-    webhooks: "All providers",
     sso: true,
     sla: true,
     dedicatedManager: true,
@@ -392,7 +386,6 @@ const FEATURE_ROW_GROUPS: FeatureRowGroup[] = [
   {
     group: "Admin & Security",
     rows: [
-      { key: "webhooks", label: "Custom webhooks", icon: <Zap size={14} /> },
       { key: "sso", label: "SSO / SAML login", icon: <Lock size={14} /> },
       { key: "sla", label: "SLA guarantee (99.9% uptime)", icon: <CheckCircle size={14} /> },
       { key: "dedicatedManager", label: "Dedicated account manager", icon: <Users size={14} /> },
@@ -738,7 +731,7 @@ export default function BillingSettings() {
                 "All 6 task types + e-signature",
                 "AI-guided knowledge capture",
                 "Basic asset tracking",
-                "Access revocation (10 integrations)",
+                "Access revocation (10 systems)",
                 "Fixed exit interview template",
               ],
               growth: [
@@ -760,15 +753,12 @@ export default function BillingSettings() {
                 "Ask the Expert threads",
                 "Full alumni portal + gig requests",
                 "Compliance audit export",
-                "Custom webhooks (generic)",
                 "Scheduled analytics reports",
               ],
               enterprise: [
                 "Unlimited everything",
                 "White-label portal",
                 "SSO / SAML login",
-                "HRIS integrations (Workday, BambooHR…)",
-                "Okta / Azure AD access sync",
                 "99.9% SLA guarantee",
                 "Dedicated account manager",
                 "SOC 2 / HIPAA documentation",

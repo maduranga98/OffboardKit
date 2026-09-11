@@ -925,23 +925,6 @@ Use these answers when filling exit interview forms in the employee portal:
 
 ---
 
-**TC-SET-05**
-**Feature:** Integration Settings
-**Pre-condition:** Logged in as Super Admin.
-
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | Navigate to `/settings/integrations` | Integration settings page loads |
-| 2 | Find Slack integration | Webhook URL field visible |
-| 3 | Enter a test Slack webhook URL | URL accepted |
-| 4 | Save settings | Settings saved |
-
-**Actual Result:**
-**Status:** PASS / FAIL
-**Notes:**
-
----
-
 ### Module 12 — Role-Based Access Control
 
 ---

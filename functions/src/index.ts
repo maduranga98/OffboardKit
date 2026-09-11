@@ -36,12 +36,6 @@ export { escalateUnackedNotifications } from "./triggers/escalateUnackedNotifica
 export { monthlyComplianceReport } from "./triggers/monthlyComplianceReport";
 export { resetAnnualUsage } from "./triggers/resetAnnualUsage";
 
-// Outbound HRIS / identity-provider webhooks
-export {
-  fireFlowWebhooks,
-  fireAssetWebhooks,
-} from "./triggers/fireIntegrationWebhooks";
-
 // Callable functions
 export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
@@ -50,7 +44,6 @@ export { claimCompany, acceptInvite, setMemberRole, removeMember } from "./trigg
 export { syncStaffClaims, refreshMyClaims } from "./triggers/staffClaims";
 export { sendAlumniInvite } from "./triggers/sendAlumniInvite";
 export { getCompanyMembers } from "./triggers/getCompanyMembers";
-export { testSlackWebhook } from "./triggers/testSlackWebhook";
 
 // AI Functions
 export { analyzeSentiment } from "./ai/analyzeSentiment";
