@@ -110,8 +110,13 @@ firebase deploy
 
 ### Free trial and the subscription lock
 
-Every new company starts on a **7-day Starter trial** — no card, no Stripe
-object, nothing to cancel. It simply lapses.
+The last step of the setup wizard asks which package the company wants, and
+it gets **7 days on that package** — no card, no Stripe object, nothing to
+cancel. Choosing a plan there is not subscribing to it: no charge can happen
+until someone goes through Stripe checkout, and nobody is ever put on a plan
+they did not pick. Mid-trial they can move the remaining days to a different
+package (`selectTrialPlan`) rather than paying to evaluate it. Enterprise is
+not offered — it is quoted, not self-served.
 
 Every plan in the price list is paid (Basic is $10/month), so there is no free
 tier to fall back to. When the trial ends with nothing bought, the company is
@@ -121,7 +126,8 @@ render.
 
 | Where | What happens |
 |---|---|
-| `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan: starter`, `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
+| `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan` is the package named by the wizard (validated against `TRIALABLE_PLANS`; an unknown one is refused, not silently swapped), plus `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
+| `selectTrialPlan` | Moves a running trial to another package. Never touches `trialEndsAt`, so it cannot stretch the week, and refuses once the trial is over or a subscription exists. |
 | `expireTrials` | Hourly sweep; lapsed trials get `trialStatus: expired` (and `plan: basic`, purely so the billing page has something coherent to show — it grants nothing). A company that subscribed meanwhile is marked `converted` and left alone. It also backfills a trial onto companies that predate trials. |
 | `stripeWebhook` | Marks `trialStatus: converted` as soon as a subscription becomes active, so the sweep never touches a paying company's plan. |
 | `src/lib/access.ts` | Derives the lock for the UI — `AppLayout` swaps the whole app for the lock screen, leaving only `/settings/billing` reachable. |
@@ -148,8 +154,11 @@ Every `trial*` field is server-owned: `firestore.rules` refuses both a client
 write to them and a company created with them pre-set, so a trial can be
 neither self-granted nor self-extended.
 
-To change the length or the plan offered, edit `TRIAL_DAYS` / `TRIAL_PLAN` in
-`functions/src/billing/trial.ts` (and `TRIAL_DAYS` in `src/lib/trial.ts`).
+To change the length or which packages may be tried, edit `TRIAL_DAYS` /
+`TRIALABLE_PLANS` in `functions/src/billing/trial.ts` — the server is what
+validates the choice — and mirror them in `src/lib/trial.ts` and
+`src/lib/plans.ts`. Plan names and prices live in `src/lib/plans.ts`, shared
+by the wizard and the billing page so the two cannot quote different prices.
 
 ### Going live with Stripe
 
