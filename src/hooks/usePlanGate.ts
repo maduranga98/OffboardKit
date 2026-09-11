@@ -1,5 +1,6 @@
 import { useCompanyStore } from "../store/companyStore";
 import { getEffectivePlan, getTrialState } from "../lib/trial";
+import { getAccessState } from "../lib/access";
 
 export function usePlanGate() {
   const company = useCompanyStore((s) => s.company);
@@ -11,10 +12,15 @@ export function usePlanGate() {
   // than when the hourly sweep gets to it.
   const plan = getEffectivePlan(company);
   const trial = getTrialState(company);
+  const access = getAccessState(company);
 
+  // A locked company (trial over, nothing bought) has no entitlement at all.
+  // Every plan in the price list is paid, so there is no free tier to fall
+  // back to — every gate below answers "no" until they subscribe.
   const requiresPlan = (
     minPlan: "starter" | "growth" | "business" | "enterprise"
   ): boolean => {
+    if (access.isLocked) return false;
     return planOrder.indexOf(plan) >= planOrder.indexOf(minPlan);
   };
 
@@ -22,6 +28,7 @@ export function usePlanGate() {
 
   const canStartOffboarding = (): { allowed: boolean; reason?: string } => {
     if (!company) return { allowed: false, reason: "no_company" };
+    if (access.isLocked) return { allowed: false, reason: "subscription_required" };
     if (
       plan === "basic" &&
       (company.usageCount?.offboardingsThisYear ?? 0) >= 3
@@ -138,6 +145,8 @@ export function usePlanGate() {
     // plan info
     plan,
     trial,
+    access,
+    isLocked: access.isLocked,
     features: company?.features ?? null,
     requiresPlan,
 

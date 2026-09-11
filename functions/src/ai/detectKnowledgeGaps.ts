@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { generateJSON } from "./geminiClient";
+import { assertCompanyActive } from "../billing/access";
 
 interface KnowledgeGapResult {
   completenessScore: number;
@@ -55,6 +56,10 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
   if (!caller || caller.companyId !== flow.companyId) {
     throw new functions.https.HttpsError("permission-denied", "Not authorized");
   }
+
+  // The subscription lock is enforced here too: callables use the admin
+  // SDK, so firestore.rules never sees their writes.
+  await assertCompanyActive(flow.companyId as string);
 
   const knowledgeItems = await db
     .collection("knowledgeItems")

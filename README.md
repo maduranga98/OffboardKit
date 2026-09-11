@@ -108,17 +108,41 @@ npm run build
 firebase deploy
 ```
 
-### Free trial
+### Free trial and the subscription lock
 
 Every new company starts on a **7-day Starter trial** — no card, no Stripe
 object, nothing to cancel. It simply lapses.
 
+Every plan in the price list is paid (Basic is $10/month), so there is no free
+tier to fall back to. When the trial ends with nothing bought, the company is
+**locked**: the app blocks and Firestore refuses its writes. Reads stay open —
+the data is theirs, it is never deleted, and the billing page still has to
+render.
+
 | Where | What happens |
 |---|---|
 | `claimCompany` | Grants the trial in the same transaction that establishes ownership: `plan: starter`, `trialStatus: active`, `trialEndsAt: now + 7d`. Granted once — `trialStatus` is the record that a company already had its window. |
-| `expireTrials` | Hourly sweep; lapsed trials go back to `basic` and `trialStatus: expired`. A company that subscribed meanwhile is marked `converted` and left alone. |
+| `expireTrials` | Hourly sweep; lapsed trials get `trialStatus: expired` (and `plan: basic`, purely so the billing page has something coherent to show — it grants nothing). A company that subscribed meanwhile is marked `converted` and left alone. It also backfills a trial onto companies that predate trials. |
 | `stripeWebhook` | Marks `trialStatus: converted` as soon as a subscription becomes active, so the sweep never touches a paying company's plan. |
-| `getEffectivePlan` (client) | Re-derives the cut-off from `trialEndsAt`, so features stop at the deadline rather than whenever the sweep next runs. |
+| `src/lib/access.ts` | Derives the lock for the UI — `AppLayout` swaps the whole app for the lock screen, leaving only `/settings/billing` reachable. |
+| `firestore.rules` | `companyActive()` — the enforcement. Every staff, team-admin and alumni write runs through it. |
+| `functions/src/billing/access.ts` | `assertCompanyActive()` — callables use the admin SDK and never see security rules, so they check for themselves. |
+
+A company is entitled when **any** of these holds, and locked otherwise:
+
+- Stripe reports a subscription in `active`, `trialing` or `past_due` — a
+  failing card keeps working while Stripe retries for weeks;
+- the card-free trial window is still open;
+- the company predates trials and has never touched Stripe (`legacy`). This
+  exists so shipping the lock could not shut existing tenants out overnight;
+  the `expireTrials` backfill hands each of them a real trial, after which
+  they lock like everyone else. `stripeCustomerId` deliberately does not count
+  as "has touched Stripe" — `createCheckoutSession` writes it before any
+  payment is made.
+
+The three implementations read the same fields and are deliberately derived
+rather than stored: a saved flag would lag the deadline by up to an hour (the
+sweep interval) and could drift from Stripe.
 
 Every `trial*` field is server-owned: `firestore.rules` refuses both a client
 write to them and a company created with them pre-set, so a trial can be
@@ -126,8 +150,6 @@ neither self-granted nor self-extended.
 
 To change the length or the plan offered, edit `TRIAL_DAYS` / `TRIAL_PLAN` in
 `functions/src/billing/trial.ts` (and `TRIAL_DAYS` in `src/lib/trial.ts`).
-Companies created before trials existed have no `trial*` fields and stay on
-whatever plan they hold; they are not retroactively given one.
 
 ### Going live with Stripe
 
@@ -189,7 +211,8 @@ IDs rather than failing at the customer's checkout.
 
 7. **Verify with one real charge.** Subscribe on a live card, confirm the
    company document flips to the paid plan, then cancel from the portal and
-   confirm it returns to `basic`.
+   confirm it returns to `basic` — and, since that leaves it with no
+   entitlement, that the app locks.
 
 `VITE_STRIPE_PUBLIC_KEY` is only needed if the app ever moves to embedded
 Stripe Elements; checkout today is Stripe-hosted and never loads Stripe.js in

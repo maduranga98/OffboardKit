@@ -82,9 +82,81 @@ service cloud.firestore {
       return inCompany(request.resource.data.companyId);
     }
 
-    // Company staff writing a document must keep it in their own tenant.
+    // ── Subscription lock ───────────────────────────────────────────────
+    //
+    // Every plan in the price list is paid, so the seven-day card-free trial
+    // is the only way to use OffboardKit without subscribing. When it ends
+    // with nothing bought, the company is locked and STOPS BEING ABLE TO
+    // WRITE. Reads stay open: the data is theirs, and the billing page has to
+    // render. The same derivation runs in src/lib/access.ts (the UI block)
+    // and functions/src/billing/access.ts (callables, which bypass rules).
+    //
+    // It is derived here rather than read from a stored flag so the cut-off
+    // lands exactly on `trialEndsAt` instead of whenever the hourly
+    // expireTrials sweep next runs.
+
+    function companyData(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+
+    function subEntitled(c) {
+      return c.get('stripeSubscriptionId', null) != null
+        && c.get('stripeSubscriptionStatus', '') in ['active', 'trialing', 'past_due'];
+    }
+
+    function trialRunning(c) {
+      return c.get('trialStatus', '') == 'active'
+        && c.get('trialEndsAt', null) != null
+        && c.trialEndsAt > request.time;
+    }
+
+    // Predates trials and has never touched Stripe. Left open so shipping the
+    // lock could not shut existing tenants out overnight; the expireTrials
+    // backfill hands each of them a real trial, after which they lock like
+    // everyone else. stripeCustomerId deliberately does not count here —
+    // createCheckoutSession writes it before any payment is made.
+    function neverBilled(c) {
+      return c.get('trialStatus', null) == null
+        && c.get('stripeSubscriptionId', null) == null
+        && c.get('stripeSubscriptionStatus', null) == null;
+    }
+
+    function companyActive(companyId) {
+      // Callers always establish membership first, so the company document is
+      // known to exist and the id is known to be non-empty by the time this
+      // runs; `&&` short-circuits before the get() otherwise.
+      return companyId != null && companyId != ''
+        && companyEntitled(companyData(companyId));
+    }
+
+    function companyEntitled(c) {
+      return subEntitled(c) || trialRunning(c) || neverBilled(c);
+    }
+
+    // Company staff writing a document must keep it in their own tenant, and
+    // the tenant must still be entitled to the product.
+    function staffCreate() {
+      return ownsIncoming() && companyActive(request.resource.data.companyId);
+    }
+
     function staffWrite() {
-      return ownsExisting() && ownsIncoming();
+      return ownsExisting() && ownsIncoming()
+        && companyActive(request.resource.data.companyId);
+    }
+
+    function staffDelete() {
+      return ownsExisting() && companyActive(resource.data.companyId);
+    }
+
+    function teamAdminWrite(companyId) {
+      return isTeamAdmin(companyId) && companyActive(companyId);
+    }
+
+    // Alumni write into their old employer's tenant (applications, read
+    // receipts, document requests). Those rows belong to the company, so a
+    // locked company stops receiving them too.
+    function alumniWrite(companyId, alumniId) {
+      return isAlumniRecord(companyId, alumniId) && companyActive(companyId);
     }
 
     // ── Alumni helpers ──────────────────────────────────────────────────
@@ -228,7 +300,10 @@ service cloud.firestore {
       // and expireTrials for the same reason: it decides which features are
       // unlocked, so a client that could extend trialEndsAt would have a
       // permanent free Starter plan. Ownership can never be reassigned.
+      // A locked company cannot edit its own settings either — the only way
+      // out is buying a plan, which happens server-side through Stripe.
       allow update: if inCompany(companyId)
+        && companyEntitled(resource.data)
         // Companies created before ownerUid existed simply have no owner;
         // the check is that nobody can introduce or change one.
         && request.resource.data.get('ownerUid', null) == resource.data.get('ownerUid', null)
@@ -244,7 +319,7 @@ service cloud.firestore {
 
     match /offboardFlows/{flowId} {
       allow read: if ownsExisting() || isPortalFor(flowId);
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         || (
           isPortalFor(flowId)
@@ -252,7 +327,7 @@ service cloud.firestore {
           && onlyChanged(['progressPercent', 'completionScores', 'status',
                           'portalLastAccessed', 'updatedAt'])
         );
-      allow delete: if isTeamAdmin(resource.data.companyId);
+      allow delete: if teamAdminWrite(resource.data.companyId);
 
       // Compliance trail: readable by the owning company, written only by the
       // audit Cloud Functions so entries stay tamper-evident.
@@ -267,7 +342,7 @@ service cloud.firestore {
 
     match /flowTasks/{taskId} {
       allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         || (
           isPortalFor(resource.data.flowId)
@@ -276,21 +351,21 @@ service cloud.firestore {
           && onlyChanged(['status', 'completedAt', 'completedBy',
                           'uploadedFileUrl', 'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── assets ──────────────────────────────────────────────────────────
 
     match /assets/{assetId} {
       allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         || (
           isPortalFor(resource.data.flowId)
           && tenantUnchanged()
           && onlyChanged(['status', 'returnedAt', 'notes', 'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── exitInterviewTemplates ──────────────────────────────────────────
@@ -300,9 +375,9 @@ service cloud.firestore {
     match /exitInterviewTemplates/{templateId} {
       allow read: if ownsExisting()
         || (isPortal() && portalCompany() == resource.data.companyId);
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── exitInterviewResponses ──────────────────────────────────────────
@@ -310,20 +385,20 @@ service cloud.firestore {
 
     match /exitInterviewResponses/{responseId} {
       allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
-      allow create: if ownsIncoming()
+      allow create: if staffCreate()
         || (
           isPortalFor(request.resource.data.flowId)
           && request.resource.data.companyId == portalCompany()
         );
       allow update: if staffWrite();
-      allow delete: if isTeamAdmin(resource.data.companyId);
+      allow delete: if teamAdminWrite(resource.data.companyId);
     }
 
     // ── knowledgeItems ──────────────────────────────────────────────────
 
     match /knowledgeItems/{itemId} {
       allow read: if ownsExisting() || isPortalFor(resource.data.flowId);
-      allow create: if ownsIncoming()
+      allow create: if staffCreate()
         || (
           isPortalFor(request.resource.data.flowId)
           && request.resource.data.companyId == portalCompany()
@@ -337,46 +412,47 @@ service cloud.firestore {
                           'managerVerified', 'managerVerifiedBy',
                           'managerVerifiedAt', 'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── offboardTemplates / systemCatalog ───────────────────────────────
 
     match /offboardTemplates/{templateId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /systemCatalog/{catalogId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
 
       match /systems/{systemId} {
         allow read: if isStaff()
           && get(/databases/$(database)/documents/systemCatalog/$(catalogId)).data.companyId == myCompany();
         allow write: if isStaff()
-          && get(/databases/$(database)/documents/systemCatalog/$(catalogId)).data.companyId == myCompany();
+          && get(/databases/$(database)/documents/systemCatalog/$(catalogId)).data.companyId == myCompany()
+          && companyActive(myCompany());
       }
     }
 
     match /accessRevocations/{revocationId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── notifications ───────────────────────────────────────────────────
 
     match /notifications/{notificationId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── Alumni-facing collections ───────────────────────────────────────
@@ -388,7 +464,7 @@ service cloud.firestore {
         || (isSignedIn() && resource.data.get('email', '') == myEmail())
         || (isSignedIn() && resource.data.get('authUid', '') == request.auth.uid);
 
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
 
       allow update: if staffWrite()
         // Alumni may maintain their own profile, but not move it between
@@ -408,13 +484,13 @@ service cloud.firestore {
           && request.resource.data.authUid == request.auth.uid
         );
 
-      allow delete: if isTeamAdmin(resource.data.companyId);
+      allow delete: if teamAdminWrite(resource.data.companyId);
     }
 
     match /alumniJobs/{jobId} {
       allow read: if ownsExisting()
         || (isAlumniOf(resource.data.companyId) && resource.data.status == 'open');
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         // Referral counter is derived data; alumni may only increment it by
         // one on an open job in their own company.
@@ -425,22 +501,22 @@ service cloud.firestore {
           && onlyChanged(['referralCount', 'updatedAt'])
           && request.resource.data.referralCount == resource.data.get('referralCount', 0) + 1
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /alumniApplications/{applicationId} {
       allow read: if ownsExisting()
         || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
-      allow create: if ownsIncoming()
-        || isAlumniRecord(request.resource.data.companyId,
-                          request.resource.data.get('alumniId', ''));
+      allow create: if staffCreate()
+        || alumniWrite(request.resource.data.companyId,
+                       request.resource.data.get('alumniId', ''));
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /alumniEngagementLog/{logId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming()
+      allow create: if staffCreate()
         || isAlumniOf(request.resource.data.companyId)
         || (isSurvey() && request.resource.data.companyId == request.auth.token.surveyCompanyId);
       allow update, delete: if false;
@@ -452,7 +528,7 @@ service cloud.firestore {
           isAlumniOf(resource.data.companyId)
           && resource.data.status == 'published'
         );
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         // Read tracking: alumni may only bump the counter on a published
         // announcement from their own company.
@@ -462,32 +538,32 @@ service cloud.firestore {
           && tenantUnchanged()
           && onlyChanged(['readCount', 'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /alumniAnnouncementReads/{readId} {
       // A receipt is private to the alumni who left it, plus the company.
       allow read: if ownsExisting()
         || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
-      allow create: if isAlumniRecord(request.resource.data.companyId,
-                                      request.resource.data.get('alumniId', ''));
+      allow create: if alumniWrite(request.resource.data.companyId,
+                                   request.resource.data.get('alumniId', ''));
       allow update, delete: if false;
     }
 
     match /docRequests/{requestId} {
       allow read: if ownsExisting()
         || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
-      allow create: if ownsIncoming()
-        || isAlumniRecord(request.resource.data.companyId,
-                          request.resource.data.get('alumniId', ''));
+      allow create: if staffCreate()
+        || alumniWrite(request.resource.data.companyId,
+                       request.resource.data.get('alumniId', ''));
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /gigRequests/{requestId} {
       allow read: if ownsExisting()
         || isAlumniRecord(resource.data.companyId, resource.data.get('alumniId', ''));
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       // Alumni answer a gig addressed to them; they don't rewrite its terms.
       allow update: if staffWrite()
         || (
@@ -495,17 +571,17 @@ service cloud.firestore {
           && tenantUnchanged()
           && onlyChanged(['status', 'alumniNote', 'respondedAt', 'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /knowledgeThreads/{threadId} {
       allow read: if ownsExisting()
         || isAlumniOf(resource.data.companyId);
-      allow create: if ownsIncoming()
+      allow create: if staffCreate()
         || isAlumniOf(request.resource.data.companyId);
       allow update: if staffWrite()
         || (isAlumniOf(resource.data.companyId) && tenantUnchanged());
-      allow delete: if isTeamAdmin(resource.data.companyId);
+      allow delete: if teamAdminWrite(resource.data.companyId);
 
       function threadCompany() {
         return get(/databases/$(database)/documents/knowledgeThreads/$(threadId)).data.companyId;
@@ -513,7 +589,8 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if inCompany(threadCompany()) || isAlumniOf(threadCompany());
-        allow create: if inCompany(threadCompany()) || isAlumniOf(threadCompany());
+        allow create: if (inCompany(threadCompany()) || isAlumniOf(threadCompany()))
+          && companyActive(threadCompany());
         allow update, delete: if false;
       }
     }
@@ -525,7 +602,7 @@ service cloud.firestore {
         // Field-based: the client looks the survey up with a query, where the
         // {surveyId} wildcard would not be bound.
         || (isSurvey() && request.auth.token.surveyId == resource.data.get('id', ''));
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         // A survey respondent may only bump the response tally.
         || (
@@ -536,14 +613,14 @@ service cloud.firestore {
           && onlyChanged(['totalResponded', 'updatedAt'])
           && request.resource.data.totalResponded == resource.data.get('totalResponded', 0) + 1
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     match /pulseResponses/{responseId} {
       allow read: if ownsExisting()
         || (isSurvey() && responseId != null
             && request.auth.token.responseId == responseId);
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite()
         || (
           isSurvey()
@@ -554,16 +631,16 @@ service cloud.firestore {
                           'satisfactionScore', 'wouldReturn', 'wouldRefer',
                           'updatedAt'])
         );
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── letterTemplates ─────────────────────────────────────────────────
 
     match /letterTemplates/{templateId} {
       allow read: if ownsExisting();
-      allow create: if ownsIncoming();
+      allow create: if staffCreate();
       allow update: if staffWrite();
-      allow delete: if ownsExisting();
+      allow delete: if staffDelete();
     }
 
     // ── complianceReports (generated server-side) ───────────────────────
@@ -589,10 +666,10 @@ service cloud.firestore {
 
     match /invites/{inviteId} {
       allow read: if isTeamAdmin(resource.data.companyId);
-      allow create: if isTeamAdmin(request.resource.data.companyId);
-      allow update: if isTeamAdmin(resource.data.companyId)
+      allow create: if teamAdminWrite(request.resource.data.companyId);
+      allow update: if teamAdminWrite(resource.data.companyId)
         && tenantUnchanged();
-      allow delete: if isTeamAdmin(resource.data.companyId);
+      allow delete: if teamAdminWrite(resource.data.companyId);
     }
   }
 }

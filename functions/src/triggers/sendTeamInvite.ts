@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { sendSmtpEmail } from "../email/smtpClient";
+import { assertCompanyActive } from "../billing/access";
 
 const ROLE_LABELS: Record<string, string> = {
   hr_admin: "HR Admin",
@@ -33,6 +34,10 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
   if (!caller || caller.companyId !== invite.companyId) {
     throw new functions.https.HttpsError("permission-denied", "Not authorized");
   }
+
+  // The subscription lock is enforced here too: callables use the admin
+  // SDK, so firestore.rules never sees their writes.
+  await assertCompanyActive(invite.companyId as string);
 
   const appUrl = process.env.APP_URL || functions.config().app?.url || "https://offboardset.com";
   const signupUrl = `${appUrl}/signup?invite=${inviteId}`;

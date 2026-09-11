@@ -27,6 +27,7 @@ import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
 import { getTrialState } from "../../lib/trial";
+import { getAccessState } from "../../lib/access";
 import { getDocument } from "../../lib/firestore";
 import { functions } from "../../lib/firebase";
 import type { Company } from "../../types/company.types";
@@ -529,6 +530,7 @@ export default function BillingSettings() {
       : company.plan || "basic"
   ) as PlanKey;
   const onTrial = trial.isActive;
+  const access = getAccessState(company);
   const planConfig = PLAN_CONFIG[currentPlan] || PLAN_CONFIG.basic;
   const usageCount = company.usageCount || { offboardingsThisYear: 0, activeOffboardings: 0 };
   const memberSince = company.createdAt?.toDate?.()
@@ -589,7 +591,9 @@ export default function BillingSettings() {
                 <span className="text-xs font-semibold text-mist uppercase tracking-wide">
                   Current Plan
                 </span>
-                <Badge variant={planConfig.color}>{planConfig.label}</Badge>
+                <Badge variant={access.isLocked ? "mist" : planConfig.color}>
+                  {access.isLocked ? "No active plan" : planConfig.label}
+                </Badge>
                 {onTrial && <Badge variant="amber">Free trial</Badge>}
               </div>
               <div>
@@ -617,9 +621,11 @@ export default function BillingSettings() {
                   features{trial.endsAt ? ` after ${format(trial.endsAt, "d MMM")}` : ""}.
                 </p>
               ) : (
-                trial.hasExpired && (
+                access.isLocked && (
                   <p className="text-sm text-ember">
-                    Your free Starter trial has ended.
+                    {access.lockedAfterTrial
+                      ? "Your free trial has ended. OffboardKit is locked until you choose a plan."
+                      : "Your subscription is no longer active. OffboardKit is locked until you renew."}
                   </p>
                 )
               )}
@@ -630,7 +636,7 @@ export default function BillingSettings() {
             </div>
           </div>
 
-          {currentPlan === "basic" && (
+          {currentPlan === "basic" && !access.isLocked && (
             <div className="mt-6 space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">

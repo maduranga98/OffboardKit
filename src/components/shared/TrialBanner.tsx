@@ -20,7 +20,8 @@ export function TrialBanner() {
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-ember/20 bg-ember/5 px-4 py-2 text-sm">
         <Clock size={15} className="text-ember" aria-hidden />
         <span className="text-navy">
-          Your Starter trial has ended — you&rsquo;re now on Basic.
+          Your free trial has ended — OffboardKit is locked until you pick a
+          plan.
         </span>
         <Link
           to="/settings/billing#available-plans"

@@ -42,6 +42,11 @@ export function getTrialState(
 /**
  * The plan a company is actually entitled to right now.
  *
+ * Note this is the *feature tier*, not the entitlement: whether the company
+ * may use the product at all is `getAccessState` in ./access.ts, which locks
+ * it once the trial ends with nothing bought. This function only answers
+ * "which tier's features", and the lock overrides it.
+ *
  * `company.plan` reads "starter" for the whole trial, and the hourly
  * expireTrials sweep is what puts it back to "basic". Deriving the cut-off
  * from `trialEndsAt` here means features stop at the deadline rather than

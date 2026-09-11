@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import { getFirestore } from "firebase-admin/firestore";
 import * as puppeteer from "puppeteer";
+import { assertCompanyActive } from "../billing/access";
 
 interface GenerateLetterRequest {
   templateId: string;
@@ -106,6 +107,10 @@ export const generateLetterPdf = functions
     if (!alumniSnap.exists) {
       throw new functions.https.HttpsError("not-found", "Alumni profile not found");
     }
+
+    // Callables run with the admin SDK, so the subscription lock that
+    // firestore.rules applies to clients has to be repeated here.
+    await assertCompanyActive(companyId);
 
     const alumni = alumniSnap.data() as {
       name: string;

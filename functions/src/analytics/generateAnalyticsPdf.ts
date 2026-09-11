@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import { getFirestore } from "firebase-admin/firestore";
 import * as puppeteer from "puppeteer";
+import { assertCompanyActive } from "../billing/access";
 
 interface AnalyticsPdfRequest {
   companyId: string;
@@ -29,6 +30,10 @@ export const generateAnalyticsPdf = functions
     if (!caller || caller.companyId !== companyId) {
       throw new functions.https.HttpsError("permission-denied", "Not authorized");
     }
+
+    // Callables run with the admin SDK, so the subscription lock that
+    // firestore.rules applies to clients has to be repeated here.
+    await assertCompanyActive(companyId);
 
     try {
       const html = await generateAnalyticsHtml({
