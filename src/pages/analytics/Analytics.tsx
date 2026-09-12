@@ -288,6 +288,9 @@ export default function Analytics() {
           const taskBatches = await Promise.all(
             Array.from({ length: Math.ceil(flowIds.length / BATCH) }, (_, i) =>
               queryDocuments<FlowTaskBrief>("flowTasks", [
+                // Tenant-scoped: firestore.rules rejects a flowTasks list
+                // whose filters do not prove the caller's companyId.
+                where("companyId", "==", companyId),
                 where("flowId", "in", flowIds.slice(i * BATCH, (i + 1) * BATCH)),
               ]).catch(() => [] as FlowTaskBrief[])
             )

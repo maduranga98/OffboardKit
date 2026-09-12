@@ -128,6 +128,12 @@ export interface AuditLogEntry {
 
 export interface FlowTask {
   id: string;
+  /**
+   * Tenant stamp. firestore.rules authorizes every flowTasks read and write
+   * through `resource.data.companyId`, so a task written without it is
+   * rejected on create and unreadable afterwards.
+   */
+  companyId: string;
   flowId: string;
   title: string;
   description: string;

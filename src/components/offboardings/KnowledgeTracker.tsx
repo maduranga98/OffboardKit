@@ -121,6 +121,9 @@ export default function KnowledgeTracker({
   const loadItems = useCallback(async () => {
     try {
       const data = await queryDocuments<KnowledgeItem>("knowledgeItems", [
+        // Tenant-scoped: firestore.rules rejects a list whose filters do not
+        // prove the caller's companyId.
+        where("companyId", "==", flow.companyId),
         where("flowId", "==", flow.id),
         orderBy("createdAt", "desc"),
       ]);
@@ -134,7 +137,7 @@ export default function KnowledgeTracker({
     } finally {
       setLoading(false);
     }
-  }, [flow.id, flow.knowledgeGapAnalysis]);
+  }, [flow.id, flow.companyId, flow.knowledgeGapAnalysis]);
 
   useEffect(() => {
     loadItems();

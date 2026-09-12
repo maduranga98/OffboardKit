@@ -262,9 +262,12 @@ export default function NewOffboarding() {
               : null;
           batch.set(doc(db, "flowTasks", taskId), {
             id: taskId,
+            // Tenant stamp — firestore.rules authorizes flowTasks through
+            // resource.data.companyId, so omitting it rejects the batch.
+            companyId,
             flowId,
-            // Denormalized so firestore.rules can authorize portal updates
-            // without an extra get() lookup.
+            // Denormalized so the exit portal can resolve a task's flow
+            // without an extra read.
             portalToken,
             title: task.title,
             description: task.description,

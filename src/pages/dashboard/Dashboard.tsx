@@ -112,22 +112,36 @@ function StatCard({ label, value, icon, color, highlight, to }: StatCardProps) {
   return content;
 }
 
-// Load pending/completed tasks for a set of flow IDs, batching by 30 (Firestore `in` limit)
-async function loadTasksForFlows(flowIds: string[]): Promise<{
+// Load pending/completed tasks for a set of flow IDs.
+//
+// Batched by 15 rather than 30: Firestore caps a query at 30 disjunctions in
+// total, and the pending query multiplies `flowId in` by `status in` (two
+// values), so 15 x 2 is the largest batch it will accept.
+//
+// Every query is tenant-scoped. firestore.rules authorizes flowTasks through
+// `resource.data.companyId`, and a list whose filters cannot prove that scope
+// is rejected outright — filtering by flowId alone returns a permission error
+// rather than a subset.
+async function loadTasksForFlows(
+  companyId: string,
+  flowIds: string[]
+): Promise<{
   pending: FlowTask[];
   completed: FlowTask[];
 }> {
   const pending: FlowTask[] = [];
   const completed: FlowTask[] = [];
 
-  for (let i = 0; i < flowIds.length; i += 30) {
-    const batch = flowIds.slice(i, i + 30);
+  for (let i = 0; i < flowIds.length; i += 15) {
+    const batch = flowIds.slice(i, i + 15);
     const [batchPending, batchCompleted] = await Promise.all([
       queryDocuments<FlowTask>("flowTasks", [
+        where("companyId", "==", companyId),
         where("flowId", "in", batch),
         where("status", "in", ["pending", "in_progress"]),
       ]),
       queryDocuments<FlowTask>("flowTasks", [
+        where("companyId", "==", companyId),
         where("flowId", "in", batch),
         where("status", "==", "completed"),
       ]),
@@ -155,14 +169,17 @@ export default function Dashboard() {
   })();
 
   const refreshTasks = useCallback(async (activeFlowIds: string[]) => {
-    if (activeFlowIds.length === 0) {
+    if (!companyId || activeFlowIds.length === 0) {
       setOverdueTasks(0);
       setRecentTasks([]);
       return;
     }
     try {
       const now = new Date();
-      const { pending, completed } = await loadTasksForFlows(activeFlowIds);
+      const { pending, completed } = await loadTasksForFlows(
+        companyId,
+        activeFlowIds
+      );
       setOverdueTasks(pending.filter((t) => {
         const d = toDate(t.dueDate);
         return d && d < now;
@@ -171,7 +188,7 @@ export default function Dashboard() {
     } catch {
       // Non-fatal — overdue count stays at last known value
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) return;

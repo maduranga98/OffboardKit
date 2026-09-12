@@ -14,6 +14,7 @@ export { onExpertThreadCreated, onExpertThreadUpdated } from "./alumni/expertThr
 export { onKnowledgeItemUpdated } from "./triggers/onKnowledgeItemUpdated";
 export { onAlumniOptedIn } from "./triggers/onAlumniOptedIn";
 export { syncAlumniDirectory, backfillAlumniDirectory } from "./alumni/syncAlumniDirectory";
+export { backfillFlowTaskTenant } from "./triggers/backfillFlowTaskTenant";
 
 // Audit log triggers — record every state change in
 // offboardFlows/{flowId}/auditLog for compliance reporting.
