@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
+import { getAuthErrorMessage } from "../../lib/authErrors";
 import { auth } from "../../lib/firebase";
 import logo from "../../assets/logo.png";
 
@@ -25,6 +26,11 @@ export default function AlumniLogin() {
 
   const redirectedFromCompanyLogin = searchParams.get("notice") === "alumni";
 
+  const registerParams = new URLSearchParams();
+  if (companyIdFromUrl) registerParams.set("companyId", companyIdFromUrl);
+  if (email) registerParams.set("email", email);
+  const registerQuery = registerParams.toString() ? `?${registerParams}` : "";
+
   if (loading) return <LoadingSpinner fullScreen />;
   if (user && alumniProfile) return <Navigate to="/alumni-portal/profile" replace />;
 
@@ -37,8 +43,12 @@ export default function AlumniLogin() {
       showToast("success", `Password reset email sent to ${forgotEmail}`);
       setShowForgot(false);
       setForgotEmail("");
-    } catch {
-      showToast("error", "Failed to send reset email. Check the address and try again.");
+    } catch (err) {
+      showToast(
+        "error",
+        "Couldn't send reset email",
+        getAuthErrorMessage(err, "Check the address and try again.")
+      );
     } finally {
       setSendingReset(false);
     }
@@ -55,11 +65,7 @@ export default function AlumniLogin() {
     try {
       await signInWithEmail(email, password);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Sign in failed. Please check your credentials.";
-      setError(message);
+      setError(getAuthErrorMessage(err, "Sign in failed. Please check your credentials."));
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +170,10 @@ export default function AlumniLogin() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowForgot(true)}
+                  onClick={() => {
+                    setForgotEmail(email);
+                    setShowForgot(true);
+                  }}
                   className="text-sm text-teal hover:text-teal-light font-medium"
                 >
                   Forgot password?
@@ -179,7 +188,7 @@ export default function AlumniLogin() {
           <p className="mt-6 text-sm text-center text-mist">
             First time here?{" "}
             <Link
-              to={`/alumni-register${companyIdFromUrl ? `?companyId=${companyIdFromUrl}&email=${encodeURIComponent(emailFromUrl)}` : ""}`}
+              to={`/alumni-register${registerQuery}`}
               className="text-teal hover:text-teal-light font-medium"
             >
               Create your account
