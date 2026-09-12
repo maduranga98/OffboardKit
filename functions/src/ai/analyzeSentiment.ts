@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { generateJSON, type JSONSchema } from "./claudeClient";
+import { ANTHROPIC_SECRETS, generateJSON, type JSONSchema } from "./claudeClient";
 
 interface SentimentResult {
   sentimentScore: number;
@@ -32,8 +32,9 @@ const SENTIMENT_SCHEMA: JSONSchema = {
   additionalProperties: false,
 };
 
-export const analyzeSentiment = functions.firestore
-  .document("exitInterviewResponses/{responseId}")
+export const analyzeSentiment = functions
+  .runWith({ secrets: [...ANTHROPIC_SECRETS], timeoutSeconds: 120 })
+  .firestore.document("exitInterviewResponses/{responseId}")
   .onCreate(async (snapshot, context) => {
     const responseId = context.params.responseId;
     const data = snapshot.data();
