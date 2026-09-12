@@ -143,11 +143,14 @@ export default function OffboardingDetail() {
   const [editingUrlValue, setEditingUrlValue] = useState("");
 
   const loadData = useCallback(async () => {
-    if (!id) return;
+    if (!id || !companyId) return;
     try {
       const [flowData, taskData] = await Promise.all([
         getDocument<OffboardFlow>("offboardFlows", id),
         queryDocuments<FlowTask>("flowTasks", [
+          // Tenant-scoped: firestore.rules rejects a flowTasks list whose
+          // filters do not prove the caller's companyId.
+          where("companyId", "==", companyId),
           where("flowId", "==", id),
           orderBy("dueDate", "asc"),
         ]),
@@ -163,7 +166,7 @@ export default function OffboardingDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, companyId]);
 
   useEffect(() => {
     loadData();

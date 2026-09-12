@@ -150,6 +150,16 @@ await check('staff: read own company', () => getDoc(doc(staff,'companies/company
 await check('staff: read own flows', () => getDocs(query(collection(staff,'offboardFlows'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: create a flow', () => setDoc(doc(staff,'offboardFlows/flowNew'), { companyId:'companyA', employeeName:'Bob' }), 'ALLOWED');
 await check('staff: update a flow', () => updateDoc(doc(staff,'offboardFlows/flowA'), { status:'completed' }), 'ALLOWED');
+// Regression: flowTasks are authorized through resource.data.companyId, so a
+// task written without the tenant stamp is rejected — which used to fail the
+// whole "start new offboarding" batch whenever a template pre-loaded tasks.
+await check('staff: create a task WITH companyId', () => setDoc(doc(staff,'flowTasks/taskNew'), { companyId:'companyA', flowId:'flowA', title:'Return laptop', status:'pending' }), 'ALLOWED');
+await check('staff: create a task WITHOUT companyId', () => setDoc(doc(staff,'flowTasks/taskNoTenant'), { flowId:'flowA', title:'Return laptop', status:'pending' }), 'DENIED');
+// A flowTasks list must prove the tenant: rules authorize through
+// resource.data.companyId, so filtering by flowId alone is rejected outright
+// rather than filtered down.
+await check('staff: read own tasks (tenant-scoped)', () => getDocs(query(collection(staff,'flowTasks'), where('companyId','==','companyA'), where('flowId','==','flowA'))), 'ALLOWED');
+await check('staff: read own tasks by flowId alone', () => getDocs(query(collection(staff,'flowTasks'), where('flowId','==','flowA'))), 'DENIED');
 await check('staff: read own notifications', () => getDocs(query(collection(staff,'notifications'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: read own alumni', () => getDocs(query(collection(staff,'alumniProfiles'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff admin: read own invites', () => getDocs(query(collection(staff,'invites'), where('companyId','==','companyA'))), 'ALLOWED');

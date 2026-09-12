@@ -78,6 +78,9 @@ export default function AccessRevocationTracker({
             where("companyId", "==", flow.companyId),
           ]),
           queryDocuments<AccessRevocation>("accessRevocations", [
+            // Tenant-scoped: firestore.rules rejects a list whose filters do
+            // not prove the caller's companyId.
+            where("companyId", "==", flow.companyId),
             where("flowId", "==", flow.id),
           ]),
         ]);
