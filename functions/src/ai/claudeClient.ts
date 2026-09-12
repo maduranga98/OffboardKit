@@ -19,6 +19,11 @@ function getClient(): Anthropic {
  *  classification/extraction workloads and fast enough for a callable. */
 export const MODEL = "claude-haiku-4-5";
 
+/** Secrets every AI function must bind, for `runWith({ secrets })`. Without
+ *  this binding the key lives in Secret Manager but never reaches the
+ *  function's process.env. */
+export const ANTHROPIC_SECRETS = ["ANTHROPIC_API_KEY"] as const;
+
 const JSON_MAX_TOKENS = 8000;
 const TEXT_MAX_TOKENS = 4000;
 

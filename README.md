@@ -81,6 +81,17 @@ ANTHROPIC_API_KEY="sk-ant-..."
 APP_URL="https://your-project.web.app"
 ```
 
+`ANTHROPIC_API_KEY` is better kept in Secret Manager than in a plain env var:
+
+```bash
+firebase functions:secrets:set ANTHROPIC_API_KEY
+```
+
+A secret only reaches a function that binds it, so the AI functions declare
+`runWith({ secrets: [...ANTHROPIC_SECRETS] })`. Redeploy functions after
+setting or rotating it — a running function keeps the value it was deployed
+with.
+
 ## Deployment
 
 The CI/CD pipeline deploys automatically via GitHub Actions:
