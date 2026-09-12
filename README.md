@@ -7,7 +7,7 @@ Employee offboarding platform built with React, TypeScript, and Firebase. Manage
 - **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, React Router v7
 - **Backend**: Firebase (Firestore, Auth, Storage, Cloud Functions, Hosting)
 - **Email**: Space Email / configurable SMTP (Nodemailer)
-- **AI**: Google Gemini (knowledge gap analysis, sentiment analysis)
+- **AI**: Anthropic Claude Haiku 4.5 (knowledge gap analysis, sentiment analysis)
 - **PDF**: Puppeteer (analytics reports)
 - **Analytics**: Mixpanel
 
@@ -63,7 +63,7 @@ SMTP_USER="hello@feedsolve.com"
 SMTP_PASSWORD="your_smtp_password"
 SMTP_FROM_EMAIL="hello@feedsolve.com"
 SMTP_FROM_NAME="HRExitFlow"
-GEMINI_API_KEY="your_gemini_api_key"
+ANTHROPIC_API_KEY="sk-ant-..."
 APP_URL="https://your-project.web.app"
 ```
 
@@ -77,7 +77,7 @@ SMTP_USER="hello@feedsolve.com"
 SMTP_PASSWORD="your_smtp_password"
 SMTP_FROM_EMAIL="hello@feedsolve.com"
 SMTP_FROM_NAME="HRExitFlow"
-GEMINI_API_KEY="your_gemini_api_key"
+ANTHROPIC_API_KEY="sk-ant-..."
 APP_URL="https://your-project.web.app"
 ```
 
@@ -259,7 +259,7 @@ src/
 
 functions/src/
 ├── triggers/        # Firestore event triggers and scheduled functions
-├── ai/              # Gemini-powered knowledge gap and sentiment analysis
+├── ai/              # Claude-powered knowledge gap and sentiment analysis
 ├── email/           # SMTP client and HTML email templates
 └── analytics/       # Puppeteer-based PDF report generation
 ```

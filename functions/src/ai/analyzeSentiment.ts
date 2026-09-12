@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { generateJSON } from "./geminiClient";
+import { generateJSON, type JSONSchema } from "./claudeClient";
 
 interface SentimentResult {
   sentimentScore: number;
@@ -10,6 +10,27 @@ interface SentimentResult {
   riskFlags: string[];
   recommendedActions: string[];
 }
+
+const SENTIMENT_SCHEMA: JSONSchema = {
+  type: "object",
+  properties: {
+    sentimentScore: { type: "number", minimum: -1, maximum: 1 },
+    sentimentLabel: { type: "string", enum: ["positive", "neutral", "negative"] },
+    keyThemes: { type: "array", minItems: 3, maxItems: 5, items: { type: "string" } },
+    summary: { type: "string" },
+    riskFlags: { type: "array", items: { type: "string" } },
+    recommendedActions: { type: "array", maxItems: 3, items: { type: "string" } },
+  },
+  required: [
+    "sentimentScore",
+    "sentimentLabel",
+    "keyThemes",
+    "summary",
+    "riskFlags",
+    "recommendedActions",
+  ],
+  additionalProperties: false,
+};
 
 export const analyzeSentiment = functions.firestore
   .document("exitInterviewResponses/{responseId}")
@@ -62,7 +83,7 @@ Rules:
 - If the employee gave mostly short/empty answers, note that in the summary and suggest follow-up`;
 
     try {
-      const result = await generateJSON<SentimentResult>(prompt);
+      const result = await generateJSON<SentimentResult>(prompt, SENTIMENT_SCHEMA);
 
       const sentimentScore = Math.max(-1, Math.min(1, Number(result.sentimentScore) || 0));
       const sentimentLabel = (["positive", "neutral", "negative"].includes(result.sentimentLabel))
