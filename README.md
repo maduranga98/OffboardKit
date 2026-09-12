@@ -202,7 +202,10 @@ IDs rather than failing at the customer's checkout.
    ```
 
 3. **Set the live price IDs and app URL** in `functions/.env` (or via your
-   deploy pipeline). With a live secret key these are mandatory:
+   deploy pipeline). Start from the committed `functions/.env.example`. That
+   file is gitignored but *is* uploaded by `firebase deploy --only functions`,
+   so anything missing from it is missing in production. With a live secret
+   key these are mandatory:
 
    ```
    APP_URL=https://offboardkit.web.app
@@ -234,6 +237,29 @@ IDs rather than failing at the customer's checkout.
    portal, allowing plan changes, cancellation and invoice history. The
    "Manage billing" button in Settings → Billing opens it; without this the
    portal session call fails.
+
+#### When billing says "not configured"
+
+The Billing page reports `Billing is not configured on the server` whenever a
+required setting is absent — an unbound `STRIPE_SECRET_KEY`, or live keys with
+no `STRIPE_PRICE_*` / `APP_URL`. The customer-facing message deliberately does
+not name it; the function log does:
+
+```bash
+firebase functions:log --only createCheckoutSession,listInvoices | grep BILLING_CONFIG
+```
+
+Each line names the exact variable to set, e.g.
+`BILLING_CONFIG STRIPE_PRICE_GROWTH_ANNUAL is not set.`
+
+Two things are easy to miss:
+
+- A secret set with `functions:secrets:set` only reaches a function that
+  **binds** it via `runWith({ secrets })` **and has been redeployed since**.
+  Setting a secret alone changes nothing until `firebase deploy --only
+  functions` runs again.
+- `functions/.env` is gitignored, so a CI deploy that does not recreate it
+  ships without any of the price IDs.
 
 6. **Clear stale test-mode customer IDs.** Companies that went through test
    checkout hold a test `stripeCustomerId`. The checkout function detects an

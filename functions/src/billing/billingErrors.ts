@@ -23,7 +23,11 @@ export function billingError(
   if (err instanceof functions.https.HttpsError) return err;
 
   if (err instanceof BillingConfigError) {
-    functions.logger.error("Stripe billing is misconfigured.", err);
+    // The customer is told only that support has to act; the setting that is
+    // actually missing is named here, behind the BILLING_CONFIG marker, so an
+    // operator can find it in one command:
+    //   firebase functions:log | grep BILLING_CONFIG
+    functions.logger.error(`BILLING_CONFIG ${err.message}`);
     return new functions.https.HttpsError(
       "failed-precondition",
       "Billing is not configured on the server. Please contact support."
@@ -37,7 +41,8 @@ export function billingError(
     case "StripeAuthenticationError":
     case "StripePermissionError":
       functions.logger.error(
-        "Stripe rejected the configured API key. Check STRIPE_SECRET_KEY.",
+        "BILLING_CONFIG Stripe rejected the configured API key — check that " +
+          "STRIPE_SECRET_KEY is set, current, and in the expected mode.",
         err
       );
       return new functions.https.HttpsError(
@@ -49,7 +54,7 @@ export function billingError(
     // A price or customer that does not exist in this Stripe mode, a bad
     // parameter — a deployment or data problem, never a transient one.
     case "StripeInvalidRequestError":
-      functions.logger.error("Stripe rejected the request.", err);
+      functions.logger.error("BILLING_CONFIG Stripe rejected the request.", err);
       return new functions.https.HttpsError(
         "failed-precondition",
         `${fallbackMessage} Billing may not be fully set up — please contact ` +
