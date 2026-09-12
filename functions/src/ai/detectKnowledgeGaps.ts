@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { generateJSON } from "./geminiClient";
+import { generateJSON, type JSONSchema } from "./claudeClient";
 import { assertCompanyActive } from "../billing/access";
 
 interface KnowledgeGapResult {
@@ -15,6 +15,32 @@ interface KnowledgeGapResult {
   overallAssessment: string;
 }
 
+const KNOWLEDGE_GAP_SCHEMA: JSONSchema = {
+  type: "object",
+  properties: {
+    completenessScore: { type: "integer", minimum: 0, maximum: 100 },
+    gaps: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        properties: {
+          area: { type: "string" },
+          severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
+          description: { type: "string" },
+          suggestedPrompt: { type: "string" },
+        },
+        required: ["area", "severity", "description", "suggestedPrompt"],
+        additionalProperties: false,
+      },
+    },
+    strengths: { type: "array", maxItems: 3, items: { type: "string" } },
+    overallAssessment: { type: "string" },
+  },
+  required: ["completenessScore", "gaps", "strengths", "overallAssessment"],
+  additionalProperties: false,
+};
+
 export const detectKnowledgeGaps = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
@@ -27,9 +53,9 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
 
   const db = admin.firestore();
 
-  // Verify Gemini API key is available before doing any work
-  if (!process.env.GEMINI_API_KEY) {
-    throw new functions.https.HttpsError("failed-precondition", "GEMINI_API_KEY is not configured");
+  // Verify the Claude API key is available before doing any work
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new functions.https.HttpsError("failed-precondition", "ANTHROPIC_API_KEY is not configured");
   }
 
   const flowDoc = await db.collection("offboardFlows").doc(flowId).get();
@@ -38,7 +64,7 @@ export const detectKnowledgeGaps = functions.https.onCall(async (data, context) 
   }
   const flow = flowDoc.data()!;
 
-  // Sanitize fields embedded in the Gemini prompt: strip control chars,
+  // Sanitize fields embedded in the Claude prompt: strip control chars,
   // collapse whitespace, cap length. Defends against prompt-injection via
   // malicious employee metadata written elsewhere in the system.
   const sanitize = (v: unknown, max = 200): string =>
@@ -139,7 +165,7 @@ Rules:
 - Be realistic — not every role needs 20 documents. A junior role might be complete with 3-4 items`;
 
   try {
-    const result = await generateJSON<KnowledgeGapResult>(prompt);
+    const result = await generateJSON<KnowledgeGapResult>(prompt, KNOWLEDGE_GAP_SCHEMA);
 
     const completenessScore = Math.max(0, Math.min(100, Math.round(Number(result.completenessScore) || 0)));
     const gaps = Array.isArray(result.gaps)
