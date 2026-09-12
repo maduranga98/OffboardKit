@@ -29,11 +29,7 @@ import GenerateLetterModal from "./components/GenerateLetterModal";
 import { ExitContextCard } from "../../components/alumni/ExitContextCard";
 import { Timestamp } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import {
-  createUserWithEmailAndPassword,
-  deleteUser,
-} from "firebase/auth";
-import { secondaryAuth, functions } from "../../lib/firebase";
+import { functions } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import { Card } from "../../components/ui/Card";
@@ -262,25 +258,9 @@ export default function Alumni() {
 
     setSaving(true);
     const email = form.email.trim();
-    let authUid: string | null = null;
-    let createdSecondaryUser: import("firebase/auth").User | null = null;
 
     try {
       const id = crypto.randomUUID();
-
-      if (form.optedIn) {
-        // Create account via secondary app so the admin stays signed in.
-        // Use a random unguessable temporary password — the alumni will set
-        // their own via the invitation email.
-        const tempPassword = crypto.randomUUID() + crypto.randomUUID();
-        const userCred = await createUserWithEmailAndPassword(
-          secondaryAuth,
-          email,
-          tempPassword
-        );
-        authUid = userCred.user.uid;
-        createdSecondaryUser = userCred.user;
-      }
 
       const doc = {
         id,
@@ -302,7 +282,7 @@ export default function Alumni() {
         notes: form.notes.trim(),
         tags: form.tags,
         optedIn: form.optedIn,
-        authUid,
+        authUid: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -311,9 +291,9 @@ export default function Alumni() {
       setProfiles((prev) => [doc as unknown as AlumniProfile, ...prev]);
 
       if (form.optedIn) {
-        await secondaryAuth.signOut();
-        // Call the Cloud Function directly so the invitation email is sent
-        // immediately rather than waiting for a Firestore trigger to fire.
+        // sendAlumniInvite provisions the auth account and emails a
+        // password-setup link; creating the account here as well only risked
+        // an "email already in use" failure on the HR side.
         try {
           const sendInvite = httpsCallable(functions, "sendAlumniInvite");
           await sendInvite({ profileId: id });
@@ -331,16 +311,11 @@ export default function Alumni() {
 
       closeModals();
     } catch (err) {
-      // Firestore save failed — clean up the auth account we created
-      if (createdSecondaryUser) {
-        try {
-          await deleteUser(createdSecondaryUser);
-        } catch {
-          // Ignore cleanup errors
-        }
-        await secondaryAuth.signOut().catch(() => {});
-      }
-      alert("Error creating alumni: " + (err instanceof Error ? err.message : "Unknown error"));
+      showToast(
+        "error",
+        "Couldn't add alumni",
+        err instanceof Error ? err.message : "Please try again."
+      );
     } finally {
       setSaving(false);
     }

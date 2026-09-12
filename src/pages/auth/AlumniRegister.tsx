@@ -7,7 +7,10 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { useAlumniAuth } from "../../hooks/useAlumniAuth";
+import { getAuthErrorCode, getAuthErrorMessage } from "../../lib/authErrors";
 import logo from "../../assets/logo.png";
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export default function AlumniRegister() {
   const { user, alumniProfile, loading, authError, setAuthError } = useAlumniAuth();
@@ -20,6 +23,12 @@ export default function AlumniRegister() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
+
+  const signInParams = new URLSearchParams();
+  if (companyIdFromUrl) signInParams.set("companyId", companyIdFromUrl);
+  if (email) signInParams.set("email", email);
+  const signInLink = `/alumni-login${signInParams.toString() ? `?${signInParams}` : ""}`;
 
   // Already logged in with a valid alumni profile
   if (loading) return <LoadingSpinner fullScreen />;
@@ -28,12 +37,13 @@ export default function AlumniRegister() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setAccountExists(false);
     if (!email.trim() || !password || !confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
     if (password !== confirmPassword) {
@@ -49,19 +59,8 @@ export default function AlumniRegister() {
       // - set alumniProfile + redirect to /alumni-portal/profile
       // - sign out + set authError (no profile / not activated)
     } catch (err: unknown) {
-      let message = "Failed to create account. Please try again.";
-      if (err instanceof Error) {
-        if (err.message.includes("auth/email-already-in-use")) {
-          message = "An account already exists with this email. Please sign in instead.";
-        } else if (err.message.includes("auth/invalid-email")) {
-          message = "Please enter a valid email address.";
-        } else if (err.message.includes("auth/weak-password")) {
-          message = "Password is too weak. Please use at least 6 characters.";
-        } else {
-          message = err.message;
-        }
-      }
-      setError(message);
+      setAccountExists(getAuthErrorCode(err) === "auth/email-already-in-use");
+      setError(getAuthErrorMessage(err, "Failed to create account. Please try again."));
     } finally {
       setSubmitting(false);
     }
@@ -106,6 +105,14 @@ export default function AlumniRegister() {
           {(error || authError) && (
             <div className="mb-4 p-3 bg-ember/10 border border-ember/20 rounded-md text-sm text-ember">
               {error || authError}
+              {accountExists && (
+                <>
+                  {" "}
+                  <Link to={signInLink} className="underline font-medium">
+                    Go to sign in
+                  </Link>
+                </>
+              )}
             </div>
           )}
 
@@ -116,6 +123,10 @@ export default function AlumniRegister() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              readOnly={Boolean(emailFromUrl)}
+              hint={emailFromUrl ? "This is the address your invitation was sent to." : undefined}
+              className={emailFromUrl ? "bg-navy/5 cursor-not-allowed" : undefined}
               required
             />
             <Input
@@ -124,6 +135,8 @@ export default function AlumniRegister() {
               placeholder="Create a password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
               required
             />
             <Input
@@ -132,6 +145,7 @@ export default function AlumniRegister() {
               placeholder="Re-enter your password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
               required
             />
             <Button type="submit" fullWidth size="lg" loading={submitting}>
@@ -142,7 +156,7 @@ export default function AlumniRegister() {
           <p className="mt-6 text-sm text-center text-mist">
             Already have an account?{" "}
             <Link
-              to={`/alumni-login${companyIdFromUrl ? `?companyId=${companyIdFromUrl}&email=${encodeURIComponent(emailFromUrl)}` : ""}`}
+              to={signInLink}
               className="text-teal hover:text-teal-light font-medium"
             >
               Sign in

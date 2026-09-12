@@ -6,6 +6,7 @@ import Signup from "./pages/auth/Signup";
 import SetupWizard from "./pages/auth/SetupWizard";
 import AlumniLogin from "./pages/auth/AlumniLogin";
 import AlumniRegister from "./pages/auth/AlumniRegister";
+import AlumniSetPassword from "./pages/auth/AlumniSetPassword";
 import Dashboard from "./pages/dashboard/Dashboard";
 import OffboardingList from "./pages/offboardings/OffboardingList";
 import OffboardingDetail from "./pages/offboardings/OffboardingDetail";
@@ -68,6 +69,7 @@ export const router = createBrowserRouter([
   { path: "/portal/:token", element: <PortalEntry /> },
   { path: "/alumni-login", element: <AlumniLogin /> },
   { path: "/alumni-register", element: <AlumniRegister /> },
+  { path: "/alumni-setup", element: <AlumniSetPassword /> },
   { path: "/survey/:token", element: <SurveyPage /> },
 
   // Setup route
