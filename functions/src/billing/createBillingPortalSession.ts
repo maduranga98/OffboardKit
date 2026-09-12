@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getStripe } from "./stripeClient";
 import { STRIPE_SECRETS, resolveReturnUrl } from "./stripeConfig";
+import { billingError } from "./billingErrors";
 
 const BILLING_ROLES = ["super_admin", "hr_admin"];
 
@@ -52,22 +53,16 @@ export const createBillingPortalSession = functions
     // it has been checked against the allowlist.
     const { returnOrigin } = (data ?? {}) as { returnOrigin?: unknown };
 
-    let appUrl: string;
     try {
-      appUrl = resolveReturnUrl(returnOrigin);
+      const appUrl = resolveReturnUrl(returnOrigin);
+      const stripe = getStripe();
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${appUrl}/settings/billing`,
+      });
+
+      return { url: session.url };
     } catch (err) {
-      functions.logger.error("Stripe billing is misconfigured.", err);
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        "Billing is not fully configured. Please contact support."
-      );
+      throw billingError(err, "Could not open the billing portal.");
     }
-
-    const stripe = getStripe();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appUrl}/settings/billing`,
-    });
-
-    return { url: session.url };
   });

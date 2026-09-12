@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { getStripe } from "./stripeClient";
 import { STRIPE_SECRETS } from "./stripeConfig";
+import { billingError } from "./billingErrors";
 
 const BILLING_ROLES = ["super_admin", "hr_admin"];
 
@@ -115,10 +116,10 @@ export const listInvoices = functions
 
       return { invoices, hasMore: result.has_more };
     } catch (err) {
-      functions.logger.error("Could not list Stripe invoices.", err);
-      throw new functions.https.HttpsError(
-        "internal",
-        "Could not load your invoice history. Please try again."
-      );
+      // A missing STRIPE_SECRET_KEY, live keys without live price IDs, or a
+      // customer that belongs to the other Stripe mode are all deployment
+      // faults — they used to surface here as a bare 500 telling the customer
+      // to try again, which could never succeed.
+      throw billingError(err, "Could not load your invoice history.");
     }
   });

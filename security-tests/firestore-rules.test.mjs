@@ -96,6 +96,14 @@ await check('attacker: create tenantless /users doc (legit signup)', () => setDo
 await check('attacker: then self-escalate companyId', () => updateDoc(doc(attacker,'users/attackerUid'), { companyId:'companyA' }), 'DENIED');
 await check('attacker: then self-escalate role', () => updateDoc(doc(attacker,'users/attackerUid'), { role:'super_admin', companyId:'companyA' }), 'DENIED');
 await check('attacker: edit own profile fields (legit)', () => updateDoc(doc(attacker,'users/attackerUid'), { displayName:'Bob', department:'Eng' }), 'ALLOWED');
+
+// Regression: the sign-in handler used to re-write the whole user document on
+// every auth-state change, which rules evaluate as an update of every field.
+await check('attacker: full-overwrite own existing user doc', () => setDoc(doc(attacker,'users/attackerUid'), { id:'attackerUid', companyId:'', role:'super_admin', email:'attacker@evil.com', displayName:'Bob', photoURL:'', department:'Eng', isActive:true, lastLoginAt:new Date(), createdAt:new Date() }), 'DENIED');
+await check('attacker: touch lastLoginAt on re-signin (legit)', () => updateDoc(doc(attacker,'users/attackerUid'), { lastLoginAt: new Date() }), 'ALLOWED');
+// An identity with no `email` claim (custom token) must be a clean DENY, not
+// an "email is undefined" evaluation error.
+await check('portal guest: create a staff user doc', () => setDoc(doc(portal,'users/portal_flowA'), { companyId:'', role:'super_admin', email:'', isActive:true }), 'DENIED');
 await check('attacker: create company owned by someone else', () => setDoc(doc(attacker,'companies/evilco'), { name:'Evil', ownerUid:'victimAdmin' }), 'DENIED');
 await check('attacker: create own company (legit setup)', () => setDoc(doc(attacker,'companies/evilco'), { name:'Evil', ownerUid:'attackerUid' }), 'ALLOWED');
 // Company creation is the one write a brand-new user can make, so it must not

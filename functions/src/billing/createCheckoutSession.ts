@@ -8,6 +8,7 @@ import {
   isBillingCycle,
   isPlanKey,
 } from "./stripeConfig";
+import { billingError } from "./billingErrors";
 
 const BILLING_ROLES = ["super_admin", "hr_admin"];
 
@@ -124,63 +125,59 @@ export const createCheckoutSession = functions
       );
     }
 
-    // Configuration errors (missing live price IDs, missing APP_URL) surface
-    // here rather than as an opaque Stripe failure mid-checkout.
+    // Configuration errors (an unset secret key, missing live price IDs, a
+    // missing APP_URL) and Stripe's own rejections are mapped by
+    // billingError, so the customer is told whether to retry or to contact
+    // support instead of always seeing the same "try again".
     //
     // The return URL follows the origin the caller is actually running on
     // (allowlisted in resolveReturnUrl), so paying from the app comes back to
     // the app instead of to whatever single address APP_URL names.
-    let priceId: string;
-    let appUrl: string;
     try {
-      priceId = getPriceId(plan, billingCycle);
-      appUrl = resolveReturnUrl(returnOrigin);
-    } catch (err) {
-      functions.logger.error("Stripe billing is misconfigured.", err);
-      throw new functions.https.HttpsError(
-        "failed-precondition",
-        "Billing is not fully configured. Please contact support."
-      );
-    }
+      const priceId = getPriceId(plan, billingCycle);
+      const appUrl = resolveReturnUrl(returnOrigin);
 
-    const customerId = await resolveCustomerId(
-      companyRef,
-      companyId,
-      companyData.name as string,
-      userData.email as string | undefined,
-      context.auth.uid
-    );
-
-    const automaticTax = process.env.STRIPE_AUTOMATIC_TAX === "true";
-    const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      client_reference_id: companyId,
-      allow_promotion_codes: true,
-      billing_address_collection: "required",
-      // Stripe Tax must be activated on the account before this can be
-      // turned on, so it is opt-in: enabling it blindly makes every
-      // checkout creation fail on accounts without Tax.
-      ...(automaticTax
-        ? {
-            automatic_tax: { enabled: true as const },
-            customer_update: { address: "auto" as const, name: "auto" as const },
-          }
-        : {}),
-      metadata: {
+      const customerId = await resolveCustomerId(
+        companyRef,
         companyId,
-        plan,
-        billingCycle,
-        firebaseUserId: context.auth.uid,
-      },
-      subscription_data: {
-        metadata: { companyId, plan, billingCycle },
-      },
-      success_url: `${appUrl}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/settings/billing?checkout=canceled`,
-    });
+        companyData.name as string,
+        userData.email as string | undefined,
+        context.auth.uid
+      );
 
-    return { url: session.url };
+      const automaticTax = process.env.STRIPE_AUTOMATIC_TAX === "true";
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "subscription",
+        line_items: [{ price: priceId, quantity: 1 }],
+        client_reference_id: companyId,
+        allow_promotion_codes: true,
+        billing_address_collection: "required",
+        // Stripe Tax must be activated on the account before this can be
+        // turned on, so it is opt-in: enabling it blindly makes every
+        // checkout creation fail on accounts without Tax.
+        ...(automaticTax
+          ? {
+              automatic_tax: { enabled: true as const },
+              customer_update: { address: "auto" as const, name: "auto" as const },
+            }
+          : {}),
+        metadata: {
+          companyId,
+          plan,
+          billingCycle,
+          firebaseUserId: context.auth.uid,
+        },
+        subscription_data: {
+          metadata: { companyId, plan, billingCycle },
+        },
+        success_url: `${appUrl}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/settings/billing?checkout=canceled`,
+      });
+
+      return { url: session.url };
+    } catch (err) {
+      throw billingError(err, "Could not start checkout.");
+    }
   });

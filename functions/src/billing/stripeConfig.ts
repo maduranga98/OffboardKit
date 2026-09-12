@@ -15,6 +15,21 @@
  * with "No such price". `getPriceId` refuses that combination up front.
  */
 
+/**
+ * A deployment problem, not a request problem.
+ *
+ * Thrown for anything the operator has to fix — an unset secret, a missing
+ * live price ID, an APP_URL that was never configured. Callables map it to
+ * `failed-precondition` with an actionable message rather than an opaque
+ * `internal` 500 (see billingErrors.ts).
+ */
+export class BillingConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BillingConfigError";
+  }
+}
+
 /** Secrets every billing function must bind, for `runWith({ secrets })`. */
 export const STRIPE_SECRETS = ["STRIPE_SECRET_KEY"] as const;
 export const STRIPE_WEBHOOK_SECRETS = [
@@ -78,7 +93,7 @@ export function isBillingCycle(value: unknown): value is BillingCycle {
 export function getSecretKey(): string {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
-    throw new Error(
+    throw new BillingConfigError(
       "STRIPE_SECRET_KEY is not set. Locally, add it to functions/.env and " +
         "restart the emulator. When deployed, set it with " +
         "`firebase functions:secrets:set STRIPE_SECRET_KEY` and make sure the " +
@@ -111,7 +126,7 @@ export function getPriceId(plan: PlanKey, cycle: BillingCycle): string {
 
   if (configured) {
     if (!configured.startsWith("price_")) {
-      throw new Error(
+      throw new BillingConfigError(
         `${envVar} is "${configured}", which is not a Stripe price ID. ` +
           "Use the price ID (price_…) from the Stripe dashboard, not the " +
           "product ID (prod_…) or a lookup key."
@@ -121,7 +136,7 @@ export function getPriceId(plan: PlanKey, cycle: BillingCycle): string {
   }
 
   if (isLiveMode()) {
-    throw new Error(
+    throw new BillingConfigError(
       `${envVar} is not set. Live Stripe keys are configured, so every plan ` +
         "needs its live price ID — test-mode price IDs do not exist in live " +
         "mode. See README “Going live with Stripe”."
@@ -137,7 +152,7 @@ export function getAppUrl(): string {
   if (appUrl) return appUrl.replace(/\/+$/, "");
 
   if (isLiveMode()) {
-    throw new Error(
+    throw new BillingConfigError(
       "APP_URL is not set. Live Stripe keys are configured, so checkout would " +
         "redirect customers to localhost after paying."
     );
