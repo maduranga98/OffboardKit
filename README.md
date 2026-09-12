@@ -96,8 +96,20 @@ with.
 
 The CI/CD pipeline deploys automatically via GitHub Actions:
 
-- **Push to `main`** → deploys hosting + functions to production
+- **Push to `main`** → deploys **hosting only** to production
 - **Pull requests** → deploys a preview channel
+
+**Cloud Functions are not deployed by CI.** `action-hosting-deploy` publishes
+the built site and nothing else, so a change to anything under `functions/` —
+or a newly set secret, which only reaches a function on its next deploy — needs
+a manual deploy from a checkout that has `functions/.env` filled in:
+
+```bash
+firebase deploy --only functions
+```
+
+Forgetting this is the usual reason a billing change appears to have no effect
+in production.
 
 Required GitHub Secrets:
 
