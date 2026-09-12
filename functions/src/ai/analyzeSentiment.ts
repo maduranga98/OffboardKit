@@ -11,15 +11,18 @@ interface SentimentResult {
   recommendedActions: string[];
 }
 
+// Structured-output schemas accept only a subset of JSON Schema: no numeric
+// constraints (minimum/maximum), no string length, no array length. Bounds are
+// stated in the prompt and enforced on the parsed result below.
 const SENTIMENT_SCHEMA: JSONSchema = {
   type: "object",
   properties: {
-    sentimentScore: { type: "number", minimum: -1, maximum: 1 },
+    sentimentScore: { type: "number" },
     sentimentLabel: { type: "string", enum: ["positive", "neutral", "negative"] },
-    keyThemes: { type: "array", minItems: 3, maxItems: 5, items: { type: "string" } },
+    keyThemes: { type: "array", items: { type: "string" } },
     summary: { type: "string" },
     riskFlags: { type: "array", items: { type: "string" } },
-    recommendedActions: { type: "array", maxItems: 3, items: { type: "string" } },
+    recommendedActions: { type: "array", items: { type: "string" } },
   },
   required: [
     "sentimentScore",

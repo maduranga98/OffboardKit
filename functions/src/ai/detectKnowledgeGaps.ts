@@ -15,13 +15,15 @@ interface KnowledgeGapResult {
   overallAssessment: string;
 }
 
+// Structured-output schemas accept only a subset of JSON Schema: no numeric
+// constraints (minimum/maximum), no string length, no array length. Bounds are
+// stated in the prompt and enforced on the parsed result below.
 const KNOWLEDGE_GAP_SCHEMA: JSONSchema = {
   type: "object",
   properties: {
-    completenessScore: { type: "integer", minimum: 0, maximum: 100 },
+    completenessScore: { type: "integer" },
     gaps: {
       type: "array",
-      maxItems: 8,
       items: {
         type: "object",
         properties: {
@@ -34,7 +36,7 @@ const KNOWLEDGE_GAP_SCHEMA: JSONSchema = {
         additionalProperties: false,
       },
     },
-    strengths: { type: "array", maxItems: 3, items: { type: "string" } },
+    strengths: { type: "array", items: { type: "string" } },
     overallAssessment: { type: "string" },
   },
   required: ["completenessScore", "gaps", "strengths", "overallAssessment"],
