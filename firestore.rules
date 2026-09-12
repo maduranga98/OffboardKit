@@ -241,11 +241,22 @@ service cloud.firestore {
 
       // A brand new account may only create itself with NO tenant. Membership
       // arrives afterwards from claimCompany / acceptInvite.
+      //
+      // The email claim is read with get(): an identity signed in with a
+      // custom token carries no `email`, and `request.auth.token.email` on
+      // such a caller raises "Property email is undefined" — an evaluation
+      // ERROR, which fails the whole request instead of falling through to
+      // the next allow rule. Requiring a non-empty claim keeps the intent
+      // (a staff doc must belong to a real, email-bearing account) while
+      // making a guest identity a clean deny. Scoped portal/survey guests
+      // are refused outright — they must never own a staff document.
       allow create: if isSignedIn()
+        && !isScopedGuest()
         && userId != null
         && request.auth.uid == userId
         && request.resource.data.companyId == ''
-        && request.resource.data.email == request.auth.token.email;
+        && request.auth.token.get('email', '') != ''
+        && request.resource.data.get('email', '') == request.auth.token.get('email', '');
 
       // Self-service profile edits only — never companyId, never role.
       allow update: if isSignedIn()
