@@ -25,6 +25,7 @@ import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Badge } from "../../components/ui/Badge";
 import { Input } from "../../components/ui/Input";
+import { AutoTextarea } from "../../components/ui/AutoTextarea";
 import { Modal } from "../../components/ui/Modal";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { QuestionGeneratorPanel } from "../../components/exitInterview/QuestionGeneratorPanel";
@@ -604,14 +605,13 @@ function TemplateBuilderModal({
                         {index + 1}
                       </span>
                       <div className="flex-1 space-y-3">
-                        <input
-                          type="text"
+                        <AutoTextarea
                           value={q.text}
                           onChange={(e) =>
                             updateQuestion(q.id, { text: e.target.value })
                           }
                           placeholder="Enter question text..."
-                          className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                          className="block w-full rounded-md border border-navy/20 px-3 py-2 text-sm leading-snug text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
                         />
                         <div className="flex items-center gap-3 flex-wrap">
                           <select
