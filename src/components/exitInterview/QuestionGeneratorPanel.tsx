@@ -9,6 +9,7 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "../ui/Button";
+import { AutoTextarea } from "../ui/AutoTextarea";
 import { useGenerateExitQuestions } from "../../hooks/useGenerateExitQuestions";
 import {
   CATEGORY_LABELS,
@@ -194,12 +195,11 @@ export function QuestionGeneratorPanel({
                       className="mt-1 h-4 w-4 rounded border-navy/30 text-teal focus:ring-teal"
                     />
                     <div className="flex-1 min-w-0">
-                      <input
-                        type="text"
+                      <AutoTextarea
                         aria-label={`Question ${index + 1}`}
                         value={q.text}
                         onChange={(e) => updateQuestionText(q.id, e.target.value)}
-                        className="w-full rounded bg-transparent px-1 py-0.5 text-sm text-navy focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal"
+                        className="block w-full rounded border-0 bg-transparent px-1 py-0.5 text-sm leading-snug text-navy focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal"
                       />
                       <span className="mt-1.5 inline-block rounded-full bg-navy/5 px-2 py-0.5 text-xs text-mist">
                         {CATEGORY_LABELS[q.category] ?? q.category}
