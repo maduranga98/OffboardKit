@@ -36,10 +36,24 @@ export function useAlumniAuth() {
       setUser(firebaseUser);
 
       try {
-        const alumni = await queryDocuments<AlumniProfile>(
-          "alumniProfiles",
-          [where("email", "==", firebaseUser.email || "")]
-        );
+        // Firebase Auth always reports the address in lower case, while a
+        // profile is saved with whatever casing HR typed. Matching on the raw
+        // value meant an alumni invited as "Jane.Doe@corp.com" finished the
+        // password setup and was then told no account existed. Newer invites
+        // normalise the stored address; the authUid written by sendAlumniInvite
+        // is the fallback that rescues rows saved before that.
+        const email = (firebaseUser.email || "").toLowerCase();
+        let alumni = email
+          ? await queryDocuments<AlumniProfile>("alumniProfiles", [
+              where("email", "==", email),
+            ])
+          : [];
+
+        if (alumni.length === 0) {
+          alumni = await queryDocuments<AlumniProfile>("alumniProfiles", [
+            where("authUid", "==", firebaseUser.uid),
+          ]).catch(() => []);
+        }
 
         if (alumni.length === 0) {
           setAuthError("No alumni account found with this email. Please check your email address.");
@@ -75,7 +89,7 @@ export function useAlumniAuth() {
   const signInWithEmail = async (email: string, password: string) => {
     try {
       setAuthError(null);
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       // onAuthStateChanged will validate the alumni profile exists
     } catch (error) {
       console.error("Email sign-in error:", error);

@@ -182,6 +182,51 @@ export const selectTrialPlan = functions.https.onCall(async (data, context) => {
   return { plan };
 });
 
+/** Roles a team admin may hand out through an invitation. */
+const INVITABLE_ROLES = ["hr_admin", "it_admin", "manager"];
+
+/**
+ * Returns the handful of invite fields the signup page needs to render.
+ *
+ * The invites collection is not client-readable (it would leak every pending
+ * invitee's email, company and role to the world), and the invitee is by
+ * definition not signed in yet — so reading invites/{id} straight from the
+ * browser always failed with "Missing or insufficient permissions" and the
+ * signup page showed "Failed to load invite details". This callable is the
+ * supported way to look one up: it takes the id from the emailed link, which
+ * is an unguessable UUID, and returns nothing that is not already in the
+ * invitation email that was sent to that address.
+ */
+export const previewInvite = functions.https.onCall(async (data) => {
+  const { inviteId } = (data ?? {}) as { inviteId?: unknown };
+  if (typeof inviteId !== "string" || !inviteId) {
+    throw new functions.https.HttpsError("invalid-argument", "inviteId required");
+  }
+
+  const snap = await admin.firestore().collection("invites").doc(inviteId).get();
+  if (!snap.exists) {
+    return { valid: false, reason: "not_found" as const };
+  }
+
+  const invite = snap.data()!;
+  if (invite.status !== "pending") {
+    return { valid: false, reason: "used" as const };
+  }
+
+  const expiresAt = invite.expiresAt as admin.firestore.Timestamp | undefined;
+  if (expiresAt && expiresAt.toMillis() <= Date.now()) {
+    return { valid: false, reason: "expired" as const };
+  }
+
+  return {
+    valid: true as const,
+    email: (invite.email as string) || "",
+    companyName: (invite.companyName as string) || "",
+    role: INVITABLE_ROLES.includes(invite.role) ? (invite.role as string) : "manager",
+    invitedByName: (invite.invitedByName as string) || "",
+  };
+});
+
 /**
  * Accepts a pending team invite addressed to the caller's verified email and
  * grants the invited role. Replaces the previous client-side flow, which
@@ -219,8 +264,11 @@ export const acceptInvite = functions.https.onCall(async (data, context) => {
   }
 
   const invite = valid.data();
-  const ALLOWED_ROLES = ["hr_admin", "it_admin", "manager", "viewer"];
-  const role = ALLOWED_ROLES.includes(invite.role) ? invite.role : "viewer";
+  // super_admin is deliberately absent: company ownership is granted by
+  // claimCompany alone, never by an invitation. "viewer" used to be the
+  // fallback here, but no such role exists in the app — it left the invitee
+  // with a role the UI and firestore.rules both treat as unknown.
+  const role = INVITABLE_ROLES.includes(invite.role) ? invite.role : "manager";
 
   const userRef = db.collection("users").doc(uid);
   const userSnap = await userRef.get();

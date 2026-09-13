@@ -2,7 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { sendSmtpEmail } from "../email/smtpClient";
 import { assertCompanyActive } from "../billing/access";
-import { buildAlumniSetupUrl } from "../alumni/inviteLink";
+import { buildAlumniSetupUrl, normalizeEmail } from "../alumni/inviteLink";
 import { alumniInviteHtml } from "../alumni/inviteEmail";
 
 export const sendAlumniInvite = functions.https.onCall(async (data, context) => {
@@ -35,10 +35,16 @@ export const sendAlumniInvite = functions.https.onCall(async (data, context) => 
   // SDK, so firestore.rules never sees their writes.
   await assertCompanyActive(profile.companyId as string);
 
-  const email = (profile.email as string | undefined)?.trim();
-  if (!email) {
+  const storedEmail = (profile.email as string | undefined)?.trim();
+  if (!storedEmail) {
     throw new functions.https.HttpsError("invalid-argument", "Alumni has no email address");
   }
+  // Firebase Auth lower-cases every address it stores, so `firebaseUser.email`
+  // in the portal is always lower case. A profile saved as "Jane.Doe@corp.com"
+  // therefore never matched the portal's `where("email", "==", ...)` lookup and
+  // the alumni was bounced with "No alumni account found with this email".
+  // Normalising here heals those rows the first time an invite goes out.
+  const email = normalizeEmail(storedEmail);
 
   // Look up company name
   let companyName = "your company";
@@ -73,6 +79,7 @@ export const sendAlumniInvite = functions.https.onCall(async (data, context) => 
     invitationSentAt: admin.firestore.FieldValue.serverTimestamp(),
     optedIn: true,
   };
+  if (email !== storedEmail) update.email = email;
   if (authUid && !profile.authUid) update.authUid = authUid;
   await profileDoc.ref.update(update);
 

@@ -54,7 +54,7 @@ export default function AlumniRegister() {
     setSubmitting(true);
     setAuthError(null);
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       // onAuthStateChanged will validate the alumni profile and either:
       // - set alumniProfile + redirect to /alumni-portal/profile
       // - sign out + set authError (no profile / not activated)

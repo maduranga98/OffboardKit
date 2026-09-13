@@ -4,8 +4,9 @@ import { CheckCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
+import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../hooks/useAuth";
-import { getDocument } from "../../lib/firestore";
+import { functions } from "../../lib/firebase";
 import logo from "../../assets/logo.png";
 
 const features = [
@@ -15,14 +16,27 @@ const features = [
 ];
 
 interface InviteData {
-  id: string;
   email: string;
   companyName: string;
   role: string;
   invitedByName: string;
-  status: string;
-  expiresAt: { toDate: () => Date };
 }
+
+type InvitePreview =
+  | ({ valid: true } & InviteData)
+  | { valid: false; reason: "not_found" | "used" | "expired" };
+
+const INVITE_ERRORS: Record<"not_found" | "used" | "expired", string> = {
+  not_found: "We couldn't find that invite. Ask your admin to send a new one.",
+  used: "This invite has already been used. Try signing in instead.",
+  expired: "This invite has expired. Ask your admin to send a new one.",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  hr_admin: "HR Admin",
+  it_admin: "IT Admin",
+  manager: "Manager",
+};
 
 export default function Signup() {
   const { user, loading, companyId, signUpWithEmail, signInWithGoogle } = useAuth();
@@ -30,6 +44,7 @@ export default function Signup() {
   const inviteId = searchParams.get("invite");
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
   const [inviteError, setInviteError] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(Boolean(inviteId));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,33 +52,45 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // The invites collection is not client-readable — reading it straight from
+  // here always failed with "Missing or insufficient permissions", because the
+  // invitee is not signed in yet. previewInvite is the server-side lookup that
+  // returns only what this page renders.
   useEffect(() => {
     if (!inviteId) return;
+    let cancelled = false;
 
     const loadInvite = async () => {
+      setInviteLoading(true);
       try {
-        const invite = await getDocument<InviteData>("invites", inviteId);
-        if (!invite) {
-          setInviteError("Invite not found");
+        const previewInvite = httpsCallable<{ inviteId: string }, InvitePreview>(
+          functions,
+          "previewInvite"
+        );
+        const { data } = await previewInvite({ inviteId });
+        if (cancelled) return;
+
+        if (!data.valid) {
+          setInviteError(INVITE_ERRORS[data.reason] ?? INVITE_ERRORS.not_found);
           return;
         }
-        if (invite.status !== "pending") {
-          setInviteError("This invite has already been used");
-          return;
-        }
-        if (invite.expiresAt.toDate() < new Date()) {
-          setInviteError("This invite has expired");
-          return;
-        }
-        setInviteData(invite);
-        setEmail(invite.email);
+        setInviteData(data);
+        setEmail(data.email);
+        setInviteError("");
       } catch (err) {
         console.error("Failed to load invite:", err);
-        setInviteError("Failed to load invite details");
+        if (!cancelled) {
+          setInviteError("We couldn't load this invite. Please try the link again.");
+        }
+      } finally {
+        if (!cancelled) setInviteLoading(false);
       }
     };
 
     loadInvite();
+    return () => {
+      cancelled = true;
+    };
   }, [inviteId]);
 
   if (loading) return <LoadingSpinner fullScreen />;
@@ -107,7 +134,9 @@ export default function Signup() {
     setError("");
     setSubmitting(true);
     try {
-      await signInWithGoogle();
+      // On an invite, Google must offer the invited address — membership is
+      // matched server-side on the verified token email.
+      await signInWithGoogle(inviteData?.email);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Google sign in failed.";
       setError(message);
@@ -147,8 +176,10 @@ export default function Signup() {
             {inviteId ? "Accept your invite" : "Start your free account"}
           </h2>
           <p className="text-sm text-mist mb-8">
-            {inviteData
-              ? `Join ${inviteData.companyName} as a ${inviteData.role.replace("_", " ")}`
+            {inviteLoading
+              ? "Checking your invitation…"
+              : inviteData
+              ? `Join ${inviteData.companyName} as ${ROLE_LABELS[inviteData.role] ?? inviteData.role.replace(/_/g, " ")}`
               : inviteId && inviteError
               ? inviteError
               : "Set up in 5 minutes. No credit card required."}
@@ -172,7 +203,7 @@ export default function Signup() {
             fullWidth
             size="lg"
             onClick={handleGoogleSignIn}
-            disabled={submitting}
+            disabled={submitting || inviteLoading}
           >
             <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -234,6 +265,7 @@ export default function Signup() {
               fullWidth
               size="lg"
               loading={submitting}
+              disabled={inviteLoading}
             >
               Create account
             </Button>

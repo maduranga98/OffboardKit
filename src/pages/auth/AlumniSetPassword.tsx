@@ -89,17 +89,26 @@ export default function AlumniSetPassword() {
       setError("Enter your email address so we can send a new link.");
       return;
     }
+    const address = email.trim().toLowerCase();
     setResending(true);
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      // Firebase's default reset email lands on its own hosted handler, which
+      // ends on a bare "password changed" page. The continue URL brings the
+      // alumni back here (or to sign-in) with their address already filled in.
+      const params = new URLSearchParams({ email: address });
+      if (companyId) params.set("companyId", companyId);
+      await sendPasswordResetEmail(auth, address, {
+        url: `${window.location.origin}/alumni-setup?${params.toString()}`,
+        handleCodeInApp: false,
+      });
       setResent(true);
-      showToast("success", "Link sent", `Check ${email.trim()} for a new setup link.`);
+      showToast("success", "Link sent", `Check ${address} for a new setup link.`);
     } catch (err) {
       showToast("error", "Couldn't send link", getAuthErrorMessage(err));
     } finally {
       setResending(false);
     }
-  }, [email]);
+  }, [email, companyId]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -118,7 +127,7 @@ export default function AlumniSetPassword() {
     try {
       await confirmPasswordReset(auth, oobCode, password);
       // Sign straight in so the alumni never re-types the email they just saw.
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       // useAlumniAuth validates the profile and the redirect below takes over.
     } catch (err) {
       setError(getAuthErrorMessage(err, "Couldn't set your password. Please try again."));

@@ -52,6 +52,7 @@ export { sendTeamInvite } from "./triggers/sendTeamInvite";
 export {
   claimCompany,
   acceptInvite,
+  previewInvite,
   setMemberRole,
   removeMember,
   selectTrialPlan,
