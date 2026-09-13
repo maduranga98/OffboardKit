@@ -688,7 +688,12 @@ service cloud.firestore {
 
     match /invites/{inviteId} {
       allow read: if isTeamAdmin(resource.data.companyId);
-      allow create: if teamAdminWrite(request.resource.data.companyId);
+      // Creating an invite is server-only (createTeamInvite). Every package
+      // sells a fixed number of seats, and a client-written invite bypasses
+      // that check entirely — which is how a Starter company ended up able to
+      // send unlimited invitations. Cancelling (delete) stays client-side:
+      // giving a seat back never needs guarding.
+      allow create: if false;
       allow update: if teamAdminWrite(resource.data.companyId)
         && tenantUnchanged();
       allow delete: if teamAdminWrite(resource.data.companyId);

@@ -27,8 +27,17 @@ import { useAuthStore } from "../../store/authStore";
 import { useCompanyStore } from "../../store/companyStore";
 import { seedDefaultTemplates } from "../../lib/seedData";
 import { TRIAL_DAYS } from "../../lib/trial";
+import { getPlanUserLimit, type PlanKey } from "../../lib/plans";
 import type { Company, CompanySize } from "../../types/company.types";
 import type { UserRole } from "../../types/user.types";
+
+/**
+ * Package the card-free week runs on. Signup asks for no plan, so
+ * claimCompany grants the trial on this one (TRIAL_PLAN in
+ * functions/src/billing/trial.ts) — and it is what decides how many seats,
+ * and therefore how many invitations, the wizard has to give away.
+ */
+const WIZARD_TRIAL_PLAN: PlanKey = "starter";
 
 const steps = [
   { label: "Company", icon: Building2 },
@@ -174,9 +183,20 @@ export default function SetupWizard() {
   if (!user) return <Navigate to="/login" replace />;
   if (companyId) return <Navigate to="/dashboard" replace />;
 
+  // Seats the company will have on day one. Signup asks for no package, so
+  // the week runs on the trial plan (functions/src/billing/trial.ts) and the
+  // owner already holds the first seat. Capping here keeps the wizard from
+  // queueing invitations the server would only refuse a second later.
+  const wizardSeatLimit = getPlanUserLimit(WIZARD_TRIAL_PLAN);
+  const invitesAllowed =
+    wizardSeatLimit === null ? null : Math.max(0, wizardSeatLimit - 1);
+  const seatsFull =
+    invitesAllowed !== null && teamMembers.length >= invitesAllowed;
+
   const addTeamMember = () => {
     if (!inviteEmail || !inviteEmail.includes("@")) return;
     if (teamMembers.some((m) => m.email === inviteEmail)) return;
+    if (seatsFull) return;
     setTeamMembers([...teamMembers, { email: inviteEmail, role: inviteRole }]);
     setInviteEmail("");
   };
@@ -267,29 +287,25 @@ export default function SetupWizard() {
         }
       }
 
-      // Send invite emails for each team member added in the wizard
+      // Send invite emails for each team member added in the wizard.
+      // createTeamInvite owns the invite document now: it is the one place
+      // that checks the package's seat limit before promising a seat, and
+      // firestore.rules no longer lets a browser write to `invites` at all.
+      const createInvite = httpsCallable<
+        { email: string; role: UserRole },
+        { inviteId: string }
+      >(functions, "createTeamInvite");
       for (const member of teamMembers) {
-        const inviteId = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-        await setDocument("invites", inviteId, {
-          id: inviteId,
-          companyId: newCompanyId,
-          companyName: companyName,
-          email: member.email.toLowerCase(),
-          role: member.role,
-          invitedBy: user.uid,
-          invitedByName: user.displayName || user.email || "",
-          status: "pending",
-          createdAt: Timestamp.now(),
-          expiresAt: Timestamp.fromDate(expiresAt),
-        });
-
-        // Fire and forget — don't block wizard completion
-        const sendInviteEmail = httpsCallable(functions, "sendTeamInvite");
-        sendInviteEmail({ inviteId }).catch((err) =>
-          console.error("Failed to send invite email:", err)
-        );
+        // Sequential, so the server's seat count is accurate for each one —
+        // and awaited, so an invite refused for want of a seat is not sent.
+        try {
+          await createInvite({
+            email: member.email.toLowerCase(),
+            role: member.role,
+          });
+        } catch (err) {
+          console.error("Failed to send invite email:", err);
+        }
       }
 
       setCompanyId(newCompanyId);
@@ -453,6 +469,16 @@ export default function SetupWizard() {
               <p className="text-sm text-mist mt-1">
                 Add your HR and IT team members. You can skip this and do it later.
               </p>
+              {invitesAllowed !== null && (
+                <p className="text-xs text-mist mt-2">
+                  Your trial includes {wizardSeatLimit} users — your own account
+                  plus up to{" "}
+                  <span className="font-medium text-navy">
+                    {invitesAllowed} invite{invitesAllowed === 1 ? "" : "s"}
+                  </span>
+                  . Upgrade later for more.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -463,21 +489,30 @@ export default function SetupWizard() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTeamMember())}
+                  disabled={seatsFull}
                 />
               </div>
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                className="rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50"
+                disabled={seatsFull}
+                className="rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 disabled:bg-navy/5 disabled:cursor-not-allowed"
               >
                 <option value="hr_admin">HR Admin</option>
                 <option value="it_admin">IT Admin</option>
                 <option value="manager">Manager</option>
               </select>
-              <Button onClick={addTeamMember} size="md">
+              <Button onClick={addTeamMember} size="md" disabled={seatsFull}>
                 <Plus size={16} />
               </Button>
             </div>
+
+            {seatsFull && (
+              <p className="text-xs text-navy/70 bg-ember/5 border border-ember/20 rounded-md px-3 py-2.5">
+                You have used all {wizardSeatLimit} seats on your trial plan.
+                Upgrade from Billing to invite more people.
+              </p>
+            )}
 
             {teamMembers.length > 0 && (
               <div className="space-y-2">

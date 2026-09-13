@@ -11,35 +11,18 @@ const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
 };
 
-export const sendTeamInvite = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
-  }
-
-  const { inviteId } = data as { inviteId?: string };
-  if (!inviteId || typeof inviteId !== "string") {
-    throw new functions.https.HttpsError("invalid-argument", "inviteId required");
-  }
-
-  const db = admin.firestore();
-
-  const inviteDoc = await db.collection("invites").doc(inviteId).get();
-  if (!inviteDoc.exists) {
-    throw new functions.https.HttpsError("not-found", "Invite not found");
-  }
-
-  const invite = inviteDoc.data()!;
-
-  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
-  const caller = callerDoc.data();
-  if (!caller || caller.companyId !== invite.companyId) {
-    throw new functions.https.HttpsError("permission-denied", "Not authorized");
-  }
-
-  // The subscription lock is enforced here too: callables use the admin
-  // SDK, so firestore.rules never sees their writes.
-  await assertCompanyActive(invite.companyId as string);
-
+/**
+ * Renders and sends the invitation email for an already-stored invite.
+ *
+ * Split out of the callable so createTeamInvite — which writes the invite
+ * itself, after checking the package's seat limit — can deliver it without a
+ * second round trip to the browser, while this callable stays available for
+ * re-sending an existing invitation.
+ */
+export async function deliverTeamInvite(
+  inviteId: string,
+  invite: admin.firestore.DocumentData
+): Promise<void> {
   const appUrl = (
     process.env.APP_URL || functions.config().app?.url || "https://offboardset.com"
   ).replace(/\/+$/, "");
@@ -106,5 +89,37 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
   });
 
   console.log(`Invite email sent to ${invite.email} for company ${invite.companyName}`);
+}
+
+export const sendTeamInvite = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+  }
+
+  const { inviteId } = data as { inviteId?: string };
+  if (!inviteId || typeof inviteId !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "inviteId required");
+  }
+
+  const db = admin.firestore();
+
+  const inviteDoc = await db.collection("invites").doc(inviteId).get();
+  if (!inviteDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "Invite not found");
+  }
+
+  const invite = inviteDoc.data()!;
+
+  const callerDoc = await db.collection("users").doc(context.auth.uid).get();
+  const caller = callerDoc.data();
+  if (!caller || caller.companyId !== invite.companyId) {
+    throw new functions.https.HttpsError("permission-denied", "Not authorized");
+  }
+
+  // The subscription lock is enforced here too: callables use the admin
+  // SDK, so firestore.rules never sees their writes.
+  await assertCompanyActive(invite.companyId as string);
+
+  await deliverTeamInvite(inviteId, invite);
   return { success: true };
 });
