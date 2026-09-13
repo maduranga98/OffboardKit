@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
+  AlertCircle,
   Mail,
   UserMinus,
   Users,
@@ -16,13 +17,13 @@ import { EmptyState } from "../../components/shared/EmptyState";
 import { LoadingSpinner } from "../../components/shared/LoadingSpinner";
 import { showToast } from "../../components/ui/Toast";
 import { useAuth } from "../../hooks/useAuth";
+import { useCompanyStore } from "../../store/companyStore";
 import { functions } from "../../lib/firebase";
+import { getEffectivePlan } from "../../lib/trial";
+import { getSeatUsage } from "../../lib/plans";
 import {
   queryDocuments,
-  getDocument,
-  setDocument,
   deleteDocument,
-  serverTimestamp,
   where,
 } from "../../lib/firestore";
 import type { AppUser, UserRole } from "../../types/user.types";
@@ -66,6 +67,7 @@ function getInitials(name: string) {
 
 export default function TeamSettings() {
   const { companyId, appUser } = useAuth();
+  const company = useCompanyStore((state) => state.company);
   const [members, setMembers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [removeTarget, setRemoveTarget] = useState<AppUser | null>(null);
@@ -150,64 +152,47 @@ export default function TeamSettings() {
     const email = inviteEmail.trim().toLowerCase();
     if (!email || !email.includes("@") || !companyId || !appUser) return;
 
-    // Check if already has a pending invite
-    const existing = await queryDocuments<Invite>("invites", [
-      where("companyId", "==", companyId),
-      where("email", "==", email),
-      where("status", "==", "pending"),
-    ]);
-    if (existing.length > 0) {
-      showToast("error", "Already invited", "This email already has a pending invite.");
-      return;
-    }
-
-    // Check if already a team member
-    const existingMember = members.find((m) => m.email.toLowerCase() === email);
-    if (existingMember) {
-      showToast("error", "Already on team", "This person is already a team member.");
+    // Locally cheap checks only. The seat limit, the duplicate checks and the
+    // invite document itself are all owned by createTeamInvite — a browser
+    // cannot write to the invites collection any more, precisely so the seat
+    // count a package sells is enforced in one place.
+    if (seats.isFull) {
+      showToast("error", "No seats left", seatLimitHint);
       return;
     }
 
     setInviting(true);
-    let inviteId: string | null = null;
     try {
-      inviteId = crypto.randomUUID();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-      const companyDoc = await getDocument<{ name: string }>("companies", companyId);
-      const companyName = companyDoc?.name || "Your company";
-
-      await setDocument("invites", inviteId, {
-        id: inviteId,
-        companyId,
-        companyName,
-        email,
-        role: inviteRole,
-        invitedBy: appUser.id,
-        invitedByName: appUser.displayName || appUser.email,
-        status: "pending",
-        createdAt: serverTimestamp(),
-        expiresAt: Timestamp.fromDate(expiresAt),
-      });
-
-      const sendInviteEmail = httpsCallable(functions, "sendTeamInvite");
-      await sendInviteEmail({ inviteId });
+      const createInvite = httpsCallable<
+        { email: string; role: UserRole },
+        { inviteId: string }
+      >(functions, "createTeamInvite");
+      await createInvite({ email, role: inviteRole });
 
       showToast("success", "Invite sent", `Invitation email sent to ${email}`);
       setInviteEmail("");
       loadPendingInvites();
     } catch (error) {
       console.error("Invite error:", error);
-      if (inviteId) {
-        await deleteDocument("invites", inviteId).catch((deleteError) =>
-          console.error("Failed to roll back invite after email error:", deleteError)
+      const { code, message } = (error ?? {}) as { code?: string; message?: string };
+
+      if (code === "functions/resource-exhausted") {
+        showToast("error", "No seats left", seatLimitHint);
+      } else if (code === "functions/already-exists") {
+        showToast("error", "Already invited", message || "This person already has access.");
+      } else if (code === "functions/failed-precondition") {
+        showToast(
+          "error",
+          "Subscription required",
+          "Your trial has ended — choose a plan to keep inviting teammates."
+        );
+      } else {
+        showToast(
+          "error",
+          "Failed to send invite",
+          "The invite was not saved. Please try again."
         );
       }
-      showToast(
-        "error",
-        "Failed to send invite",
-        "The invite was not saved. Check the SMTP function configuration and try again."
-      );
     } finally {
       setInviting(false);
     }
@@ -217,6 +202,22 @@ export default function TeamSettings() {
     acc[m.role] = (acc[m.role] || 0) + 1;
     return acc;
   }, {});
+
+  // Seats mirror the server's arithmetic in functions/src/billing/planLimits.ts:
+  // an active member and an unexpired pending invite each hold one.
+  const seats = getSeatUsage(
+    getEffectivePlan(company),
+    members.filter((m) => m.isActive !== false).length,
+    pendingInvites.filter(
+      (i) => !i.expiresAt || i.expiresAt.toDate().getTime() > Date.now()
+    ).length
+  );
+
+  const seatLimitHint =
+    seats.limit === null
+      ? ""
+      : `Your plan includes ${seats.limit} user${seats.limit === 1 ? "" : "s"}. ` +
+        "Upgrade, cancel a pending invite, or remove a member to invite someone else.";
 
   const selectClass =
     "rounded-md border border-navy/20 px-2 py-1 text-xs text-navy focus:outline-none focus:ring-1 focus:ring-teal/50 focus:border-teal";
@@ -230,7 +231,15 @@ export default function TeamSettings() {
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card>
-              <p className="text-2xl font-semibold text-navy">{members.length}</p>
+              <p className="text-2xl font-semibold text-navy">
+                {members.length}
+                {seats.limit !== null && (
+                  <span className="text-base font-normal text-mist">
+                    {" / "}
+                    {seats.limit}
+                  </span>
+                )}
+              </p>
               <p className="text-xs text-mist mt-0.5">Total Members</p>
             </Card>
             {(["hr_admin", "manager", "it_admin"] as UserRole[]).map((role) => (
@@ -246,9 +255,39 @@ export default function TeamSettings() {
           {/* Invite section */}
           <Card>
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-navy">
-                Invite Team Member
-              </h2>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-base font-semibold text-navy">
+                  Invite Team Member
+                </h2>
+                <p className="text-xs text-mist">
+                  {seats.limit === null ? (
+                    <>Unlimited users on your plan</>
+                  ) : (
+                    <>
+                      <span
+                        className={
+                          seats.isFull ? "font-medium text-ember" : "font-medium text-navy"
+                        }
+                      >
+                        {seats.used} of {seats.limit}
+                      </span>{" "}
+                      seats used
+                      {seats.pendingInvites > 0 &&
+                        ` · ${seats.pendingInvites} pending`}
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {seats.isFull && (
+                <div className="flex items-start gap-2.5 rounded-md bg-ember/5 border border-ember/20 px-3 py-2.5">
+                  <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-ember" />
+                  <p className="text-xs leading-relaxed text-navy/80">
+                    {seatLimitHint}
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="email"
@@ -256,12 +295,14 @@ export default function TeamSettings() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                  className="flex-1 rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                  disabled={seats.isFull}
+                  className="flex-1 rounded-md border border-navy/20 px-3 py-2 text-sm text-navy placeholder:text-mist focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal disabled:bg-navy/5 disabled:cursor-not-allowed"
                 />
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                  className="rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal"
+                  disabled={seats.isFull}
+                  className="rounded-md border border-navy/20 px-3 py-2 text-sm text-navy focus:outline-none focus:ring-2 focus:ring-teal/50 focus:border-teal disabled:bg-navy/5 disabled:cursor-not-allowed"
                 >
                   <option value="hr_admin">HR Admin</option>
                   <option value="it_admin">IT Admin</option>
@@ -269,7 +310,7 @@ export default function TeamSettings() {
                 </select>
                 <Button
                   onClick={handleInvite}
-                  disabled={!inviteEmail.trim() || inviting}
+                  disabled={!inviteEmail.trim() || inviting || seats.isFull}
                   loading={inviting}
                 >
                   <Mail size={16} className="mr-1.5" />

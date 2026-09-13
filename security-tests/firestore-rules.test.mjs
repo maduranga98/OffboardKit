@@ -181,7 +181,11 @@ await check('staff: read own tasks by flowId alone', () => getDocs(query(collect
 await check('staff: read own notifications', () => getDocs(query(collection(staff,'notifications'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: read own alumni', () => getDocs(query(collection(staff,'alumniProfiles'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff admin: read own invites', () => getDocs(query(collection(staff,'invites'), where('companyId','==','companyA'))), 'ALLOWED');
-await check('staff admin: create an invite', () => setDoc(doc(staff,'invites/inv2'), { companyId:'companyA', email:'x@victim.com', role:'manager', status:'pending' }), 'ALLOWED');
+// Invites are created only by the createTeamInvite callable, which refuses
+// one when the company's package has no seat left. A browser-written invite
+// would sidestep that check, so the collection is create-only server-side.
+await check('staff admin: CANNOT create an invite directly (bypasses seat limit)', () => setDoc(doc(staff,'invites/inv2'), { companyId:'companyA', email:'x@victim.com', role:'manager', status:'pending' }), 'DENIED');
+await check('staff admin: cancel a pending invite', () => deleteDoc(doc(staff,'invites/inviteA')), 'ALLOWED');
 await check('staff: update company settings', () => updateDoc(doc(staff,'companies/companyA'), { settings:{ brandColor:'#000' } }), 'ALLOWED');
 await check('staff: CANNOT self-serve a plan upgrade', () => updateDoc(doc(staff,'companies/companyA'), { plan:'enterprise' }), 'DENIED');
 // usageCount decides whether the Basic-plan cap has been hit, so clients must
@@ -249,7 +253,9 @@ await check('locked: CANNOT grant itself a subscription', () => updateDoc(doc(lo
 await check('locked tenant alumni: CANNOT file a doc request', () => setDoc(doc(lockedAlumni,'docRequests/drLocked'), { companyId:'companyLocked', alumniId:'alumLocked', type:'reference' }), 'DENIED');
 
 await check('trialing: creates an offboarding', () => setDoc(doc(onTrial,'offboardFlows/flowTrial'), { companyId:'companyTrial', employeeName:'Pat', status:'in_progress' }), 'ALLOWED');
-await check('trialing: invites a teammate', () => setDoc(doc(onTrial,'invites/inviteTrial'), { companyId:'companyTrial', email:'x@fresh.com', role:'hr_admin', status:'pending', invitedBy:'trialAdmin' }), 'ALLOWED');
+// Same as above: even an in-trial company goes through createTeamInvite, so
+// its seat count is checked like everyone else's.
+await check('trialing: CANNOT write an invite from the browser', () => setDoc(doc(onTrial,'invites/inviteTrial'), { companyId:'companyTrial', email:'x@fresh.com', role:'hr_admin', status:'pending', invitedBy:'trialAdmin' }), 'DENIED');
 await check('past_due: keeps writing while Stripe retries the card', () => setDoc(doc(pastDue,'offboardFlows/flowPastDue'), { companyId:'companyPastDue', employeeName:'Alex', status:'in_progress' }), 'ALLOWED');
 await check('canceled: CANNOT write after the subscription ends', () => setDoc(doc(canceled,'offboardFlows/flowCanceled'), { companyId:'companyCanceled', employeeName:'Kim', status:'in_progress' }), 'DENIED');
 

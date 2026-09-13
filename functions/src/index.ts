@@ -49,6 +49,7 @@ export {
 export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
+export { createTeamInvite } from "./triggers/createTeamInvite";
 export {
   claimCompany,
   acceptInvite,

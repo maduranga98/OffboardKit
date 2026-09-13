@@ -90,3 +90,54 @@ export const PLAN_ORDER: PlanKey[] = [
   "business",
   "enterprise",
 ];
+
+/**
+ * Seats a package includes, counting the owner. null = unlimited.
+ *
+ * Mirrored server-side by PLAN_USER_LIMITS in
+ * functions/src/billing/planLimits.ts, which is what actually refuses an
+ * invitation — this copy only drives the UI, so the two must stay in step.
+ */
+export function getPlanUserLimit(plan: PlanKey | null | undefined): number | null {
+  if (!plan) return null;
+  return PLAN_CONFIG[plan]?.userLimit ?? null;
+}
+
+export interface SeatUsage {
+  /** Members holding a seat right now. */
+  activeMembers: number;
+  /** Unexpired invitations, each of which is a seat already promised. */
+  pendingInvites: number;
+  /** What counts against the limit. */
+  used: number;
+  /** Seats the package allows; null = unlimited. */
+  limit: number | null;
+  /** Seats left, or null when unlimited. */
+  remaining: number | null;
+  /** No seat left — the invite form must be closed. */
+  isFull: boolean;
+}
+
+/**
+ * Seat arithmetic shared by Team & Roles and the setup wizard.
+ *
+ * A pending invitation consumes a seat: it has already been promised to
+ * someone, and counting only accepted members is what let a company hand out
+ * far more invitations than it had room for.
+ */
+export function getSeatUsage(
+  plan: PlanKey | null | undefined,
+  activeMembers: number,
+  pendingInvites: number
+): SeatUsage {
+  const limit = getPlanUserLimit(plan);
+  const used = activeMembers + pendingInvites;
+  return {
+    activeMembers,
+    pendingInvites,
+    used,
+    limit,
+    remaining: limit === null ? null : Math.max(0, limit - used),
+    isFull: limit !== null && used >= limit,
+  };
+}

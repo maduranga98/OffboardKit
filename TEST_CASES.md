@@ -175,6 +175,26 @@ Use these answers when filling exit interview forms in the employee portal:
 
 ---
 
+**TC-AUTH-06b**
+**Feature:** Invite — Seat Limit Enforced per Package
+**Pre-condition:** Logged in as `admin@testcorp.com` on the **Starter** plan (3 users). Go to `/settings/team`.
+
+| Step | Action | Expected Result |
+|------|--------|-----------------|
+| 1 | Read the seat counter above the invite form | Shows `1 of 3 seats used` (the owner holds one) |
+| 2 | Invite `hr@testcorp.com` | Invite sent. Counter reads `2 of 3 seats used · 1 pending` |
+| 3 | Invite `it@testcorp.com` | Invite sent. Counter reads `3 of 3 seats used · 2 pending` |
+| 4 | Try to invite `extra@testcorp.com` | Email field, role select and **Send Invite** are all disabled, and a notice explains the plan includes 3 users |
+| 5 | Call `createTeamInvite` directly (devtools) with a 4th address | Rejected with `resource-exhausted` / `seat-limit-reached`. No invite document is created and no email is sent. |
+| 6 | Cancel one pending invite with the ✕ button | A seat is released. Counter drops to `2 of 3`, and the invite form is usable again. |
+| 7 | Accept one invite and register that user | Registration **and login** both succeed — the seat was reserved when the invite was sent |
+
+**Actual Result:**
+**Status:** PASS / FAIL
+**Notes:**
+
+---
+
 **TC-AUTH-07**
 **Feature:** Google Sign-In
 **Pre-condition:** Google account available.
