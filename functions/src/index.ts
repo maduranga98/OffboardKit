@@ -64,6 +64,9 @@ export { getCompanyMembers } from "./triggers/getCompanyMembers";
 export { analyzeSentiment } from "./ai/analyzeSentiment";
 export { detectKnowledgeGaps } from "./ai/detectKnowledgeGaps";
 
+// Exit interview question generator
+export { generateExitQuestions } from "./exitInterview/generateExitQuestions";
+
 // Analytics Functions
 export { generateAnalyticsPdf } from "./analytics/generateAnalyticsPdf";
 export { generateKnowledgePdf } from "./analytics/generateKnowledgePdf";
