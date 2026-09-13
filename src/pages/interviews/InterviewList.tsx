@@ -27,6 +27,7 @@ import { Badge } from "../../components/ui/Badge";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
 import { EmptyState } from "../../components/shared/EmptyState";
+import { QuestionGeneratorPanel } from "../../components/exitInterview/QuestionGeneratorPanel";
 import { useAuth } from "../../hooks/useAuth";
 import {
   queryDocuments,
@@ -42,6 +43,8 @@ import type {
   QuestionType,
   Sentiment,
 } from "../../types/interview.types";
+import { toInterviewQuestion } from "../../types/exitInterview.types";
+import type { GeneratedQuestion } from "../../types/exitInterview.types";
 
 type TabView = "templates" | "responses";
 
@@ -377,6 +380,14 @@ function TemplateBuilderModal({
     setShowQuestionBank(false);
   };
 
+  /** Appends the AI-generated questions HR kept, after the existing ones. */
+  const addGeneratedQuestions = (generated: GeneratedQuestion[]) => {
+    setQuestions((prev) => [
+      ...prev,
+      ...generated.map((g, i) => toInterviewQuestion(g, prev.length + i + 1)),
+    ]);
+  };
+
   const updateQuestion = (
     id: string,
     updates: Partial<InterviewQuestion>
@@ -545,6 +556,11 @@ function TemplateBuilderModal({
                 </Button>
               </div>
             </div>
+
+            <QuestionGeneratorPanel
+              onQuestionsSelected={addGeneratedQuestions}
+              defaultOpen={questions.length === 0}
+            />
 
             {/* Question Bank dropdown */}
             {showQuestionBank && (

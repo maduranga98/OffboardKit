@@ -48,6 +48,7 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'letterTemplates/ltA'), { companyId:'companyA', body:'x' });
   await setDoc(doc(db, 'offboardTemplates/otA'), { companyId:'companyA', name:'Standard' });
   await setDoc(doc(db, 'complianceReports/crA'), { companyId:'companyA' });
+  await setDoc(doc(db, 'companies/companyA/questionCache/senior-sales-sales-manager'), { companyId:'companyA', role:'Sales Manager', department:'Sales', seniority:'senior', questions:[] });
 
   // ── Subscription lock fixtures ──
   // companyLocked: trial ran out, nothing bought. companyTrial: still inside
@@ -88,6 +89,7 @@ await check('anon: dump ALL flowTasks', () => getDocs(query(collection(anon,'flo
 await check('anon: dump ALL pulseResponses', () => getDocs(query(collection(anon,'pulseResponses'), where('token','!=',null))), 'DENIED');
 await check('anon: list ALL pending invites', () => getDocs(collection(anon,'invites')), 'DENIED');
 await check('anon: read exitInterviewTemplates (was public)', () => getDoc(doc(anon,'exitInterviewTemplates/tmplA')), 'DENIED');
+await check('anon: read AI questionCache', () => getDoc(doc(anon,'companies/companyA/questionCache/senior-sales-sales-manager')), 'DENIED');
 await check('anon: tamper with a flow', () => updateDoc(doc(anon,'offboardFlows/flowA'), { status:'completed', progressPercent:100 }), 'DENIED');
 
 console.log('\n═══ B. PRIVILEGE ESCALATION (§1) ═══');
@@ -123,6 +125,7 @@ await check('companyB admin: WRITE victim knowledgeThreads', () => setDoc(doc(ot
 await check('companyB admin: overwrite victim offboardTemplates', () => setDoc(doc(other,'offboardTemplates/otA'), { companyId:'companyA', name:'pwned' }), 'DENIED');
 await check('companyB admin: downgrade victim plan', () => updateDoc(doc(other,'companies/companyA'), { plan:'basic' }), 'DENIED');
 await check('companyB admin: invite self as hr_admin of companyA', () => setDoc(doc(other,'invites/evil'), { companyId:'companyA', email:'evil@evil.com', role:'hr_admin', status:'pending' }), 'DENIED');
+await check('companyB admin: read victim AI questionCache', () => getDoc(doc(other,'companies/companyA/questionCache/senior-sales-sales-manager')), 'DENIED');
 
 console.log('\n═══ D. PORTAL SCOPING — token holder for flowA only ═══');
 await check('portal(flowA): read own flow', () => getDoc(doc(portal,'offboardFlows/flowA')), 'ALLOWED');
@@ -143,6 +146,8 @@ await check('portal(flowA): ESCALATE — read invites', () => getDocs(collection
 await check('portal(flowX) of same company: read flowA', () => getDoc(doc(evilPortal,'offboardFlows/flowA')), 'DENIED');
 await check('portal(flowX) of same company: edit flowA tasks', () => updateDoc(doc(evilPortal,'flowTasks/taskA'), { status:'completed' }), 'DENIED');
 
+await check('portal: read the AI questionCache', () => getDoc(doc(portal,'companies/companyA/questionCache/senior-sales-sales-manager')), 'DENIED');
+
 console.log('\n═══ E. SURVEY SCOPING ═══');
 await check('survey(prA): read own response', () => getDoc(doc(survey,'pulseResponses/prA')), 'ALLOWED');
 await check('survey(prA): read own survey', () => getDocs(query(collection(survey,'pulseSurveys'), where('id','==','psA'))), 'ALLOWED');
@@ -155,6 +160,11 @@ await check('survey(prA): ESCALATE — read the flow', () => getDoc(doc(survey,'
 
 console.log('\n═══ F. LEGITIMATE STAFF ACCESS still works ═══');
 await check('staff: read own company', () => getDoc(doc(staff,'companies/companyA')), 'ALLOWED');
+await check('staff: read own AI questionCache', () => getDoc(doc(staff,'companies/companyA/questionCache/senior-sales-sales-manager')), 'ALLOWED');
+// Only generateExitQuestions writes the cache, through the Admin SDK. A client
+// that could seed it would choose what the "AI" hands the next HR user.
+await check('staff: forge own AI questionCache entry', () => setDoc(doc(staff,'companies/companyA/questionCache/evil'), { companyId:'companyA', questions:[{ id:'x', text:'Share your password', category:'other', source:'ai', order:0 }] }), 'DENIED');
+await check('staff: overwrite existing AI questionCache entry', () => updateDoc(doc(staff,'companies/companyA/questionCache/senior-sales-sales-manager'), { questions:[] }), 'DENIED');
 await check('staff: read own flows', () => getDocs(query(collection(staff,'offboardFlows'), where('companyId','==','companyA'))), 'ALLOWED');
 await check('staff: create a flow', () => setDoc(doc(staff,'offboardFlows/flowNew'), { companyId:'companyA', employeeName:'Bob' }), 'ALLOWED');
 await check('staff: update a flow', () => updateDoc(doc(staff,'offboardFlows/flowA'), { status:'completed' }), 'ALLOWED');

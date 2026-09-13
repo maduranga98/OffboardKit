@@ -391,6 +391,17 @@ service cloud.firestore {
       allow delete: if staffDelete();
     }
 
+    // ── companies/{companyId}/questionCache ─────────────────────────────
+    // AI-generated exit-interview question sets, keyed by
+    // seniority_department_role. Written only by generateExitQuestions
+    // through the Admin SDK, which bypasses these rules; clients read it for
+    // debugging only (the callable serves them the cached set directly).
+
+    match /companies/{companyId}/questionCache/{cacheKey} {
+      allow read: if inCompany(companyId);
+      allow write: if false;
+    }
+
     // ── exitInterviewResponses ──────────────────────────────────────────
     // Free-text grievances. Company staff, or the one portal that owns them.
 

@@ -25,6 +25,13 @@ export type {
   ExitInterviewResponse,
 } from "./interview.types";
 export type {
+  Seniority,
+  QuestionCategory,
+  GeneratedQuestion,
+  GenerateExitQuestionsRequest,
+  GenerateExitQuestionsResponse,
+} from "./exitInterview.types";
+export type {
   KnowledgeItemType,
   KnowledgeItemStatus,
   KnowledgeItem,

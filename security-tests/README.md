@@ -16,7 +16,7 @@ Both suites exit non-zero on any failure, so they drop straight into CI.
 
 | Suite | Checks | Covers |
 |---|---|---|
-| `firestore-rules.test.mjs` | 96 | privilege escalation, portal-token enumeration, cross-tenant reads/writes, invite exposure, and the legitimate staff / alumni / portal / survey paths |
+| `firestore-rules.test.mjs` | 134 | privilege escalation, portal-token enumeration, cross-tenant reads/writes, invite exposure, and the legitimate staff / alumni / portal / survey paths |
 | `storage-rules.test.mjs` | 21 | anonymous upload & world-readable objects, portal scoping to a single flow, cross-tenant object access |
 
 ## Notes for future edits
