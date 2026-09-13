@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -88,143 +88,170 @@ async function createStaffUser(firebaseUser: User): Promise<AppUser | null> {
   }
 }
 
+/**
+ * The auth listener is a module-level singleton, subscribed once for the life
+ * of the tab.
+ *
+ * It used to be a `useEffect` inside useAuth, which meant one listener — and
+ * one `inFlightUid` ref — per *component* calling the hook. A dozen components
+ * do. They each re-ran the whole resolution (same reads, same writes, same
+ * acceptInvite call), and because the ref was per instance while `loading` is
+ * shared store state, they could not agree on when the app was ready: as soon
+ * as AppLayout dropped its spinner it mounted Sidebar/TopBar/the page, whose
+ * fresh refs started the resolution again and pushed `loading` back to true,
+ * unmounting the very components that were mid-resolution. The app never got
+ * past the spinner.
+ *
+ * One listener, one guard, one owner of `loading`.
+ */
+let listenerStarted = false;
+let inFlightUid: string | null = null;
+
+function startAuthListener() {
+  if (listenerStarted) return;
+  listenerStarted = true;
+
+  const { setUser, setAppUser, setCompanyId, setLoading, setAlumniLoginRequired, logout } =
+    useAuthStore.getState();
+  const { setCompany } = useCompanyStore.getState();
+
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) {
+      inFlightUid = null;
+      logout();
+      setCompany(null);
+      return;
+    }
+
+    setUser(firebaseUser);
+
+    // onAuthStateChanged fires again whenever the ID token is refreshed — and
+    // this handler forces a refresh itself after re-syncing claims. Without
+    // this guard the two runs overlap: both read a missing user document, both
+    // call setDocument, and the second write lands on a document that now
+    // exists. Security rules evaluate that as an *update* of every field,
+    // which only ever allows displayName/photoURL/department/lastLoginAt/
+    // updatedAt — so the second write failed with "Missing or insufficient
+    // permissions" and took the whole profile load down with it.
+    if (inFlightUid === firebaseUser.uid) return;
+    inFlightUid = firebaseUser.uid;
+
+    // Resolving the profile is asynchronous, and `logout()` already set
+    // loading to false on the signed-out pass. Without flipping it back on
+    // here, Signup re-rendered the instant setUser landed — seeing a user with
+    // no companyId yet — and bounced a freshly invited teammate to the
+    // "create your company" wizard before acceptInvite had even been called.
+    setLoading(true);
+
+    try {
+      let existingUser = await getDocument<AppUser>("users", firebaseUser.uid);
+
+      if (!existingUser) {
+        // Before creating a company user doc, verify this isn't an alumni
+        // account. Alumni share the same Firebase Auth project but have
+        // profiles in alumniProfiles, not users. If we find one, sign them
+        // out and surface a redirect rather than creating a phantom company doc.
+        if (firebaseUser.email) {
+          try {
+            const alumniMatches = await queryDocuments<{ id: string }>(
+              "alumniProfiles",
+              [where("email", "==", firebaseUser.email.toLowerCase())]
+            );
+            if (alumniMatches.length > 0) {
+              inFlightUid = null;
+              await firebaseSignOut(auth);
+              setAlumniLoginRequired(true);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Non-blocking: proceed with normal company user creation
+          }
+        }
+
+        existingUser = await createStaffUser(firebaseUser);
+        if (!existingUser) {
+          // Nothing more to do: either the identity cannot own a staff
+          // document, or the create was refused and no document appeared.
+          setLoading(false);
+          return;
+        }
+      } else {
+        // The document is only ever *created* by the client. Re-writing it
+        // wholesale on every sign-in is what security rules reject, so an
+        // existing profile is only touched through the fields the rules
+        // allow, and a failure here is never fatal to the session.
+        void updateDocument<AppUser>("users", firebaseUser.uid, {
+          lastLoginAt: Timestamp.now(),
+        }).catch(() => undefined);
+      }
+
+      // If a pending invite is waiting for this email, the server validates
+      // it and writes the membership, then we re-read the user document.
+      if (!existingUser.companyId) {
+        try {
+          const acceptInvite = httpsCallable<
+            Record<string, never>,
+            { accepted: boolean; companyId?: string; role?: AppUser["role"] }
+          >(functions, "acceptInvite");
+          const { data } = await acceptInvite({});
+          if (data.accepted && data.companyId) {
+            existingUser = {
+              ...existingUser,
+              companyId: data.companyId,
+              role: data.role ?? existingUser.role,
+            };
+          }
+        } catch (inviteErr) {
+          console.error("Invite acceptance failed", inviteErr);
+        }
+      }
+
+      // Storage rules authorize from the companyId custom claim. Existing
+      // accounts (and tokens issued mid-membership-change) may not carry it
+      // yet, so re-sync and force a token refresh when it drifts.
+      try {
+        const tokenResult = await firebaseUser.getIdTokenResult();
+        if (tokenResult.claims.companyId !== (existingUser.companyId || "")) {
+          const refreshClaims = httpsCallable<Record<string, never>, unknown>(
+            functions,
+            "refreshMyClaims"
+          );
+          await refreshClaims({});
+          await firebaseUser.getIdToken(true);
+        }
+      } catch (claimErr) {
+        console.error("Claim refresh failed", claimErr);
+      }
+
+      setAppUser(existingUser);
+      setCompanyId(existingUser.companyId || null);
+
+      if (existingUser.companyId) {
+        const companyDoc = await getDocument<Company>(
+          "companies",
+          existingUser.companyId
+        );
+        setCompany(companyDoc);
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
 export function useAuth() {
-  const { user, appUser, companyId, loading, alumniLoginRequired, setUser, setAppUser, setCompanyId, setLoading, setAlumniLoginRequired, logout } =
+  const { user, appUser, companyId, loading, alumniLoginRequired, logout } =
     useAuthStore();
   const { setCompany } = useCompanyStore();
   const company = useCompanyStore((s) => s.company);
-  // onAuthStateChanged fires again whenever the ID token is refreshed — and
-  // this handler forces a refresh itself after re-syncing claims. Without a
-  // guard the two runs overlap: both read a missing user document, both call
-  // setDocument, and the second write lands on a document that now exists.
-  // Security rules evaluate that as an *update* of every field, which only
-  // ever allows displayName/photoURL/department/lastLoginAt/updatedAt — so
-  // the second write failed with "Missing or insufficient permissions" and
-  // took the whole profile load down with it.
-  const inFlightUid = useRef<string | null>(null);
 
+  // Idempotent: the first caller subscribes, every later caller is a no-op.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        inFlightUid.current = null;
-        logout();
-        setCompany(null);
-        return;
-      }
-
-      setUser(firebaseUser);
-
-      if (inFlightUid.current === firebaseUser.uid) return;
-      inFlightUid.current = firebaseUser.uid;
-
-      // Resolving the profile is asynchronous, and `logout()` already set
-      // loading to false on the signed-out pass. Without flipping it back on
-      // here, Signup and AppLayout re-rendered the instant setUser landed —
-      // seeing a user with no companyId yet — and bounced a freshly invited
-      // teammate to the "create your company" wizard before acceptInvite had
-      // even been called.
-      setLoading(true);
-
-      try {
-        let existingUser = await getDocument<AppUser>("users", firebaseUser.uid);
-
-        if (!existingUser) {
-          // Before creating a company user doc, verify this isn't an alumni
-          // account. Alumni share the same Firebase Auth project but have
-          // profiles in alumniProfiles, not users. If we find one, sign them
-          // out and surface a redirect rather than creating a phantom company doc.
-          if (firebaseUser.email) {
-            try {
-              const alumniMatches = await queryDocuments<{ id: string }>(
-                "alumniProfiles",
-                [where("email", "==", firebaseUser.email.toLowerCase())]
-              );
-              if (alumniMatches.length > 0) {
-                inFlightUid.current = null;
-                await firebaseSignOut(auth);
-                setAlumniLoginRequired(true);
-                setLoading(false);
-                return;
-              }
-            } catch {
-              // Non-blocking: proceed with normal company user creation
-            }
-          }
-
-          existingUser = await createStaffUser(firebaseUser);
-          if (!existingUser) {
-            // Nothing more to do: either the identity cannot own a staff
-            // document, or the create was refused and no document appeared.
-            setLoading(false);
-            return;
-          }
-        } else {
-          // The document is only ever *created* by the client. Re-writing it
-          // wholesale on every sign-in is what security rules reject, so an
-          // existing profile is only touched through the fields the rules
-          // allow, and a failure here is never fatal to the session.
-          void updateDocument<AppUser>("users", firebaseUser.uid, {
-            lastLoginAt: Timestamp.now(),
-          }).catch(() => undefined);
-        }
-
-        // If a pending invite is waiting for this email, the server validates
-        // it and writes the membership, then we re-read the user document.
-        if (!existingUser.companyId) {
-          try {
-            const acceptInvite = httpsCallable<
-              Record<string, never>,
-              { accepted: boolean; companyId?: string; role?: AppUser["role"] }
-            >(functions, "acceptInvite");
-            const { data } = await acceptInvite({});
-            if (data.accepted && data.companyId) {
-              existingUser = {
-                ...existingUser,
-                companyId: data.companyId,
-                role: data.role ?? existingUser.role,
-              };
-            }
-          } catch (inviteErr) {
-            console.error("Invite acceptance failed", inviteErr);
-          }
-        }
-
-        // Storage rules authorize from the companyId custom claim. Existing
-        // accounts (and tokens issued mid-membership-change) may not carry it
-        // yet, so re-sync and force a token refresh when it drifts.
-        try {
-          const tokenResult = await firebaseUser.getIdTokenResult();
-          if (tokenResult.claims.companyId !== (existingUser.companyId || "")) {
-            const refreshClaims = httpsCallable<Record<string, never>, unknown>(
-              functions,
-              "refreshMyClaims"
-            );
-            await refreshClaims({});
-            await firebaseUser.getIdToken(true);
-          }
-        } catch (claimErr) {
-          console.error("Claim refresh failed", claimErr);
-        }
-
-        setAppUser(existingUser);
-        setCompanyId(existingUser.companyId || null);
-
-        if (existingUser.companyId) {
-          const companyDoc = await getDocument<Company>(
-            "companies",
-            existingUser.companyId
-          );
-          setCompany(companyDoc);
-        }
-      } catch (error) {
-        console.error("Error loading user data:", error);
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [setUser, setAppUser, setCompanyId, setLoading, setCompany, setAlumniLoginRequired, logout]);
+    startAuthListener();
+  }, []);
 
   /**
    * `loginHint` pre-selects the account Google offers. On an invitation the
