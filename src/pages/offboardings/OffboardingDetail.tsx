@@ -240,7 +240,9 @@ export default function OffboardingDetail() {
           companyId: flow.companyId,
           flowId: flow.id,
           name: flow.employeeName,
-          email: flow.employeeEmail,
+          // Lower-cased to match the Firebase Auth address the alumni portal
+          // resolves the profile by.
+          email: (flow.employeeEmail || "").trim().toLowerCase(),
           role: flow.employeeRole,
           department: flow.employeeDepartment,
           exitDate: flow.lastWorkingDay,

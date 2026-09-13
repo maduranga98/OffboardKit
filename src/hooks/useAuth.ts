@@ -117,6 +117,14 @@ export function useAuth() {
       if (inFlightUid.current === firebaseUser.uid) return;
       inFlightUid.current = firebaseUser.uid;
 
+      // Resolving the profile is asynchronous, and `logout()` already set
+      // loading to false on the signed-out pass. Without flipping it back on
+      // here, Signup and AppLayout re-rendered the instant setUser landed —
+      // seeing a user with no companyId yet — and bounced a freshly invited
+      // teammate to the "create your company" wizard before acceptInvite had
+      // even been called.
+      setLoading(true);
+
       try {
         let existingUser = await getDocument<AppUser>("users", firebaseUser.uid);
 
@@ -129,7 +137,7 @@ export function useAuth() {
             try {
               const alumniMatches = await queryDocuments<{ id: string }>(
                 "alumniProfiles",
-                [where("email", "==", firebaseUser.email)]
+                [where("email", "==", firebaseUser.email.toLowerCase())]
               );
               if (alumniMatches.length > 0) {
                 inFlightUid.current = null;
@@ -218,8 +226,17 @@ export function useAuth() {
     return () => unsubscribe();
   }, [setUser, setAppUser, setCompanyId, setLoading, setCompany, setAlumniLoginRequired, logout]);
 
-  const signInWithGoogle = async () => {
+  /**
+   * `loginHint` pre-selects the account Google offers. On an invitation the
+   * membership is matched server-side against the verified token email, so
+   * signing in with a personal address silently produced a brand new company
+   * instead of joining the inviting one.
+   */
+  const signInWithGoogle = async (loginHint?: string) => {
     try {
+      googleProvider.setCustomParameters(
+        loginHint ? { login_hint: loginHint, prompt: "select_account" } : { prompt: "select_account" }
+      );
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Google sign-in error:", error);

@@ -257,7 +257,10 @@ export default function Alumni() {
     if (!form.name.trim() || !form.email.trim() || !companyId) return;
 
     setSaving(true);
-    const email = form.email.trim();
+    // Firebase Auth lower-cases every address, and the alumni portal looks a
+    // profile up by the email on the signed-in token. Storing anything else
+    // makes the invite land on "No alumni account found with this email".
+    const email = form.email.trim().toLowerCase();
 
     try {
       const id = crypto.randomUUID();
@@ -327,7 +330,7 @@ export default function Alumni() {
 
     const updates = {
       name: form.name.trim(),
-      email: form.email.trim(),
+      email: form.email.trim().toLowerCase(),
       role: form.role.trim(),
       department: form.department,
       exitDate: form.exitDate
@@ -390,7 +393,7 @@ export default function Alumni() {
           companyId,
           flowId: flow.id,
           name: flow.employeeName,
-          email: flow.employeeEmail,
+          email: (flow.employeeEmail || "").trim().toLowerCase(),
           role: flow.employeeRole,
           department: flow.employeeDepartment,
           exitDate: flow.completedAt || flow.createdAt,

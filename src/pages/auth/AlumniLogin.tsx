@@ -39,7 +39,14 @@ export default function AlumniLogin() {
     if (!forgotEmail) return;
     setSendingReset(true);
     try {
-      await sendPasswordResetEmail(auth, forgotEmail);
+      await sendPasswordResetEmail(auth, forgotEmail.trim().toLowerCase(), {
+        // Without a continue URL Firebase's hosted handler ends on a dead-end
+        // "password changed" page; this brings the alumni back to the portal.
+        url: `${window.location.origin}/alumni-login?email=${encodeURIComponent(
+          forgotEmail.trim().toLowerCase()
+        )}`,
+        handleCodeInApp: false,
+      });
       showToast("success", `Password reset email sent to ${forgotEmail}`);
       setShowForgot(false);
       setForgotEmail("");

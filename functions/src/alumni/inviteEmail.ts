@@ -1,6 +1,6 @@
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -61,7 +61,7 @@ export function alumniInviteHtml(params: {
             <a href="${url}" style="color:#0D9E8A;text-decoration:none;">${url}</a>
           </p>
           <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6B7280;font-family:${FONT};">
-            This link expires in 24 hours. If it does, you can request a new one from the
+            This link expires in one hour. If it does, you can request a new one from the
             alumni sign-in page. If you weren't expecting this email, you can safely ignore it.
           </p>
         </td></tr>

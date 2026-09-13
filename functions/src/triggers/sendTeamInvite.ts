@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { sendSmtpEmail } from "../email/smtpClient";
 import { assertCompanyActive } from "../billing/access";
+import { escapeHtml } from "../alumni/inviteEmail";
 
 const ROLE_LABELS: Record<string, string> = {
   hr_admin: "HR Admin",
@@ -39,9 +40,19 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
   // SDK, so firestore.rules never sees their writes.
   await assertCompanyActive(invite.companyId as string);
 
-  const appUrl = process.env.APP_URL || functions.config().app?.url || "https://offboardset.com";
-  const signupUrl = `${appUrl}/signup?invite=${inviteId}`;
-  const roleLabel = ROLE_LABELS[invite.role] || invite.role;
+  const appUrl = (
+    process.env.APP_URL || functions.config().app?.url || "https://offboardset.com"
+  ).replace(/\/+$/, "");
+  const signupUrl = `${appUrl}/signup?invite=${encodeURIComponent(inviteId)}`;
+
+  // Company and inviter names are free text typed by a customer; dropping them
+  // raw into the template let a stray quote or angle bracket break the markup.
+  const rawRoleLabel = ROLE_LABELS[invite.role] || (invite.role as string);
+  const rawCompanyName = (invite.companyName as string) || "your company";
+  const rawInvitedByName = (invite.invitedByName as string) || "A teammate";
+  const roleLabel = escapeHtml(rawRoleLabel);
+  const companyName = escapeHtml(rawCompanyName);
+  const invitedByName = escapeHtml(rawInvitedByName);
 
   const html = `
 <!DOCTYPE html>
@@ -57,10 +68,10 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
         </td></tr>
         <tr><td style="padding:24px 40px;">
           <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;color:#0F1C2E;">
-            You're invited to join ${invite.companyName}
+            You're invited to join ${companyName}
           </h1>
           <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#374151;">
-            ${invite.invitedByName} has invited you to join <strong>${invite.companyName}</strong> on OffboardSet as <strong>${roleLabel}</strong>.
+            ${invitedByName} has invited you to join <strong>${companyName}</strong> on OffboardSet as <strong>${roleLabel}</strong>.
           </p>
           <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">
             OffboardSet helps your team manage employee offboarding — from task tracking to knowledge transfer to exit interviews.
@@ -85,11 +96,11 @@ export const sendTeamInvite = functions.https.onCall(async (data, context) => {
 </body>
 </html>`;
 
-  const textContent = `You've been invited to join ${invite.companyName} on OffboardSet as ${roleLabel}.\n\n${invite.invitedByName} has invited you to help manage employee offboarding.\n\nAccept the invitation and sign up here:\n${signupUrl}\n\nThis invite expires in 7 days.\n\n---\nOffboardSet | Employee Offboarding Platform`;
+  const textContent = `You've been invited to join ${rawCompanyName} on OffboardSet as ${rawRoleLabel}.\n\n${rawInvitedByName} has invited you to help manage employee offboarding.\n\nAccept the invitation and sign up here:\n${signupUrl}\n\nThis invite expires in 7 days.\n\n---\nOffboardSet | Employee Offboarding Platform`;
 
   await sendSmtpEmail({
     to: [{ email: invite.email, name: invite.email }],
-    subject: `${invite.invitedByName} invited you to join ${invite.companyName} on OffboardSet`,
+    subject: `${rawInvitedByName} invited you to join ${rawCompanyName} on OffboardSet`,
     htmlContent: html,
     textContent,
   });

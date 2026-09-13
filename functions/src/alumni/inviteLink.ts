@@ -1,7 +1,27 @@
+import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 
-const APP_URL = process.env.APP_URL || "https://offboardset.com";
+/**
+ * Resolved per call, not at module load.
+ *
+ * `functions.config()` is only populated once the runtime has booted, so
+ * reading it into a module-level constant produced `undefined` and every
+ * alumni link silently fell back to the hard-coded domain — while the team
+ * invite (which resolves it lazily) pointed at the configured one. Deployments
+ * that set `app.url` instead of the APP_URL env var were emailing alumni links
+ * to the wrong host.
+ */
+function appUrl(): string {
+  const configured =
+    process.env.APP_URL || functions.config().app?.url || "https://offboardset.com";
+  return configured.replace(/\/+$/, "");
+}
+
+/** Firebase Auth stores and compares emails in lower case. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 /** Where the invite email sends the alumni to set their password. */
 export const ALUMNI_SETUP_PATH = "/alumni-setup";
@@ -21,21 +41,32 @@ export async function ensureAlumniAuthUser(
   email: string,
   displayName?: string
 ): Promise<string> {
+  const normalized = normalizeEmail(email);
   try {
-    const existing = await admin.auth().getUserByEmail(email);
+    const existing = await admin.auth().getUserByEmail(normalized);
     return existing.uid;
   } catch (err) {
     const code = (err as { code?: string })?.code;
     if (code !== "auth/user-not-found") throw err;
   }
 
-  const created = await admin.auth().createUser({
-    email,
-    emailVerified: false,
-    password: crypto.randomBytes(32).toString("hex"),
-    displayName: displayName || undefined,
-  });
-  return created.uid;
+  try {
+    const created = await admin.auth().createUser({
+      email: normalized,
+      emailVerified: false,
+      password: crypto.randomBytes(32).toString("hex"),
+      displayName: displayName || undefined,
+    });
+    return created.uid;
+  } catch (err) {
+    // A concurrent invite (or a re-send racing the first) may have created it
+    // between the lookup and the create. That is this caller's desired state.
+    if ((err as { code?: string })?.code === "auth/email-already-exists") {
+      const existing = await admin.auth().getUserByEmail(normalized);
+      return existing.uid;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -52,22 +83,26 @@ export async function buildAlumniSetupUrl(params: {
   companyId?: string;
   displayName?: string;
 }): Promise<{ url: string; authUid: string | null }> {
-  const { email, companyId, displayName } = params;
+  const { companyId, displayName } = params;
+  const email = normalizeEmail(params.email);
+  const base = appUrl();
   const query = new URLSearchParams({ email });
   if (companyId) query.set("companyId", companyId);
+  const setupUrl = `${base}${ALUMNI_SETUP_PATH}?${query.toString()}`;
 
   let authUid: string | null = null;
   try {
     authUid = await ensureAlumniAuthUser(email, displayName);
 
     const resetLink = await admin.auth().generatePasswordResetLink(email, {
-      url: `${APP_URL}${ALUMNI_SETUP_PATH}?${query.toString()}`,
+      url: setupUrl,
+      handleCodeInApp: false,
     });
 
     const oobCode = new URL(resetLink).searchParams.get("oobCode");
     if (oobCode) {
       query.set("oobCode", oobCode);
-      return { url: `${APP_URL}${ALUMNI_SETUP_PATH}?${query.toString()}`, authUid };
+      return { url: `${base}${ALUMNI_SETUP_PATH}?${query.toString()}`, authUid };
     }
 
     // No oobCode to extract — let Firebase's own handler run; it redirects
@@ -77,6 +112,6 @@ export async function buildAlumniSetupUrl(params: {
     console.error("buildAlumniSetupUrl: falling back to setup page", err);
     // The setup page asks for a fresh link when the code is missing, and the
     // email stays pre-filled either way.
-    return { url: `${APP_URL}${ALUMNI_SETUP_PATH}?${query.toString()}`, authUid };
+    return { url: setupUrl, authUid };
   }
 }
