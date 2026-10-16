@@ -18,6 +18,7 @@ import {
   queryDocuments,
   where,
 } from "../lib/firestore";
+import { watchSessionRevocation } from "../lib/sessionGuard";
 import { useAuthStore } from "../store/authStore";
 import { useCompanyStore } from "../store/companyStore";
 import type { AppUser } from "../types/user.types";
@@ -106,6 +107,7 @@ async function createStaffUser(firebaseUser: User): Promise<AppUser | null> {
  */
 let listenerStarted = false;
 let inFlightUid: string | null = null;
+let stopSessionWatch: (() => void) | null = null;
 
 function startAuthListener() {
   if (listenerStarted) return;
@@ -118,12 +120,19 @@ function startAuthListener() {
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (!firebaseUser) {
       inFlightUid = null;
+      stopSessionWatch?.();
+      stopSessionWatch = null;
       logout();
       setCompany(null);
       return;
     }
 
     setUser(firebaseUser);
+
+    // A new sign-in (e.g. after a password change) has a new auth_time, so the
+    // watcher is rebuilt on every auth event rather than once per uid.
+    stopSessionWatch?.();
+    stopSessionWatch = watchSessionRevocation(firebaseUser);
 
     // onAuthStateChanged fires again whenever the ID token is refreshed — and
     // this handler forces a refresh itself after re-syncing claims. Without

@@ -7,6 +7,7 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { watchSessionRevocation } from "../lib/sessionGuard";
 import { queryDocuments, updateDocument, where } from "../lib/firestore";
 import { useAlumniAuthStore } from "../store/alumniAuthStore";
 import type { AlumniProfile } from "../types/alumni.types";
@@ -27,13 +28,19 @@ export function useAlumniAuth() {
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence).catch(() => {});
 
+    let stopSessionWatch: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      stopSessionWatch?.();
+      stopSessionWatch = null;
+
       if (!firebaseUser) {
         logout();
         return;
       }
 
       setUser(firebaseUser);
+      stopSessionWatch = watchSessionRevocation(firebaseUser);
 
       try {
         // Firebase Auth always reports the address in lower case, while a
@@ -83,7 +90,10 @@ export function useAlumniAuth() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      stopSessionWatch?.();
+    };
   }, [setUser, setAlumniProfile, setLoading, setAuthError, logout]);
 
   const signInWithEmail = async (email: string, password: string) => {
