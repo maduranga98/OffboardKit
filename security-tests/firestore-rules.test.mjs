@@ -24,6 +24,10 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'companies/companyA'), { name:'Victim Corp', ownerUid:'victimAdmin', plan:'business', stripeCustomerId:'cus_VICTIM', features:{}, settings:{} });
   await setDoc(doc(db, 'companies/companyB'), { name:'Other Corp', ownerUid:'otherAdmin', plan:'basic' });
   await setDoc(doc(db, 'users/victimAdmin'), { companyId:'companyA', role:'super_admin', email:'admin@victim.com', isActive:true });
+  // Session revocation: this admin changed their password; sign-ins before
+  // validAfter (seconds) must be refused even though their ID token is valid.
+  await setDoc(doc(db, 'users/revokedAdmin'), { companyId:'companyA', role:'super_admin', email:'revoked@victim.com', isActive:true });
+  await setDoc(doc(db, 'sessionRevocations/revokedAdmin'), { validAfter:2000 });
   await setDoc(doc(db, 'users/otherAdmin'),  { companyId:'companyB', role:'super_admin', email:'admin@other.com', isActive:true });
   await setDoc(doc(db, 'offboardFlows/flowA'), { companyId:'companyA', employeeName:'Jane Doe', employeeEmail:'jane@victim.com', salary:120000, portalToken:'secret-token-A', status:'in_progress', progressPercent:10 });
   await setDoc(doc(db, 'flowTasks/taskA'), { flowId:'flowA', companyId:'companyA', title:'Return laptop', portalToken:'secret-token-A', status:'pending', assigneeRole:'employee' });
@@ -258,6 +262,20 @@ await check('trialing: creates an offboarding', () => setDoc(doc(onTrial,'offboa
 await check('trialing: CANNOT write an invite from the browser', () => setDoc(doc(onTrial,'invites/inviteTrial'), { companyId:'companyTrial', email:'x@fresh.com', role:'hr_admin', status:'pending', invitedBy:'trialAdmin' }), 'DENIED');
 await check('past_due: keeps writing while Stripe retries the card', () => setDoc(doc(pastDue,'offboardFlows/flowPastDue'), { companyId:'companyPastDue', employeeName:'Alex', status:'in_progress' }), 'ALLOWED');
 await check('canceled: CANNOT write after the subscription ends', () => setDoc(doc(canceled,'offboardFlows/flowCanceled'), { companyId:'companyCanceled', employeeName:'Kim', status:'in_progress' }), 'DENIED');
+
+
+console.log('\n── session revocation after password change ──');
+const staleSession = testEnv.authenticatedContext('revokedAdmin', { email:'revoked@victim.com', auth_time:1000 }).firestore();
+const freshSession = testEnv.authenticatedContext('revokedAdmin', { email:'revoked@victim.com', auth_time:3000 }).firestore();
+await check('stale session (signed in before the change): CANNOT read tenant data', () => getDoc(doc(staleSession,'companies/companyA')), 'DENIED');
+await check('stale session: CANNOT read own user doc', () => getDoc(doc(staleSession,'users/revokedAdmin')), 'DENIED');
+await check('stale session: CANNOT write', () => setDoc(doc(staleSession,'offboardFlows/flowStale'), { companyId:'companyA', employeeName:'X', status:'in_progress' }), 'DENIED');
+await check('stale session: can still read its own revocation marker (to sign itself out)', () => getDoc(doc(staleSession,'sessionRevocations/revokedAdmin')), 'ALLOWED');
+await check('fresh session (signed in after the change): reads own user doc', () => getDoc(doc(freshSession,'users/revokedAdmin')), 'ALLOWED');
+await check('fresh session: reads tenant data', () => getDoc(doc(freshSession,'companies/companyA')), 'ALLOWED');
+await check('CANNOT forge a revocation marker from the browser', () => setDoc(doc(freshSession,'sessionRevocations/revokedAdmin'), { validAfter:0 }), 'DENIED');
+await check('CANNOT read another user\'s revocation marker', () => getDoc(doc(testEnv.authenticatedContext('otherAdmin', { email:'admin@other.com' }).firestore(),'sessionRevocations/revokedAdmin')), 'DENIED');
+await check('user without a marker is unaffected', () => getDoc(doc(testEnv.authenticatedContext('otherAdmin', { email:'admin@other.com', auth_time:1 }).firestore(),'users/otherAdmin')), 'ALLOWED');
 
 console.log(`\n═══════ ${passes} passed, ${fails} failed ═══════`);
 await testEnv.cleanup();

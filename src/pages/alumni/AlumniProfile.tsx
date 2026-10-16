@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { Timestamp } from "firebase/firestore";
-import { updatePassword } from "firebase/auth";
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  updatePassword,
+} from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+import { auth, functions } from "../../lib/firebase";
 import { format } from "date-fns";
 import clsx from "clsx";
 import {
@@ -38,7 +45,7 @@ export default function AlumniProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ newPassword: "", confirmPassword: "" });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [form, setForm] = useState({ currentCompany: "", currentRole: "", linkedIn: "" });
@@ -84,7 +91,7 @@ export default function AlumniProfile() {
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess(false);
-    if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       setPasswordError("Please fill in all password fields.");
       return;
     }
@@ -96,11 +103,21 @@ export default function AlumniProfile() {
       setPasswordError("Password must be at least 6 characters.");
       return;
     }
-    if (!user) { setPasswordError("Unable to change password."); return; }
+    if (!user || !user.email) { setPasswordError("Unable to change password."); return; }
     try {
+      // Re-entering the current password proves it is the owner at the keyboard
+      // and gives the server a fresh sign-in to trust when ending other sessions.
+      await reauthenticateWithCredential(
+        user,
+        EmailAuthProvider.credential(user.email, passwordForm.currentPassword)
+      );
       await updatePassword(user, passwordForm.newPassword);
+      // Sign every other browser/device out, then sign this one back in so it
+      // carries a token newer than the revocation.
+      await httpsCallable(functions, "revokeOtherSessions")({});
+      await signInWithEmailAndPassword(auth, user.email, passwordForm.newPassword);
       setPasswordSuccess(true);
-      setPasswordForm({ newPassword: "", confirmPassword: "" });
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setTimeout(() => { setShowPasswordModal(false); setPasswordSuccess(false); }, 2000);
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : "Failed to change password.");
@@ -379,7 +396,7 @@ export default function AlumniProfile() {
         <div className="space-y-4">
           {passwordSuccess && (
             <div className="p-3 bg-teal/10 border border-teal/20 rounded-md text-sm text-teal">
-              Password changed successfully!
+              Password changed. All other devices have been signed out.
             </div>
           )}
           {passwordError && (
@@ -388,9 +405,18 @@ export default function AlumniProfile() {
             </div>
           )}
           <Input
+            label="Current Password"
+            type="password"
+            placeholder="Enter current password"
+            autoComplete="current-password"
+            value={passwordForm.currentPassword}
+            onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+          />
+          <Input
             label="New Password"
             type="password"
             placeholder="Enter new password"
+            autoComplete="new-password"
             value={passwordForm.newPassword}
             onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
           />

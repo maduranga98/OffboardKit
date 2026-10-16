@@ -31,7 +31,20 @@ service cloud.firestore {
     // ── Identity helpers ────────────────────────────────────────────────
 
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && sessionFresh();
+    }
+
+    // revokeOtherSessions stamps sessionRevocations/{uid}.validAfter (seconds)
+    // when a password changes. A token whose sign-in (auth_time) predates it
+    // belongs to a session the owner has ended, even though Firebase still
+    // considers the ID token itself valid for up to an hour.
+    function revocationPath() {
+      return /databases/$(database)/documents/sessionRevocations/$(request.auth.uid);
+    }
+
+    function sessionFresh() {
+      return !exists(revocationPath())
+        || request.auth.token.get('auth_time', 0) >= get(revocationPath()).data.validAfter;
     }
 
     function userPath() {
@@ -232,6 +245,14 @@ service cloud.firestore {
 
     // ── users ───────────────────────────────────────────────────────────
     // companyId and role are server-owned. See functions/triggers/membership.ts.
+
+    // Written only by the revokeOtherSessions function. Deliberately readable
+    // with a raw auth check (not isSignedIn): an ended session must still be
+    // able to read its own marker so the client can notice and sign out.
+    match /sessionRevocations/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
 
     match /users/{userId} {
       allow read: if isSignedIn() && (

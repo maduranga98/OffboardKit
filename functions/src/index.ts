@@ -47,6 +47,7 @@ export {
 
 // Callable functions
 export { redeemPortalToken, redeemSurveyToken } from "./portal/redeemPortalToken";
+export { revokeOtherSessions } from "./triggers/revokeSessions";
 export { sendPulseSurvey } from "./alumni/sendPulseSurvey";
 export { sendTeamInvite } from "./triggers/sendTeamInvite";
 export { createTeamInvite } from "./triggers/createTeamInvite";
